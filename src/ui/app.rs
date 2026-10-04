@@ -31,7 +31,7 @@ use iced::keyboard::{self, key::Named, Key};
 use iced::mouse;
 use iced::widget::{
     button, checkbox, column, container, mouse_area, operation, pick_list, row, scrollable, stack,
-    text, text_input, tooltip, Space,
+    svg, text, text_input, tooltip, Space,
 };
 use iced::{Alignment, Element, Length, Point, Subscription, Task};
 use serde::{Deserialize, Serialize};
@@ -6177,22 +6177,10 @@ impl App {
         }
 
         // 1. Desktop Header Bar
-        let sidebar_toggle_btn = tooltip(
-            button(
-                text(if self.show_left_sidebar { "◨" } else { "⬚" })
-                    .size(16)
-                    .color(if self.show_left_sidebar {
-                        ThemeColors::PRIMARY
-                    } else {
-                        ThemeColors::SLATE_500
-                    }),
-            )
-            .style(secondary_button_style)
-            .on_press(Message::ToggleLeftSidebar)
-            .padding([4, 8]),
-            text("Skjul/vis venstre palet (Ctrl+B)").size(11),
-            tooltip::Position::Bottom,
-        );
+        const LOGO_SVG_BYTES: &[u8] = include_bytes!("../../assets/kant_logo.svg");
+        let brand_logo = svg(svg::Handle::from_memory(LOGO_SVG_BYTES))
+            .width(Length::Fixed(22.0))
+            .height(Length::Fixed(22.0));
 
         let menu_button = |label: &'static str, menu_type: MenuType| {
             let is_active = self.active_menu == Some(menu_type);
@@ -6222,8 +6210,8 @@ impl App {
         };
 
         let brand_section = row![
-            sidebar_toggle_btn,
-            Space::new().width(10),
+            brand_logo,
+            Space::new().width(8),
             text("Kant").size(18).color(ThemeColors::PRIMARY),
             Space::new().width(16),
             menu_button("Filer", MenuType::File),

@@ -27,7 +27,7 @@ assets = [
 ]
 
 [dependencies]
-iced = { version = "0.14.0", features = ["wgpu", "tiny-skia", "canvas"] }
+iced = { version = "0.14.0", features = ["wgpu", "tiny-skia", "canvas", "svg"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.10", features = ["v4", "serde"] }
@@ -52,4 +52,9 @@ winres = "0.1"
 proptest = "1.5"
 kant-relay = { path = "crates/kant-relay" }
 axum = "0.8"
+resvg = "0.45"
+usvg = "0.45"
+tiny-skia = "0.11"
+png = "0.17"
+
 

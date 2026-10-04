@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <!-- Subtilt app-badge -->
+  <rect x="1" y="1" width="30" height="30" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2" />
+
+  <!-- Diskret 4x3 baggrundsgrid -->
+  <g fill="#94a3b8" opacity="0.35">
+    <circle cx="8" cy="8" r="0.8" />
+    <circle cx="13" cy="8" r="0.8" />
+    <circle cx="18" cy="8" r="0.8" />
+    <circle cx="24" cy="8" r="0.8" />
+
+    <circle cx="8" cy="16" r="0.8" />
+    <circle cx="13" cy="16" r="0.8" />
+    <circle cx="18" cy="16" r="0.8" />
+    <circle cx="24" cy="16" r="0.8" />
+
+    <circle cx="8" cy="24" r="0.8" />
+    <circle cx="13" cy="24" r="0.8" />
+    <circle cx="18" cy="24" r="0.8" />
+    <circle cx="24" cy="24" r="0.8" />
+  </g>
+
+  <!-- Edges: Grafens forbindelser -->
+  <g stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Hovedstamme (X=8 linjen) -->
+    <line x1="8" y1="8" x2="8" y2="24" />
+
+    <!-- Forbindelseslinje fra stammen til den sorte node (X=8 til X=13) -->
+    <line x1="8" y1="16" x2="13" y2="16" />
+
+    <!-- Symmetriske forgreninger fra den sorte node mod begrebsnoderne (X=13 til X=24) -->
+    <line x1="13" y1="16" x2="24" y2="8" />
+    <line x1="13" y1="16" x2="24" y2="24" />
+  </g>
+
+  <!-- Noder -->
+  <!-- Venstre akse: A priori noder -->
+  <circle cx="8" cy="8" r="2.2" fill="#e2e8f0" stroke="#1e293b" stroke-width="1.5" />
+  <circle cx="8" cy="24" r="2.2" fill="#e2e8f0" stroke="#1e293b" stroke-width="1.5" />
+
+  <!-- Midt: Den sorte node, nu præcist i koordinat 2,2 (X=13, Y=16 i matricen) -->
+  <circle cx="13" cy="16" r="1.8" fill="#1e293b" />
+
+  <!-- Højre: Begrebsnoderne -->
+  <circle cx="24" cy="8" r="2.4" fill="#38bdf8" stroke="#0369a1" stroke-width="1.4" />
+  <circle cx="24" cy="24" r="2.4" fill="#0284c7" stroke="#0c4a6e" stroke-width="1.4" />
+</svg>

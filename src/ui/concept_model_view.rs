@@ -10,7 +10,7 @@ use crate::ui::theme::{
 };
 use iced::widget::{
     button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text, text_input,
-    Space,
+    tooltip, Space,
 };
 use iced::{mouse, Alignment, Color, Element, Length};
 
@@ -62,6 +62,15 @@ pub fn view<'a>(
             )
             .style(pill_container_style)
             .padding([2, 7]),
+            Space::new().width(Length::Fill),
+            tooltip(
+                button(text("◨").size(13).color(ThemeColors::SLATE_500))
+                    .style(secondary_button_style)
+                    .on_press(Message::ToggleLeftSidebar)
+                    .padding([2, 6]),
+                text("Skjul palet (Ctrl+B)").size(11),
+                tooltip::Position::Bottom,
+            ),
         ]
         .spacing(6)
         .align_y(Alignment::Center),
@@ -168,27 +177,59 @@ pub fn view<'a>(
     // ==========================================
     // 2. CENTER CANVAS (Begrebsmodel Graf)
     // ==========================================
-    let toolbar = row![
+    let mut toolbar_elements: Vec<Element<'a, Message>> = Vec::new();
+    if !show_left_sidebar {
+        toolbar_elements.push(
+            tooltip(
+                button(
+                    row![
+                        text("◨").size(13).color(ThemeColors::PRIMARY),
+                        Space::new().width(4),
+                        text("Palet").size(11).color(ThemeColors::SLATE_800),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .style(secondary_button_style)
+                .on_press(Message::ToggleLeftSidebar)
+                .padding([4, 8]),
+                text("Vis palet (Ctrl+B)").size(11),
+                tooltip::Position::Bottom,
+            )
+            .into(),
+        );
+        toolbar_elements.push(Space::new().width(4).into());
+    }
+
+    toolbar_elements.push(
         button(text("+ Opret begreb").size(11))
             .style(primary_button_style)
             .on_press(Message::CreateConceptAtCenter)
-            .padding([4, 10]),
-        Space::new().width(4),
+            .padding([4, 10])
+            .into(),
+    );
+    toolbar_elements.push(Space::new().width(4).into());
+    toolbar_elements.push(
         button(text("+ Opret Relation").size(11))
             .style(primary_button_style)
             .on_press(Message::GraphOpenRelationDialog)
-            .padding([4, 10]),
-        Space::new().width(Length::Fill),
+            .padding([4, 10])
+            .into(),
+    );
+    toolbar_elements.push(Space::new().width(Length::Fill).into());
+    toolbar_elements.push(
         text(format!(
             "{} begreber på diagram • {} relationer",
             concept_graph.node_count(),
             concept_graph.edge_count()
         ))
         .size(11)
-        .color(ThemeColors::TEXT_MUTED),
-    ]
-    .spacing(6)
-    .align_y(Alignment::Center);
+        .color(ThemeColors::TEXT_MUTED)
+        .into(),
+    );
+
+    let toolbar = row(toolbar_elements)
+        .spacing(2)
+        .align_y(Alignment::Center);
 
     let canvas_widget = iced::widget::canvas(
         DiagramCanvas::new(
