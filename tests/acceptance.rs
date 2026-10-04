@@ -9417,4 +9417,64 @@ fn test_task_069_tab_direct_shortcuts_ctrl_1_2_3() {
     ));
 }
 
+#[test]
+fn test_task_070_start_session_modal_tab_cycle_and_enter_confirm() {
+    use kant::ui::app::{App, Message};
+
+    let mut app = App::new();
+    let _ = app.update(Message::OpenStartSessionModal);
+    assert!(app.start_session_modal().is_some(), "Start live session modal skal være åben");
+
+    // 1. Enter i StartSessionModal uden inputfelter skal som standard bekræfte/starte sessionen
+    // Eller Tab skifter mellem knapperne (Kopiér -> Annuller -> Start)
+    assert!(
+        app.modal_focused_button_index().is_some(),
+        "En modal uden tekstfelter skal have en fokuseret handlingsknap fra start"
+    );
+
+    // Tab cykler til næste knap
+    let init_idx = app.modal_focused_button_index().unwrap();
+    let _ = app.update(Message::FocusNext);
+    let next_idx = app.modal_focused_button_index().unwrap();
+    assert_ne!(init_idx, next_idx, "Tab skal skifte fokuseret knap i modalen");
+
+    // Tab baglæns med FocusPrevious
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(app.modal_focused_button_index(), Some(init_idx), "Shift+Tab skal gå baglæns");
+
+    // Enter på Annuller-knap lukker modalen
+    // Cykl indtil Annuller-knappen (Cancel) er valgt
+    while app.modal_focused_button_index() != Some(1) {
+        let _ = app.update(Message::FocusNext);
+    }
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.start_session_modal().is_none(), "Enter på fokuseret Annuller-knap skal lukke modalen");
+}
+
+#[test]
+fn test_task_070_concept_editor_tab_cycle_to_buttons() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::app::{App, Message};
+
+    let mut app = App::new();
+    let cid = app
+        .project_mut()
+        .add_concept(Concept::new("Bil", "Et firehjulet motorkøretøj", BelongsToDomain::Yes))
+        .unwrap();
+
+    let _ = app.update(Message::EditConcept(cid));
+    assert!(app.concept_editor().is_some(), "ConceptEditor skal være åben");
+
+    // Verificer at editoren har fokusstyring for handlingsknapper
+    assert_eq!(app.editor_focused_button(), None, "Startfokus er i tekstfelter");
+
+    // Når man tabber hen til knapperne
+    let _ = app.update(Message::FocusEditorButton(Some(0))); // 0: Annuller
+    assert_eq!(app.editor_focused_button(), Some(0));
+
+    // Enter på Annuller lukker editoren
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.concept_editor().is_none(), "Enter på fokuseret Annuller skal lukke editoren");
+}
+
 
