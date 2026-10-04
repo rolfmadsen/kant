@@ -1474,6 +1474,81 @@ impl App {
         }
     }
 
+    /// Returnerer true hvis der er en aktiv modal eller overlay-dialog åben.
+    pub fn has_active_modal(&self) -> bool {
+        self.diagnostics_modal.is_some()
+            || self.publish_modal.is_some()
+            || self.history_modal.is_some()
+            || self.conflict_resolver_modal.is_some()
+            || self.git_connection_modal.is_some()
+            || self.git_clone_modal.is_some()
+            || self.metadata_modal.is_some()
+            || self.start_session_modal.is_some()
+            || self.join_session_modal.is_some()
+            || self.guest_ended_notice.is_some()
+            || self.excel_schema_guide_open
+            || self.excel_import_preview.is_some()
+            || self.file_dialog_mode.is_some()
+            || self.relation_dialog.is_some()
+            || self.info_relation_dialog.is_some()
+            || self.quick_create.is_some()
+    }
+
+    /// Lukker den øverste åbne modal eller dialog. Returnerer true hvis en modal blev lukket.
+    pub fn close_active_modal(&mut self) -> bool {
+        if self.diagnostics_modal.is_some() {
+            self.diagnostics_modal = None;
+            true
+        } else if self.publish_modal.is_some() {
+            self.publish_modal = None;
+            true
+        } else if self.history_modal.is_some() {
+            self.history_modal = None;
+            true
+        } else if self.conflict_resolver_modal.is_some() {
+            self.conflict_resolver_modal = None;
+            true
+        } else if self.git_connection_modal.is_some() {
+            self.git_connection_modal = None;
+            true
+        } else if self.git_clone_modal.is_some() {
+            self.git_clone_modal = None;
+            true
+        } else if self.metadata_modal.is_some() {
+            self.metadata_modal = None;
+            true
+        } else if self.start_session_modal.is_some() {
+            self.start_session_modal = None;
+            true
+        } else if self.join_session_modal.is_some() {
+            self.join_session_modal = None;
+            true
+        } else if self.guest_ended_notice.is_some() {
+            self.guest_ended_notice = None;
+            true
+        } else if self.excel_schema_guide_open {
+            self.excel_schema_guide_open = false;
+            true
+        } else if self.excel_import_preview.is_some() {
+            self.excel_import_preview = None;
+            true
+        } else if self.file_dialog_mode.is_some() {
+            self.file_dialog_mode = None;
+            true
+        } else if self.relation_dialog.is_some() {
+            self.relation_dialog = None;
+            true
+        } else if self.info_relation_dialog.is_some() {
+            self.info_relation_dialog = None;
+            true
+        } else if self.quick_create.is_some() {
+            self.quick_create = None;
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn collab_state(&self) -> CollabState {
         self.collab_state
     }
@@ -3763,53 +3838,7 @@ impl App {
                 }
 
                 // 2. Modale dialoger (alle 9 modaler inkl. diagnostik samt overlay-dialoger)
-                if self.diagnostics_modal.is_some() {
-                    self.diagnostics_modal = None;
-                    return Task::none();
-                } else if self.publish_modal.is_some() {
-                    self.publish_modal = None;
-                    return Task::none();
-                } else if self.history_modal.is_some() {
-                    self.history_modal = None;
-                    return Task::none();
-                } else if self.conflict_resolver_modal.is_some() {
-                    self.conflict_resolver_modal = None;
-                    return Task::none();
-                } else if self.git_connection_modal.is_some() {
-                    self.git_connection_modal = None;
-                    return Task::none();
-                } else if self.git_clone_modal.is_some() {
-                    self.git_clone_modal = None;
-                    return Task::none();
-                } else if self.metadata_modal.is_some() {
-                    self.metadata_modal = None;
-                    return Task::none();
-                } else if self.start_session_modal.is_some() {
-                    self.start_session_modal = None;
-                    return Task::none();
-                } else if self.join_session_modal.is_some() {
-                    self.join_session_modal = None;
-                    return Task::none();
-                } else if self.guest_ended_notice.is_some() {
-                    self.guest_ended_notice = None;
-                    return Task::none();
-                } else if self.excel_schema_guide_open {
-                    self.excel_schema_guide_open = false;
-                    return Task::none();
-                } else if self.excel_import_preview.is_some() {
-                    self.excel_import_preview = None;
-                    return Task::none();
-                } else if self.file_dialog_mode.is_some() {
-                    self.file_dialog_mode = None;
-                    return Task::none();
-                } else if self.relation_dialog.is_some() {
-                    self.relation_dialog = None;
-                    return Task::none();
-                } else if self.info_relation_dialog.is_some() {
-                    self.info_relation_dialog = None;
-                    return Task::none();
-                } else if self.quick_create.is_some() {
-                    self.quick_create = None;
+                if self.close_active_modal() {
                     return Task::none();
                 }
 
