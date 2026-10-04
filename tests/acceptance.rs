@@ -9555,4 +9555,285 @@ fn test_task_070_join_session_modal_tab_cycle_and_enter() {
     assert!(app.join_session_modal().is_none(), "Enter på Annuller skal lukke JoinSessionModal");
 }
 
+#[test]
+fn test_task_070_subscription_handles_captured_tab_and_escape() {
+    use iced::keyboard::{key::Named, key::NativeCode, Key, Location, Modifiers};
+    use iced::{event::Status, Event};
+    use kant::ui::app::{App, Message};
+
+    // 1. Tab med Status::Captured skal opfanges som FocusNext
+    let tab_event = Event::Keyboard(iced::keyboard::Event::KeyPressed {
+        key: Key::Named(Named::Tab),
+        location: Location::Standard,
+        modifiers: Modifiers::empty(),
+        repeat: false,
+        text: None,
+        modified_key: Key::Named(Named::Tab),
+        physical_key: iced::keyboard::key::Physical::Unidentified(
+            NativeCode::Unidentified,
+        ),
+    });
+    assert!(
+        matches!(
+            App::handle_event_for_subscription(tab_event, Status::Captured),
+            Some(Message::FocusNext)
+        ),
+        "Tab under Status::Captured (i et tekstfelt) skal give Message::FocusNext"
+    );
+
+    // 2. Shift+Tab med Status::Captured skal opfanges som FocusPrevious
+    let shift_tab_event = Event::Keyboard(iced::keyboard::Event::KeyPressed {
+        key: Key::Named(Named::Tab),
+        location: Location::Standard,
+        modifiers: Modifiers::SHIFT,
+        repeat: false,
+        text: None,
+        modified_key: Key::Named(Named::Tab),
+        physical_key: iced::keyboard::key::Physical::Unidentified(
+            NativeCode::Unidentified,
+        ),
+    });
+    assert!(
+        matches!(
+            App::handle_event_for_subscription(shift_tab_event, Status::Captured),
+            Some(Message::FocusPrevious)
+        ),
+        "Shift+Tab under Status::Captured skal give Message::FocusPrevious"
+    );
+
+    // 3. Escape med Status::Captured skal opfanges som EscapePressed
+    let esc_event = Event::Keyboard(iced::keyboard::Event::KeyPressed {
+        key: Key::Named(Named::Escape),
+        location: Location::Standard,
+        modifiers: Modifiers::empty(),
+        repeat: false,
+        text: None,
+        modified_key: Key::Named(Named::Escape),
+        physical_key: iced::keyboard::key::Physical::Unidentified(
+            NativeCode::Unidentified,
+        ),
+    });
+    assert!(
+        matches!(
+            App::handle_event_for_subscription(esc_event, Status::Captured),
+            Some(Message::EscapePressed)
+        ),
+        "Escape under Status::Captured skal give Message::EscapePressed"
+    );
+
+    // 4. Almindelige bogstaver må IKKE opfanges når Status::Captured (tekstindtastning bevares)
+    let char_event = Event::Keyboard(iced::keyboard::Event::KeyPressed {
+        key: Key::Character("a".into()),
+        location: Location::Standard,
+        modifiers: Modifiers::empty(),
+        repeat: false,
+        text: Some("a".into()),
+        modified_key: Key::Character("a".into()),
+        physical_key: iced::keyboard::key::Physical::Unidentified(
+            NativeCode::Unidentified,
+        ),
+    });
+    assert!(
+        App::handle_event_for_subscription(char_event, Status::Captured).is_none(),
+        "Almindelige tastetryk under Status::Captured må ikke afbryde tekstinput"
+    );
+}
+
+#[test]
+fn test_task_070_git_connection_modal_tab_cycle_and_escape() {
+    use kant::ui::app::{
+        App, Message, GIT_CONN_BTN_BROWSE, GIT_CONN_BTN_CANCEL, GIT_CONN_BTN_SAVE,
+    };
+
+    let mut app = App::new();
+    let _ = app.update(Message::OpenGitConnectionModal);
+    assert!(
+        app.git_connection_modal().is_some(),
+        "Git indstillinger modal skal være åben"
+    );
+
+    // Start-tilstand: første input er i fokus, ingen knap i fokus
+    assert_eq!(
+        app.modal_focused_button_index(),
+        None,
+        "Ved modal åbning skal tekstfelt have fokus, ikke knap"
+    );
+
+    // Tab 1: git_target_dir
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Tab 2: GIT_CONN_BTN_BROWSE knap
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(GIT_CONN_BTN_BROWSE),
+        "Tab skal nå Gennemse-knappen"
+    );
+
+    // Tab 3: git_token
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Tab 4: git_author_name
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Tab 5: git_author_email
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Tab 6: GIT_CONN_BTN_CANCEL
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(GIT_CONN_BTN_CANCEL),
+        "Tab skal nå Annuller-knappen"
+    );
+
+    // Tab 7: GIT_CONN_BTN_SAVE
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(GIT_CONN_BTN_SAVE),
+        "Tab skal nå Gem-knappen"
+    );
+
+    // Tab 8: Loops tilbage til første input (git_remote_url)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        None,
+        "Tab fra Gem-knap skal loope tilbage til første tekstfelt"
+    );
+
+    // Shift+Tab fra første input looper baglæns til GIT_CONN_BTN_SAVE
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(GIT_CONN_BTN_SAVE),
+        "Shift+Tab fra første input skal loope til Gem-knap"
+    );
+
+    // Shift+Tab til GIT_CONN_BTN_CANCEL
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(app.modal_focused_button_index(), Some(GIT_CONN_BTN_CANCEL));
+
+    // Enter på Annuller lukker modalen
+    let _ = app.update(Message::EnterPressed);
+    assert!(
+        app.git_connection_modal().is_none(),
+        "Enter på fokuseret Annuller-knap skal lukke Git modalen"
+    );
+}
+
+#[test]
+fn test_task_070_git_clone_modal_tab_cycle_and_cancel() {
+    use kant::ui::app::{App, Message, GIT_CLONE_BTN_BROWSE, GIT_CLONE_BTN_CANCEL, GIT_CLONE_BTN_CLONE};
+
+    let mut app = App::new();
+    let _ = app.update(Message::OpenGitCloneModal);
+    assert!(app.git_clone_modal().is_some(), "Git clone modal skal være åben");
+
+    // Start: inputfelt
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Tab 1: git_clone_target_dir
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Tab 2: GIT_CLONE_BTN_BROWSE
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), Some(GIT_CLONE_BTN_BROWSE));
+
+    // Tab 3: git_clone_token
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Tab 4: GIT_CLONE_BTN_CANCEL
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), Some(GIT_CLONE_BTN_CANCEL));
+
+    // Tab 5: GIT_CLONE_BTN_CLONE
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), Some(GIT_CLONE_BTN_CLONE));
+
+    // Tab 6: Loop tilbage til URL
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Enter på Annuller lukker modalen
+    let _ = app.update(Message::FocusPrevious); // CLONE
+    let _ = app.update(Message::FocusPrevious); // CANCEL
+    assert_eq!(app.modal_focused_button_index(), Some(GIT_CLONE_BTN_CANCEL));
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.git_clone_modal().is_none(), "Enter på Annuller skal lukke Clone modalen");
+}
+
+#[test]
+fn test_task_070_metadata_modal_tab_cycle_and_cancel() {
+    use kant::ui::app::{App, Message, META_BTN_CANCEL, META_BTN_SAVE};
+
+    let mut app = App::new();
+    let _ = app.update(Message::OpenMetadataModal);
+    assert!(app.metadata_modal().is_some(), "Metadata modal skal være åben");
+
+    // Start: inputfelt meta_name
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Shift+Tab fra start looper direkte til META_BTN_SAVE
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(META_BTN_SAVE),
+        "Shift+Tab fra start looper til Gem-knap"
+    );
+
+    // Shift+Tab til META_BTN_CANCEL
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(META_BTN_CANCEL),
+        "Shift+Tab fra Gem går til Annuller-knap"
+    );
+
+    // Enter på Annuller lukker metadata modalen
+    let _ = app.update(Message::EnterPressed);
+    assert!(
+        app.metadata_modal().is_none(),
+        "Enter på fokuseret Annuller skal lukke Metadata modalen"
+    );
+}
+
+#[test]
+fn test_task_070_file_dialog_modal_tab_cycle_and_cancel() {
+    use kant::ui::app::{App, FileDialogMode, Message};
+
+    let mut app = App::new();
+    let _ = app.update(Message::OpenInlineFileDialog(FileDialogMode::Open));
+    assert!(app.is_file_dialog_open(), "File dialog modal skal være åben");
+
+    // Start på inputfeltet
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Tab 1: Annuller (indeks 0)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), Some(0));
+
+    // Tab 2: Bekræft (indeks 1)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), Some(1));
+
+    // Tab 3: Tilbage til inputfeltet
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Tab til Annuller og tryk Enter
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), Some(0));
+    let _ = app.update(Message::EnterPressed);
+    assert!(!app.is_file_dialog_open(), "Enter på Annuller skal lukke fil-dialogen");
+}
+
+
 

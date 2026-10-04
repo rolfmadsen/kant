@@ -56,6 +56,9 @@ impl ThemeColors {
     pub const ACCENT_GREEN_LIGHT: Color = Color::from_rgb(0.91, 0.98, 0.93);
     pub const ACCENT_RED: Color = Color::from_rgb(0.84, 0.22, 0.22);
     pub const ACCENT_RED_LIGHT: Color = Color::from_rgb(0.99, 0.92, 0.92);
+
+    // Focus Ring (tynd orange ligesom status pill i øverste højre hjørne af headeren)
+    pub const FOCUS_RING: Color = Color::from_rgb(0.92, 0.60, 0.05); // Amber/Orange
 }
 
 // -----------------------------------------------------------------------------
@@ -518,14 +521,14 @@ pub fn focused_button_style(
         let mut s = base_style(theme, status);
         if is_focused {
             s.border = Border {
-                color: ThemeColors::PRIMARY,
-                width: 2.0,
+                color: ThemeColors::FOCUS_RING,
+                width: 1.5,
                 radius: s.border.radius,
             };
             s.shadow = Shadow {
-                color: Color::from_rgba(0.08, 0.38, 0.74, 0.40),
+                color: Color::from_rgba(0.92, 0.60, 0.05, 0.40),
                 offset: Vector::new(0.0, 0.0),
-                blur_radius: 5.0,
+                blur_radius: 4.0,
             };
         }
         s

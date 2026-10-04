@@ -40,18 +40,19 @@ At gøre applikationens formularer og dialoger fuldt tilgængelige med tastature
     - Når sidste tekstfelt forlades med <kbd>Tab</kbd>, overgår fokus til modalens handlingsknapper (*Annuller* og *Gem/Klon/Forbind/Send*).
     - Efter sidste knap looper fokus tilbage til første inputfelt.
 - [x] **AC4 - Visuel Fokusring & FDA Temaintegretion**:
-  - Knapper med fokus styles med en tydelig 2px kontrastrig fokusring/ramme i overensstemmelse med `ThemeColors::PRIMARY` eller `ThemeColors::FDA_BORROWED_BLUE`.
+  - Knapper med fokus styles med en tynd, elegant 1.5px kontrastrig fokusring i rav/orange (`ThemeColors::FOCUS_RING` = `Color::from_rgb(0.92, 0.60, 0.05)`, svarende til status-pill elementet i headeren) og subtil rav-glød, så fokus tydeligt fremstår på både mørkeblå primærknapper og hvide/grå sekundærknapper.
 - [x] **AC5 - Verifikation & Regression Gauntlet**:
   - Samtlige nye tastaturflows er dækket af automatiserede accepttests i `tests/acceptance.rs`.
   - Hele testsuiten (`cargo test --workspace`) og `cargo clippy --workspace -- -D warnings` passerer grønt.
 
 ## 🚫 Must NOT
 - Må IKKE ændre eksisterende globale genveje som `Ctrl+S`, `Ctrl+B`, `Ctrl+1..3` eller zoom `Ctrl++` / `Ctrl+-`.
-- Må IKKE bryde almindelig tekstindtastning i inputfelter (mellemrum skal altid skrive et mellemrumstegn, når et tekstfelt er aktivt).
+- Må IKKE bryde almindelig tekstindtastning i inputfelter (mellemrum og tegn skal altid skrives i det aktive tekstfelt; kun Tab/Shift+Tab/Esc opfanges under `Status::Captured`).
 - Må IKKE bryde den lagdelte <kbd>Esc</kbd>-afvikling etableret i Task 069.
 
 ## 📝 Revisions
 - 2026-10-04: Oprettet opgavepakke efter brugergodkendelse.
+- 2026-10-04: Opdateret fokusring til rav/orange (`ThemeColors::FOCUS_RING`), sikret modalfokus-trapping og rettet Tab/Shift+Tab-navigation under `Status::Captured`.
 
 ## 🧪 Verifikation
 - `cargo test --test acceptance test_task_070_`

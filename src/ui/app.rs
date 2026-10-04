@@ -21,7 +21,7 @@ use crate::ui::concept_model_view;
 use crate::ui::concept_table;
 use crate::ui::diagram_canvas::{CanvasEdge, CanvasNode};
 use crate::ui::information_model_view;
-use crate::ui::focus::FocusCycle;
+use crate::ui::focus::{FocusCycle, FocusTarget};
 use crate::ui::theme::{
     card_container_style, focused_button_style, modal_backdrop_style, modal_card_style,
     modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
@@ -501,6 +501,18 @@ pub enum Tab {
     ConceptModel,
     InformationModel,
 }
+
+pub const GIT_CONN_BTN_BROWSE: usize = 0;
+pub const GIT_CONN_BTN_REMOVE: usize = 1;
+pub const GIT_CONN_BTN_CANCEL: usize = 2;
+pub const GIT_CONN_BTN_SAVE: usize = 3;
+
+pub const GIT_CLONE_BTN_BROWSE: usize = 0;
+pub const GIT_CLONE_BTN_CANCEL: usize = 1;
+pub const GIT_CLONE_BTN_CLONE: usize = 2;
+
+pub const META_BTN_CANCEL: usize = 0;
+pub const META_BTN_SAVE: usize = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SaveStatus {
@@ -1557,7 +1569,7 @@ impl App {
 
     pub fn modal_focused_button_index(&self) -> Option<usize> {
         if self.has_active_modal() {
-            self.modal_focus.current()
+            self.modal_focus.focused_button()
         } else {
             None
         }
@@ -1567,9 +1579,9 @@ impl App {
         self.editor_state.as_ref().and_then(|e| e.focused_button())
     }
 
-    pub fn advance_modal_focus(&mut self, reverse: bool) -> bool {
+    pub fn advance_modal_focus(&mut self, reverse: bool) -> Option<Task<Message>> {
         if !self.has_active_modal() {
-            return false;
+            return None;
         }
 
         if self.modal_focus.count() > 0 {
@@ -1578,10 +1590,20 @@ impl App {
             } else {
                 self.modal_focus.next();
             }
-            return true;
+
+            match self.modal_focus.current_target() {
+                Some(FocusTarget::Input(id)) => {
+                    return Some(operation::focus(*id));
+                }
+                Some(FocusTarget::Button(_)) => {
+                    return Some(operation::focus(iced::widget::Id::unique()));
+                }
+                None => return Some(Task::none()),
+            }
         }
 
-        false
+        // VIGTIGT: Når en modal er åben, må fokus ALDRIG lække ud til baggrundsfanerne!
+        Some(Task::none())
     }
 
     pub fn advance_editor_focus(&mut self, reverse: bool) -> Option<Task<Message>> {
@@ -1592,7 +1614,7 @@ impl App {
                     return Some(operation::focus(id));
                 }
                 crate::ui::concept_editor::ConceptEditorFocusTarget::Button(_) => {
-                    return Some(Task::none());
+                    return Some(operation::focus(iced::widget::Id::unique()));
                 }
             }
         }
@@ -2443,10 +2465,17 @@ impl App {
                 if !self.collab_state.is_active() {
                     self.active_menu = None;
                     self.join_session_modal = Some(JoinSessionModalState::new());
-                    self.modal_focus = FocusCycle::with_initial(2, Some(0));
+                    let targets = vec![
+                        FocusTarget::Input("collab_ticket_input"),
+                        FocusTarget::Button(0),
+                        FocusTarget::Button(1),
+                    ];
+                    self.modal_focus = FocusCycle::with_targets(targets, Some(0));
+                    return operation::focus("collab_ticket_input");
                 }
             }
             Message::CollabJoinTokenChanged(tok) => {
+                self.modal_focus.sync_input("collab_ticket_input");
                 if let Some(modal) = &mut self.join_session_modal {
                     modal.set_token_input(tok);
                 }
@@ -2497,10 +2526,28 @@ impl App {
             }
             Message::OpenMetadataModal => {
                 self.active_menu = None;
+                let targets = vec![
+                    FocusTarget::Input("meta_name"),
+                    FocusTarget::Input("meta_desc"),
+                    FocusTarget::Input("meta_uri"),
+                    FocusTarget::Input("meta_approved_by"),
+                    FocusTarget::Input("meta_domain_area"),
+                    FocusTarget::Input("meta_responsible_org"),
+                    FocusTarget::Input("meta_version"),
+                    FocusTarget::Input("meta_language"),
+                    FocusTarget::Input("meta_date_modified"),
+                    FocusTarget::Input("meta_version_notes"),
+                    FocusTarget::Input("meta_legal_sources"),
+                    FocusTarget::Input("meta_source"),
+                    FocusTarget::Input("meta_derived_from"),
+                    FocusTarget::Button(META_BTN_CANCEL),
+                    FocusTarget::Button(META_BTN_SAVE),
+                ];
+                self.modal_focus = FocusCycle::with_targets(targets, Some(0));
                 self.metadata_modal = Some(ModelMetadataModalState::from_metadata(
                     self.project.metadata(),
                 ));
-                self.modal_focus = FocusCycle::with_initial(2, Some(0));
+                return operation::focus("meta_name");
             }
             Message::CloseMetadataModal => {
                 self.metadata_modal = None;
@@ -2582,12 +2629,40 @@ impl App {
                 } else {
                     summary
                 };
+
+                let unpushed_count = match self.git_sync_status {
+                    RepoSyncStatus::UnpublishedCommits(n) => n,
+                    _ => 0,
+                };
+                let is_clean_with_unpushed = preview_events.is_empty() && unpushed_count > 0;
+                let is_completely_synced = preview_events.is_empty() && unpushed_count == 0;
+
+                let (targets, initial_focus_id) = if is_completely_synced {
+                    (vec![FocusTarget::Button(0)], None)
+                } else if is_clean_with_unpushed {
+                    (vec![FocusTarget::Button(0), FocusTarget::Button(1)], None)
+                } else {
+                    (
+                        vec![
+                            FocusTarget::Input("publish_message_input"),
+                            FocusTarget::Button(0),
+                            FocusTarget::Button(1),
+                        ],
+                        Some("publish_message_input"),
+                    )
+                };
+                self.modal_focus = FocusCycle::with_targets(targets, Some(0));
                 self.publish_modal = Some(PublishModalState::new(default_msg, preview_events));
+                if let Some(id) = initial_focus_id {
+                    return operation::focus(id);
+                }
             }
             Message::ClosePublishModal => {
+                self.modal_focus.reset();
                 self.publish_modal = None;
             }
             Message::UpdatePublishMessage(msg) => {
+                self.modal_focus.sync_input("publish_message_input");
                 if let Some(modal) = &mut self.publish_modal {
                     modal.message = msg;
                 }
@@ -2679,6 +2754,7 @@ impl App {
             }
             Message::PublishCompleted(res) => match res {
                 PublishAsyncResult::Success { sync_status } => {
+                    self.modal_focus.reset();
                     self.publish_modal = None;
                     self.git_sync_status = sync_status;
                 }
@@ -2692,6 +2768,7 @@ impl App {
                             self.project = p;
                         }
                     }
+                    self.modal_focus = FocusCycle::with_initial(2, Some(1));
                     self.conflict_resolver_modal = Some(ConflictResolverModalState::new(conflicts));
                     self.git_sync_status = sync_status;
                 }
@@ -2722,6 +2799,7 @@ impl App {
                             if let Ok(p) = ProjectStorage::load(&dir) {
                                 self.project = p;
                             }
+                            self.modal_focus = FocusCycle::with_initial(2, Some(1));
                             self.conflict_resolver_modal =
                                 Some(ConflictResolverModalState::new(conflicts));
                         }
@@ -2755,9 +2833,11 @@ impl App {
                 self.history_modal = None;
             }
             Message::OpenConflictResolverModal(conflicts) => {
+                self.modal_focus = FocusCycle::with_initial(2, Some(1));
                 self.conflict_resolver_modal = Some(ConflictResolverModalState::new(conflicts));
             }
             Message::CloseConflictResolverModal => {
+                self.modal_focus.reset();
                 self.conflict_resolver_modal = None;
             }
             Message::ResolveConflict { index, choice } => {
@@ -2766,6 +2846,7 @@ impl App {
                 }
             }
             Message::ApplyResolvedConflicts => {
+                self.modal_focus.reset();
                 if let Some(modal) = self.conflict_resolver_modal.take() {
                     for (idx, conflict) in modal.conflicts.iter().enumerate() {
                         let choice = modal
@@ -2854,6 +2935,22 @@ impl App {
                 let (url, token) = GitService::parse_remote_url(&raw_url);
                 let has_target = !target_dir.is_empty();
 
+                let mut targets = vec![
+                    FocusTarget::Input("git_remote_url"),
+                    FocusTarget::Input("git_target_dir"),
+                    FocusTarget::Button(GIT_CONN_BTN_BROWSE),
+                    FocusTarget::Input("git_token"),
+                    FocusTarget::Input("git_author_name"),
+                    FocusTarget::Input("git_author_email"),
+                ];
+                if !url.is_empty() {
+                    targets.push(FocusTarget::Button(GIT_CONN_BTN_REMOVE));
+                }
+                targets.push(FocusTarget::Button(GIT_CONN_BTN_CANCEL));
+                targets.push(FocusTarget::Button(GIT_CONN_BTN_SAVE));
+
+                self.modal_focus = FocusCycle::with_targets(targets, Some(0));
+
                 self.git_connection_modal = Some(GitConnectionModalState {
                     remote_url: url,
                     target_dir,
@@ -2863,13 +2960,16 @@ impl App {
                     author_email: email.unwrap_or_default(),
                     error_message: None,
                 });
+                return operation::focus("git_remote_url");
             }
 
             Message::CloseGitConnectionModal => {
                 self.git_connection_modal = None;
+                self.modal_focus.reset();
             }
 
             Message::UpdateGitRemoteUrl(url) => {
+                self.modal_focus.sync_input("git_remote_url");
                 if let Some(m) = &mut self.git_connection_modal {
                     if !m.custom_target_dir {
                         if let Some(repo_name) = GitService::parse_repo_name(&url) {
@@ -2884,6 +2984,7 @@ impl App {
             }
 
             Message::UpdateGitTargetDir(dir) => {
+                self.modal_focus.sync_input("git_target_dir");
                 if let Some(m) = &mut self.git_connection_modal {
                     m.custom_target_dir = !dir.trim().is_empty();
                     m.target_dir = dir;
@@ -2923,6 +3024,7 @@ impl App {
             }
 
             Message::UpdateGitToken(token) => {
+                self.modal_focus.sync_input("git_token");
                 if let Some(m) = &mut self.git_connection_modal {
                     m.token = token;
                     m.error_message = None;
@@ -2930,6 +3032,7 @@ impl App {
             }
 
             Message::UpdateGitAuthorName(name) => {
+                self.modal_focus.sync_input("git_author_name");
                 if let Some(m) = &mut self.git_connection_modal {
                     m.author_name = name;
                     m.error_message = None;
@@ -2937,6 +3040,7 @@ impl App {
             }
 
             Message::UpdateGitAuthorEmail(email) => {
+                self.modal_focus.sync_input("git_author_email");
                 if let Some(m) = &mut self.git_connection_modal {
                     m.author_email = email;
                     m.error_message = None;
@@ -3092,6 +3196,15 @@ impl App {
 
             Message::OpenGitCloneModal => {
                 self.active_menu = None;
+                let targets = vec![
+                    FocusTarget::Input("git_clone_url"),
+                    FocusTarget::Input("git_clone_target_dir"),
+                    FocusTarget::Button(GIT_CLONE_BTN_BROWSE),
+                    FocusTarget::Input("git_clone_token"),
+                    FocusTarget::Button(GIT_CLONE_BTN_CANCEL),
+                    FocusTarget::Button(GIT_CLONE_BTN_CLONE),
+                ];
+                self.modal_focus = FocusCycle::with_targets(targets, Some(0));
                 self.git_clone_modal = Some(GitCloneModalState {
                     remote_url: String::new(),
                     target_dir: String::new(),
@@ -3100,13 +3213,16 @@ impl App {
                     is_cloning: false,
                     error_message: None,
                 });
+                return operation::focus("git_clone_url");
             }
 
             Message::CloseGitCloneModal => {
                 self.git_clone_modal = None;
+                self.modal_focus.reset();
             }
 
             Message::UpdateGitCloneUrl(url) => {
+                self.modal_focus.sync_input("git_clone_url");
                 if let Some(m) = &mut self.git_clone_modal {
                     if !m.custom_target_dir {
                         if let Some(repo_name) = GitService::parse_repo_name(&url) {
@@ -3121,6 +3237,7 @@ impl App {
             }
 
             Message::UpdateGitCloneTargetDir(dir) => {
+                self.modal_focus.sync_input("git_clone_target_dir");
                 if let Some(m) = &mut self.git_clone_modal {
                     m.custom_target_dir = !dir.trim().is_empty();
                     m.target_dir = dir;
@@ -3129,6 +3246,7 @@ impl App {
             }
 
             Message::UpdateGitCloneToken(token) => {
+                self.modal_focus.sync_input("git_clone_token");
                 if let Some(m) = &mut self.git_clone_modal {
                     m.token = token;
                     m.error_message = None;
@@ -3301,6 +3419,22 @@ impl App {
                 }
             }
             Message::UpdateMetadataField(field, val) => {
+                let input_id = match field {
+                    MetadataField::Name => "meta_name",
+                    MetadataField::Description => "meta_desc",
+                    MetadataField::DomainArea => "meta_domain_area",
+                    MetadataField::ResponsibleOrg => "meta_responsible_org",
+                    MetadataField::Uri => "meta_uri",
+                    MetadataField::Version => "meta_version",
+                    MetadataField::ApprovedBy => "meta_approved_by",
+                    MetadataField::Language => "meta_language",
+                    MetadataField::LegalSources => "meta_legal_sources",
+                    MetadataField::Source => "meta_source",
+                    MetadataField::WasDerivedFrom => "meta_derived_from",
+                    MetadataField::VersionNotes => "meta_version_notes",
+                    MetadataField::DateModified => "meta_date_modified",
+                };
+                self.modal_focus.sync_input(input_id);
                 if let Some(modal) = &mut self.metadata_modal {
                     match field {
                         MetadataField::Name => modal.name = val,
@@ -3534,14 +3668,24 @@ impl App {
                     .as_ref()
                     .map(|p| p.display().to_string())
                     .unwrap_or_else(|| "model.kant.json".to_string());
+                let targets = vec![
+                    FocusTarget::Input("file_dialog_input"),
+                    FocusTarget::Button(0),
+                    FocusTarget::Button(1),
+                ];
+                self.modal_focus = FocusCycle::with_targets(targets, Some(0));
+                return operation::focus("file_dialog_input");
             }
             Message::CloseFileDialog => {
+                self.modal_focus.reset();
                 self.file_dialog_mode = None;
             }
             Message::FileDialogInputChanged(path_str) => {
+                self.modal_focus.sync_input("file_dialog_input");
                 self.file_dialog_input = path_str;
             }
             Message::ConfirmFileDialog => {
+                self.modal_focus.reset();
                 if let Some(mode) = self.file_dialog_mode {
                     let path = PathBuf::from(self.file_dialog_input.trim());
                     if !self.file_dialog_input.trim().is_empty() {
@@ -3780,6 +3924,7 @@ impl App {
                                             new_count += 1;
                                         }
                                     }
+                                    self.modal_focus = FocusCycle::with_initial(2, Some(1));
                                     self.excel_import_preview = Some(ExcelImportPreviewState {
                                         import_summary,
                                         new_count,
@@ -3800,12 +3945,15 @@ impl App {
             }
             Message::OpenExcelSchemaGuideModal => {
                 self.active_menu = None;
+                self.modal_focus = FocusCycle::with_initial(2, Some(1));
                 self.excel_schema_guide_open = true;
             }
             Message::CloseExcelSchemaGuideModal => {
+                self.modal_focus.reset();
                 self.excel_schema_guide_open = false;
             }
             Message::ConfirmExcelImport => {
+                self.modal_focus.reset();
                 if let Some(preview) = self.excel_import_preview.take() {
                     let summary = crate::features::concepts::excel::apply_concept_upsert(
                         &mut self.project,
@@ -3819,6 +3967,7 @@ impl App {
                 }
             }
             Message::DismissExcelImportModal => {
+                self.modal_focus.reset();
                 self.excel_import_preview = None;
             }
             Message::ExportDialogCompleted(res, kind) => {
@@ -3882,8 +4031,8 @@ impl App {
 
             // Tastaturnavigation & genveje
             Message::FocusNext => {
-                if self.advance_modal_focus(false) {
-                    return Task::none();
+                if let Some(task) = self.advance_modal_focus(false) {
+                    return task;
                 }
                 if let Some(task) = self.advance_editor_focus(false) {
                     return task;
@@ -3891,8 +4040,8 @@ impl App {
                 return operation::focus_next();
             }
             Message::FocusPrevious => {
-                if self.advance_modal_focus(true) {
-                    return Task::none();
+                if let Some(task) = self.advance_modal_focus(true) {
+                    return task;
                 }
                 if let Some(task) = self.advance_editor_focus(true) {
                     return task;
@@ -3959,7 +4108,7 @@ impl App {
             Message::EnterPressed => {
                 // 1. Åbne modaler
                 if self.has_active_modal() {
-                    let focused = self.modal_focus.current();
+                    let focused = self.modal_focus.focused_button();
                     if self.start_session_modal.is_some() {
                         match focused {
                             Some(0) => return self.update(Message::CollabCopyTicket),
@@ -3975,8 +4124,8 @@ impl App {
                         }
                     } else if self.metadata_modal.is_some() {
                         match focused {
-                            Some(0) => return self.update(Message::CloseMetadataModal),
-                            Some(1) | None => return self.update(Message::SaveMetadataModal),
+                            Some(META_BTN_CANCEL) => return self.update(Message::CloseMetadataModal),
+                            Some(META_BTN_SAVE) | None => return self.update(Message::SaveMetadataModal),
                             _ => {}
                         }
                     } else if self.publish_modal.is_some() {
@@ -3987,14 +4136,17 @@ impl App {
                         }
                     } else if self.git_clone_modal.is_some() {
                         match focused {
-                            Some(0) => return self.update(Message::CloseGitCloneModal),
-                            Some(1) | None => return self.update(Message::ExecuteGitClone),
+                            Some(GIT_CLONE_BTN_BROWSE) => return self.update(Message::BrowseGitCloneTargetDir),
+                            Some(GIT_CLONE_BTN_CANCEL) => return self.update(Message::CloseGitCloneModal),
+                            Some(GIT_CLONE_BTN_CLONE) | None => return self.update(Message::ExecuteGitClone),
                             _ => {}
                         }
                     } else if self.git_connection_modal.is_some() {
                         match focused {
-                            Some(0) => return self.update(Message::CloseGitConnectionModal),
-                            Some(1) | None => return self.update(Message::SaveGitConnection),
+                            Some(GIT_CONN_BTN_BROWSE) => return self.update(Message::BrowseGitTargetDir),
+                            Some(GIT_CONN_BTN_REMOVE) => return self.update(Message::RemoveGitRemote),
+                            Some(GIT_CONN_BTN_CANCEL) => return self.update(Message::CloseGitConnectionModal),
+                            Some(GIT_CONN_BTN_SAVE) | None => return self.update(Message::SaveGitConnection),
                             _ => {}
                         }
                     } else if self.conflict_resolver_modal.is_some() {
@@ -4825,7 +4977,7 @@ impl App {
             Message::CanvasSpacePressed(pressed) => {
                 self.is_space_pressed = pressed;
                 if pressed {
-                    if self.has_active_modal() && self.modal_focus.current().is_some() {
+                    if self.has_active_modal() && self.modal_focus.focused_button().is_some() {
                         return self.update(Message::EnterPressed);
                     }
                     if let Some(editor) = &self.editor_state {
@@ -6490,36 +6642,65 @@ impl App {
         Task::none()
     }
 
-    pub fn subscription(&self) -> Subscription<Message> {
-        let keyboard_sub = event::listen_with(|event, status, _window| {
-            if let Event::Window(iced::window::Event::Unfocused) = event {
-                return Some(Message::CanvasSpacePressed(false));
-            }
-            if let Event::Mouse(mouse::Event::CursorMoved { position }) = event {
-                return Some(Message::PaletteDragMoved(position));
-            }
-            if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) = event {
-                return Some(Message::PaletteDragDropped);
-            }
-            if status == event::Status::Captured {
-                return None;
-            }
-            match event {
-                Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
-                    App::map_key_press(&key, modifiers)
-                }
-                Event::Keyboard(keyboard::Event::KeyReleased { key, .. }) => {
-                    if let Key::Named(Named::Space) = key.as_ref() {
-                        Some(Message::CanvasSpacePressed(false))
+    pub fn handle_event_for_subscription(
+        event: Event,
+        status: event::Status,
+    ) -> Option<Message> {
+        if let Event::Window(iced::window::Event::Unfocused) = event {
+            return Some(Message::CanvasSpacePressed(false));
+        }
+        if let Event::Mouse(mouse::Event::CursorMoved { position }) = event {
+            return Some(Message::PaletteDragMoved(position));
+        }
+        if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) = event {
+            return Some(Message::PaletteDragDropped);
+        }
+
+        // VIGTIGT: Tab, Shift+Tab og Escape skal ALTID opfanges, selv hvis et
+        // tekstfelt har sat status == event::Status::Captured.
+        // Dette sikrer at tastaturnavigation (Tab/Shift+Tab) og lukning af dialoger (Esc)
+        // fungerer pålideligt uanset om et inputfelt aktuelt har fokus.
+        if let Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) = &event {
+            match key.as_ref() {
+                Key::Named(Named::Tab) => {
+                    if modifiers.shift() {
+                        return Some(Message::FocusPrevious);
                     } else {
-                        None
+                        return Some(Message::FocusNext);
                     }
                 }
-                Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
-                    Some(Message::CanvasModifiersChanged(modifiers))
+                Key::Named(Named::Escape) => {
+                    return Some(Message::EscapePressed);
                 }
-                _ => None,
+                _ => {}
             }
+        }
+
+        if status == event::Status::Captured {
+            return None;
+        }
+
+        match event {
+            Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+                App::map_key_press(&key, modifiers)
+            }
+            Event::Keyboard(keyboard::Event::KeyReleased { key, .. }) => {
+                if let Key::Named(Named::Space) = key.as_ref() {
+                    Some(Message::CanvasSpacePressed(false))
+                } else {
+                    None
+                }
+            }
+            Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+                Some(Message::CanvasModifiersChanged(modifiers))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn subscription(&self) -> Subscription<Message> {
+        let keyboard_sub = event::listen_with(|event, status, _window| {
+            App::handle_event_for_subscription(event, status)
         });
 
         if let Some(channel) = &self.collab_channel {
@@ -6756,6 +6937,7 @@ impl App {
                 let name_field = column![
                     text("Modelnavn *").size(12).color(ThemeColors::SLATE_700),
                     text_input("Nyt FDA Modelprojekt", &meta_state.name)
+                        .id("meta_name")
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(MetadataField::Name, val))
                         .padding(8)
@@ -6772,6 +6954,7 @@ impl App {
                         "Formål og omfang jf. FDA Modelreglerne...",
                         &meta_state.description
                     )
+                    .id("meta_desc")
                     .style(modern_input_style)
                     .on_input(|val| Message::UpdateMetadataField(MetadataField::Description, val))
                     .padding(8)
@@ -6783,6 +6966,7 @@ impl App {
                 let uri_field = column![
                     text("Model-URI *").size(12).color(ThemeColors::SLATE_700),
                     text_input("https://data.gov.dk/model/core/...", &meta_state.uri)
+                        .id("meta_uri")
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(MetadataField::Uri, val))
                         .padding(8)
@@ -6845,6 +7029,7 @@ impl App {
                 let approved_by_field = column![
                     text("Godkendt af").size(12).color(ThemeColors::SLATE_700),
                     text_input("f.eks. FDA Fagråd eller Styrelse", &meta_state.approved_by)
+                        .id("meta_approved_by")
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(
                             MetadataField::ApprovedBy,
@@ -6864,6 +7049,7 @@ impl App {
                         .size(12)
                         .color(ThemeColors::SLATE_700),
                     text_input("f.eks. Vej og Trafik", &meta_state.domain_area)
+                        .id("meta_domain_area")
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(
                             MetadataField::DomainArea,
@@ -6883,6 +7069,7 @@ impl App {
                         "f.eks. Styrelsen for Dataforsyning eller Vejdirektoratet",
                         &meta_state.responsible_org,
                     )
+                    .id("meta_responsible_org")
                     .style(modern_input_style)
                     .on_input(|val| Message::UpdateMetadataField(
                         MetadataField::ResponsibleOrg,
@@ -6899,6 +7086,7 @@ impl App {
                 let version_field = column![
                     text("Version").size(12).color(ThemeColors::SLATE_700),
                     text_input("0.1.0", &meta_state.version)
+                        .id("meta_version")
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(MetadataField::Version, val))
                         .padding(8)
@@ -6910,6 +7098,7 @@ impl App {
                 let lang_field = column![
                     text("Sprog").size(12).color(ThemeColors::SLATE_700),
                     text_input("da", &meta_state.language)
+                        .id("meta_language")
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(MetadataField::Language, val))
                         .padding(8)
@@ -6923,6 +7112,7 @@ impl App {
                         .size(12)
                         .color(ThemeColors::SLATE_700),
                     text_input("YYYY-MM-DD", &meta_state.date_modified)
+                        .id("meta_date_modified")
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(
                             MetadataField::DateModified,
@@ -6942,6 +7132,7 @@ impl App {
                         "f.eks. Væsentlige ændringer i relationer efter offentlig høring",
                         &meta_state.version_notes
                     )
+                    .id("meta_version_notes")
                     .style(modern_input_style)
                     .on_input(|val| Message::UpdateMetadataField(MetadataField::VersionNotes, val))
                     .padding(8)
@@ -6958,6 +7149,7 @@ impl App {
                         "https://www.retsinformation.dk/eli/lta/...",
                         &meta_state.legal_sources
                     )
+                    .id("meta_legal_sources")
                     .style(modern_input_style)
                     .on_input(|val| Message::UpdateMetadataField(MetadataField::LegalSources, val))
                     .padding(8)
@@ -6970,6 +7162,7 @@ impl App {
                         .size(12)
                         .color(ThemeColors::SLATE_700),
                     text_input("f.eks. ISO 19107 eller INSPIRE", &meta_state.source)
+                        .id("meta_source")
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(MetadataField::Source, val))
                         .padding(8)
@@ -6986,6 +7179,7 @@ impl App {
                         "https://data.gov.dk/model/core/...",
                         &meta_state.was_derived_from
                     )
+                    .id("meta_derived_from")
                     .style(modern_input_style)
                     .on_input(|val| Message::UpdateMetadataField(
                         MetadataField::WasDerivedFrom,
@@ -6999,8 +7193,8 @@ impl App {
 
                 let source_derived_row = row![source_field, derived_field].spacing(12);
 
-                let is_cancel_focused = self.modal_focus.is_focused(0);
-                let is_save_focused = self.modal_focus.is_focused(1);
+                let is_cancel_focused = self.modal_focus.is_focused(META_BTN_CANCEL);
+                let is_save_focused = self.modal_focus.is_focused(META_BTN_SAVE);
 
                 // 7. Action knapper
                 let actions = row![
@@ -7289,6 +7483,7 @@ impl App {
                         "Indsæt sessionskode her (f.eks. kant:v1:...)",
                         &modal_state.token_input
                     )
+                    .id("collab_ticket_input")
                     .style(modern_input_style)
                     .on_input(Message::CollabJoinTokenChanged)
                     .padding(8)
@@ -7420,6 +7615,7 @@ impl App {
                         "Filsti (f.eks. model.kant.json)...",
                         &self.file_dialog_input
                     )
+                    .id("file_dialog_input")
                     .style(modern_input_style)
                     .on_input(Message::FileDialogInputChanged)
                     .on_submit(Message::ConfirmFileDialog)
@@ -8630,6 +8826,7 @@ impl App {
                         "Beskriv ændringerne i modellen (fx Tilføjet Virksomhed og CVR)...",
                         &modal.message
                     )
+                    .id("publish_message_input")
                     .style(modern_input_style)
                     .on_input(Message::UpdatePublishMessage)
                     .padding(8)
@@ -9086,24 +9283,27 @@ impl App {
                 "fx https://git.organisation.dk/model-arkiv.git (eller GitHub/GitLab)",
                 &modal.remote_url
             )
+            .id("git_remote_url")
             .style(modern_input_style)
             .on_input(Message::UpdateGitRemoteUrl)
             .padding([8, 12]),
         ]
         .spacing(4);
 
+        let is_browse_focused = self.modal_focus.is_focused(GIT_CONN_BTN_BROWSE);
         let dir_field = column![
             text("Lokal Målmappe (Hvor modellen placeres på din computer)")
                 .size(12)
                 .color(ThemeColors::SLATE_700),
             row![
                 text_input("/sti/til/lokal/modelmappe", &modal.target_dir)
+                    .id("git_target_dir")
                     .style(modern_input_style)
                     .on_input(Message::UpdateGitTargetDir)
                     .padding([8, 12])
                     .width(Length::Fill),
                 button(text("📂 Gennemse...").size(12))
-                    .style(secondary_button_style)
+                    .style(focused_button_style(secondary_button_style, is_browse_focused))
                     .on_press(Message::BrowseGitTargetDir)
                     .padding([8, 12]),
             ]
@@ -9120,6 +9320,7 @@ impl App {
                 "Indtast Personal Access Token (f.eks. glpat_..., ghp_... eller token)",
                 &modal.token
             )
+            .id("git_token")
             .secure(true)
             .style(modern_input_style)
             .on_input(Message::UpdateGitToken)
@@ -9133,6 +9334,7 @@ impl App {
                     .size(12)
                     .color(ThemeColors::SLATE_700),
                 text_input("f.eks. Anders Hansen", &modal.author_name)
+                    .id("git_author_name")
                     .style(modern_input_style)
                     .on_input(Message::UpdateGitAuthorName)
                     .padding([8, 12]),
@@ -9144,6 +9346,7 @@ impl App {
                     .size(12)
                     .color(ThemeColors::SLATE_700),
                 text_input("f.eks. anders@organisation.dk", &modal.author_email)
+                    .id("git_author_email")
                     .style(modern_input_style)
                     .on_input(Message::UpdateGitAuthorEmail)
                     .padding([8, 12]),
@@ -9194,30 +9397,48 @@ impl App {
         let mut actions = row![].spacing(8).align_y(Alignment::Center);
 
         if !modal.remote_url.is_empty() {
+            let is_remove_focused = self.modal_focus.is_focused(GIT_CONN_BTN_REMOVE);
             actions = actions.push(
                 button(text("Fjern fjernlager").size(12))
-                    .style(|_theme, status| button::Style {
-                        background: match status {
-                            button::Status::Hovered => Some(iced::Background::Color(
-                                iced::Color::from_rgb(1.0, 0.9, 0.9),
-                            )),
-                            _ => None,
-                        },
-                        text_color: iced::Color::from_rgb(0.85, 0.2, 0.2),
-                        border: iced::Border {
-                            color: iced::Color::from_rgb(0.85, 0.2, 0.2),
-                            width: 1.0,
-                            radius: 6.0.into(),
-                        },
-                        ..Default::default()
+                    .style(move |_theme, status| {
+                        let base_border_color = if is_remove_focused {
+                            ThemeColors::FOCUS_RING
+                        } else {
+                            iced::Color::from_rgb(0.85, 0.2, 0.2)
+                        };
+                        let base_border_width = if is_remove_focused { 1.5 } else { 1.0 };
+                        button::Style {
+                            background: match status {
+                                button::Status::Hovered => Some(iced::Background::Color(
+                                    iced::Color::from_rgb(1.0, 0.9, 0.9),
+                                )),
+                                _ => None,
+                            },
+                            text_color: iced::Color::from_rgb(0.85, 0.2, 0.2),
+                            border: iced::Border {
+                                color: base_border_color,
+                                width: base_border_width,
+                                radius: 6.0.into(),
+                            },
+                            shadow: if is_remove_focused {
+                                iced::Shadow {
+                                    color: iced::Color::from_rgba(0.92, 0.60, 0.05, 0.40),
+                                    offset: iced::Vector::new(0.0, 0.0),
+                                    blur_radius: 4.0,
+                                }
+                            } else {
+                                iced::Shadow::default()
+                            },
+                            ..Default::default()
+                        }
                     })
                     .on_press(Message::RemoveGitRemote)
                     .padding([6, 12]),
             );
         }
 
-        let is_cancel_focused = self.modal_focus.is_focused(0);
-        let is_save_focused = self.modal_focus.is_focused(1);
+        let is_cancel_focused = self.modal_focus.is_focused(GIT_CONN_BTN_CANCEL);
+        let is_save_focused = self.modal_focus.is_focused(GIT_CONN_BTN_SAVE);
 
         actions = actions.push(Space::new().width(Length::Fill));
         actions = actions.push(
@@ -9285,24 +9506,27 @@ impl App {
                 "fx https://git.organisation.dk/model-arkiv.git (eller GitHub/GitLab)",
                 &modal.remote_url
             )
+            .id("git_clone_url")
             .style(modern_input_style)
             .on_input(Message::UpdateGitCloneUrl)
             .padding([8, 12]),
         ]
         .spacing(4);
 
+        let is_browse_focused = self.modal_focus.is_focused(GIT_CLONE_BTN_BROWSE);
         let dir_field = column![
             text("Lokal Målmappe (Hvor modellen skal placeres)")
                 .size(12)
                 .color(ThemeColors::SLATE_700),
             row![
                 text_input("/sti/til/lokal/modelmappe", &modal.target_dir)
+                    .id("git_clone_target_dir")
                     .style(modern_input_style)
                     .on_input(Message::UpdateGitCloneTargetDir)
                     .padding([8, 12])
                     .width(Length::Fill),
                 button(text("📂 Gennemse...").size(12))
-                    .style(secondary_button_style)
+                    .style(focused_button_style(secondary_button_style, is_browse_focused))
                     .on_press(Message::BrowseGitCloneTargetDir)
                     .padding([8, 12]),
             ]
@@ -9316,6 +9540,7 @@ impl App {
                 .size(12)
                 .color(ThemeColors::SLATE_700),
             text_input("Personlig Access Token (PAT) eller kodeord", &modal.token)
+                .id("git_clone_token")
                 .secure(true)
                 .style(modern_input_style)
                 .on_input(Message::UpdateGitCloneToken)
@@ -9355,8 +9580,8 @@ impl App {
             body = body.push(err_box);
         }
 
-        let is_cancel_focused = self.modal_focus.is_focused(0);
-        let is_clone_focused = self.modal_focus.is_focused(1);
+        let is_cancel_focused = self.modal_focus.is_focused(GIT_CLONE_BTN_CANCEL);
+        let is_clone_focused = self.modal_focus.is_focused(GIT_CLONE_BTN_CLONE);
 
         let actions = row![
             Space::new().width(Length::Fill),
@@ -9487,14 +9712,17 @@ impl App {
             .padding(10)
             .width(Length::Fill);
 
+        let is_copy_focused = self.modal_focus.is_focused(0);
+        let is_close_focused = self.modal_focus.is_focused(1);
+
         let actions = row![
             button(text("📋 Kopier rapport til udklipsholder").size(12))
-                .style(primary_button_style)
+                .style(focused_button_style(primary_button_style, is_copy_focused))
                 .on_press(Message::CopyDiagnosticsToClipboard)
                 .padding([6, 14]),
             Space::new().width(Length::Fill),
             button(text("Luk").size(12))
-                .style(secondary_button_style)
+                .style(focused_button_style(secondary_button_style, is_close_focused))
                 .on_press(Message::CloseDiagnosticsModal)
                 .padding([6, 16]),
         ]
@@ -9603,6 +9831,9 @@ impl App {
 
         let scrollable_entries = scrollable(entry_cards).height(Length::Fixed(400.0));
 
+        let is_export_focused = self.modal_focus.is_focused(0);
+        let is_close_focused = self.modal_focus.is_focused(1);
+
         let actions_row = row![
             button(
                 row![
@@ -9612,12 +9843,12 @@ impl App {
                 ]
                 .align_y(Alignment::Center),
             )
-            .style(secondary_button_style)
+            .style(focused_button_style(secondary_button_style, is_export_focused))
             .on_press(Message::ExportFdaTemplateXlsxDialog)
             .padding([6, 14]),
             Space::new().width(Length::Fill),
             button(text("Luk").size(12))
-                .style(primary_button_style)
+                .style(focused_button_style(primary_button_style, is_close_focused))
                 .on_press(Message::CloseExcelSchemaGuideModal)
                 .padding([6, 18]),
         ]
@@ -9810,14 +10041,17 @@ impl App {
 
         let scrollable_list = scrollable(preview_list).height(Length::Fixed(240.0));
 
+        let is_cancel_focused = self.modal_focus.is_focused(0);
+        let is_confirm_focused = self.modal_focus.is_focused(1);
+
         let actions_row = row![
             Space::new().width(Length::Fill),
             button(text("Annuller").size(12))
-                .style(secondary_button_style)
+                .style(focused_button_style(secondary_button_style, is_cancel_focused))
                 .on_press(Message::DismissExcelImportModal)
                 .padding([6, 14]),
             button(row![text("Bekræft og Gennemfør Import").size(12),].align_y(Alignment::Center),)
-                .style(primary_button_style)
+                .style(focused_button_style(primary_button_style, is_confirm_focused))
                 .on_press(Message::ConfirmExcelImport)
                 .padding([6, 16]),
         ]
