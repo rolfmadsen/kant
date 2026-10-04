@@ -10882,3 +10882,92 @@ fn test_task_073_canvas_node_double_click_focuses_name_for_concept_class_and_enu
         "Eventuel relation skal fravælges ved dobbeltklik på node"
     );
 }
+
+#[test]
+fn test_task_074_palette_selection_clears_canvas_node_selection() {
+    use kant::features::information_model::{InformationClass, InformationEnumeration};
+    use kant::ui::app::{App, Message, Tab};
+
+    let mut app = App::new();
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+
+    // Opret Klasse A og tilføj til diagram
+    let class_a = InformationClass::new("KlasseA");
+    let class_a_id = class_a.id();
+    app.project_mut().information_model_mut().add_class(class_a);
+    let node_a = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(class_a_id, 0);
+
+    // Opret Klasse B og tilføj til diagram
+    let class_b = InformationClass::new("KlasseB");
+    let class_b_id = class_b.id();
+    app.project_mut().information_model_mut().add_class(class_b);
+    let node_b = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(class_b_id, 0);
+
+    // Opret Klasse C som IKKE er på diagrammet
+    let class_c = InformationClass::new("KlasseC");
+    let class_c_id = class_c.id();
+    app.project_mut().information_model_mut().add_class(class_c);
+
+    // Opret Enumeration D og tilføj til diagram
+    let enum_d = InformationEnumeration::new("EnumD", vec!["V1".to_string()]);
+    let enum_d_id = enum_d.id();
+    app.project_mut()
+        .information_model_mut()
+        .add_enumeration(enum_d);
+    let node_d = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(enum_d_id, 0);
+
+    // 1. Vælg Node A på canvas
+    let _ = app.update(Message::SelectInfoGraphNode(Some(node_a)));
+    assert_eq!(app.selected_info_graph_node_id(), Some(node_a));
+    assert!(app.selected_info_graph_node_ids().contains(&node_a));
+
+    // 2. Vælg Klasse B fra paletten
+    let _ = app.update(Message::SelectInformationClass(Some(class_b_id)));
+    assert_eq!(app.selected_info_class_id(), Some(class_b_id));
+    assert_eq!(app.selected_info_graph_node_id(), Some(node_b));
+    assert!(
+        app.selected_info_graph_node_ids().contains(&node_b),
+        "Node B skal være markeret på canvas"
+    );
+    assert!(
+        !app.selected_info_graph_node_ids().contains(&node_a),
+        "Node A må IKKE længere være markeret når Klasse B vælges i paletten!"
+    );
+
+    // 3. Vælg Klasse C fra paletten (findes IKKE på canvas)
+    let _ = app.update(Message::SelectInformationClass(Some(class_c_id)));
+    assert_eq!(app.selected_info_class_id(), Some(class_c_id));
+    assert_eq!(app.selected_info_graph_node_id(), None);
+    assert!(
+        app.selected_info_graph_node_ids().is_empty(),
+        "Ingen noder på canvas må være markerede når Klasse C udenfor canvas vælges!"
+    );
+
+    // 4. Vælg Node A på canvas igen
+    let _ = app.update(Message::SelectInfoGraphNode(Some(node_a)));
+    assert!(app.selected_info_graph_node_ids().contains(&node_a));
+
+    // 5. Vælg Enumeration D fra paletten
+    let _ = app.update(Message::SelectInformationEnumeration(Some(enum_d_id)));
+    assert_eq!(app.selected_info_enum_id(), Some(enum_d_id));
+    assert_eq!(app.selected_info_class_id(), None);
+    assert_eq!(app.selected_info_graph_node_id(), Some(node_d));
+    assert!(
+        app.selected_info_graph_node_ids().contains(&node_d),
+        "Node D skal være markeret på canvas"
+    );
+    assert!(
+        !app.selected_info_graph_node_ids().contains(&node_a),
+        "Node A må IKKE længere være markeret når Enumeration D vælges i paletten!"
+    );
+}
+
