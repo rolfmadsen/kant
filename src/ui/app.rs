@@ -543,6 +543,23 @@ pub const INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER: usize = 8;
 pub const INFO_INSPECTOR_CONCEPT_REMOVE_START: usize = 100;
 pub const INFO_INSPECTOR_ATTR_DELETE_START: usize = 200;
 pub const INFO_INSPECTOR_ENUM_VAL_REMOVE_START: usize = 300;
+pub const INFO_INSPECTOR_REL_DELETE_START: usize = 400;
+
+pub const CONCEPT_EDGE_BTN_REVERSE: usize = 0;
+pub const CONCEPT_EDGE_BTN_KIND_ASSOC: usize = 1;
+pub const CONCEPT_EDGE_BTN_KIND_GEN: usize = 2;
+pub const CONCEPT_EDGE_BTN_DIRECTED_CHECKBOX: usize = 3;
+pub const CONCEPT_EDGE_BTN_DELETE: usize = 4;
+
+pub const INFO_EDGE_BTN_REVERSE: usize = 0;
+pub const INFO_EDGE_BTN_KIND_ASSOC: usize = 1;
+pub const INFO_EDGE_BTN_KIND_GEN: usize = 2;
+pub const INFO_EDGE_BTN_KIND_COMP: usize = 3;
+pub const INFO_EDGE_BTN_KIND_DEP: usize = 4;
+pub const INFO_EDGE_BTN_DIRECTED_CHECKBOX: usize = 5;
+pub const INFO_EDGE_BTN_SRC_MULT: usize = 6;
+pub const INFO_EDGE_BTN_TGT_MULT: usize = 7;
+pub const INFO_EDGE_BTN_DELETE: usize = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SaveStatus {
@@ -1719,6 +1736,10 @@ impl App {
         } else {
             None
         }
+    }
+
+    pub fn concept_inspector_focused_button(&self) -> Option<usize> {
+        None
     }
 
     fn build_concept_toolbar_targets(&self) -> Vec<FocusTarget> {

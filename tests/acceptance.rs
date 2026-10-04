@@ -10970,3 +10970,241 @@ fn test_task_074_palette_selection_clears_canvas_node_selection() {
         "Node A må IKKE længere være markeret når Enumeration D vælges i paletten!"
     );
 }
+
+#[test]
+fn test_task_075_concept_diagram_edge_tab_cycle_and_activation() {
+    use kant::features::concept_model::RelationKind;
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::app::{
+        App, Message, Tab, CONCEPT_EDGE_BTN_DELETE, CONCEPT_EDGE_BTN_DIRECTED_CHECKBOX,
+        CONCEPT_EDGE_BTN_KIND_ASSOC, CONCEPT_EDGE_BTN_KIND_GEN, CONCEPT_EDGE_BTN_REVERSE,
+    };
+
+    let mut app = App::new();
+    let c1 = Concept::new("Kunde", "Beskrivelse 1", BelongsToDomain::Yes);
+    let c2 = Concept::new("Ordre", "Beskrivelse 2", BelongsToDomain::Yes);
+    let c1_id = app.project_mut().add_concept(c1).unwrap();
+    let c2_id = app.project_mut().add_concept(c2).unwrap();
+    let n1 = {
+        let concept = app.project().get_concept(c1_id).unwrap().clone();
+        app.project_mut().concept_graph_mut().add_node(&concept)
+    };
+    let n2 = {
+        let concept = app.project().get_concept(c2_id).unwrap().clone();
+        app.project_mut().concept_graph_mut().add_node(&concept)
+    };
+    app.project_mut()
+        .concept_graph_mut()
+        .add_relation(n1, n2, RelationKind::Association);
+
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.update(Message::GraphEdgeSelected(Some((n1, n2))));
+    assert_eq!(app.selected_edge(), Some((n1, n2)));
+
+    // Første tab fra input skal ramme Vend-knappen
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.concept_inspector_focused_button(),
+        Some(CONCEPT_EDGE_BTN_REVERSE),
+        "Første tab fra input skal ramme Vend-knappen"
+    );
+
+    // Enter på Vend-knappen skal vende kanten i concept graph
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(
+        app.selected_edge(),
+        Some((n2, n1)),
+        "Kanten skal være vendt til (n2, n1)"
+    );
+
+    let _ = app.update(Message::FocusNext); // CONCEPT_EDGE_BTN_KIND_ASSOC
+    assert_eq!(
+        app.concept_inspector_focused_button(),
+        Some(CONCEPT_EDGE_BTN_KIND_ASSOC)
+    );
+
+    let _ = app.update(Message::FocusNext); // CONCEPT_EDGE_BTN_KIND_GEN
+    assert_eq!(
+        app.concept_inspector_focused_button(),
+        Some(CONCEPT_EDGE_BTN_KIND_GEN)
+    );
+
+    let _ = app.update(Message::FocusNext); // CONCEPT_EDGE_BTN_DIRECTED_CHECKBOX
+    assert_eq!(
+        app.concept_inspector_focused_button(),
+        Some(CONCEPT_EDGE_BTN_DIRECTED_CHECKBOX)
+    );
+
+    let _ = app.update(Message::FocusNext); // CONCEPT_EDGE_BTN_DELETE
+    assert_eq!(
+        app.concept_inspector_focused_button(),
+        Some(CONCEPT_EDGE_BTN_DELETE)
+    );
+
+    // Wrap-around: næste Tab skal gå til input (focused_button er None)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.concept_inspector_focused_button(),
+        None,
+        "Wrap around skal fokusere tekstfeltet"
+    );
+
+    // Enter på Delete
+    let _ = app.update(Message::FocusPrevious); // tilbage til Delete
+    assert_eq!(
+        app.concept_inspector_focused_button(),
+        Some(CONCEPT_EDGE_BTN_DELETE)
+    );
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(app.selected_edge(), None, "Kant skal være slettet og fravælges");
+}
+
+#[test]
+fn test_task_075_information_model_edge_tab_cycle_and_multiplicities() {
+    use kant::features::concept_model::RelationKind;
+    use kant::features::information_model::{ClassRelation, InformationClass};
+    use kant::ui::app::{
+        App, Message, Tab, INFO_EDGE_BTN_DELETE, INFO_EDGE_BTN_REVERSE, INFO_EDGE_BTN_SRC_MULT,
+    };
+
+    let mut app = App::new();
+    let class_a = InformationClass::new("Kunde");
+    let class_b = InformationClass::new("Ordre");
+    let a_id = class_a.id();
+    let b_id = class_b.id();
+    app.project_mut().information_model_mut().add_class(class_a);
+    app.project_mut().information_model_mut().add_class(class_b);
+    let node_a = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(a_id, 0);
+    let node_b = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(b_id, 0);
+
+    let rel = ClassRelation::new(a_id, b_id, RelationKind::Association, None);
+    app.project_mut().information_model_mut().add_relation(rel);
+    app.project_mut()
+        .information_graph_mut()
+        .add_relation(node_a, node_b, RelationKind::Association, None);
+
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    let _ = app.update(Message::InfoEdgeSelected(Some((node_a, node_b))));
+    assert_eq!(app.selected_info_edge(), Some((node_a, node_b)));
+
+    let _ = app.update(Message::FocusNext); // INFO_EDGE_BTN_REVERSE
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_EDGE_BTN_REVERSE),
+        "Tab fra input skal ramme Vend-knappen"
+    );
+
+    // Enter vender relationen
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(app.selected_info_edge(), Some((node_b, node_a)));
+
+    // Tab til SRC_MULT
+    let mut found_src_mult = false;
+    for _ in 0..10 {
+        let _ = app.update(Message::FocusNext);
+        if app.info_inspector_focused_button() == Some(INFO_EDGE_BTN_SRC_MULT) {
+            found_src_mult = true;
+            break;
+        }
+    }
+    assert!(
+        found_src_mult,
+        "Kilde-multiplicitet skal kunne fokuseres med Tab"
+    );
+
+    // Enter cykler multiplicity presets
+    let initial_mult = app
+        .project()
+        .information_model()
+        .find_relation(b_id, a_id)
+        .unwrap()
+        .source_multiplicity();
+    let _ = app.update(Message::EnterPressed);
+    let new_mult = app
+        .project()
+        .information_model()
+        .find_relation(b_id, a_id)
+        .unwrap()
+        .source_multiplicity();
+    assert_ne!(
+        initial_mult, new_mult,
+        "Enter på multiplicitet skal cykle presets"
+    );
+
+    // Tab til DELETE
+    let mut found_delete = false;
+    for _ in 0..10 {
+        let _ = app.update(Message::FocusNext);
+        if app.info_inspector_focused_button() == Some(INFO_EDGE_BTN_DELETE) {
+            found_delete = true;
+            break;
+        }
+    }
+    assert!(found_delete, "Slet-knap for kanten skal kunne nås med Tab");
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(
+        app.selected_info_edge(),
+        None,
+        "Enter på slet kant skal fravælge kanten og slette relationen"
+    );
+}
+
+#[test]
+fn test_task_075_information_model_class_relations_delete_cycle() {
+    use kant::features::concept_model::RelationKind;
+    use kant::features::information_model::{ClassRelation, InformationClass};
+    use kant::ui::app::{App, Message, Tab, INFO_INSPECTOR_REL_DELETE_START};
+
+    let mut app = App::new();
+    let class_a = InformationClass::new("Kunde");
+    let class_b = InformationClass::new("Ordre");
+    let a_id = class_a.id();
+    let b_id = class_b.id();
+    app.project_mut().information_model_mut().add_class(class_a);
+    app.project_mut().information_model_mut().add_class(class_b);
+    let node_a = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(a_id, 0);
+    let node_b = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(b_id, 0);
+
+    let rel = ClassRelation::new(a_id, b_id, RelationKind::Association, None);
+    app.project_mut().information_model_mut().add_relation(rel);
+    app.project_mut()
+        .information_graph_mut()
+        .add_relation(node_a, node_b, RelationKind::Association, None);
+
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    let _ = app.update(Message::SelectInformationClass(Some(a_id)));
+    assert_eq!(app.selected_info_class_id(), Some(a_id));
+
+    // Tab gennem klasse-egenskaber indtil slet-knappen for relationen nås
+    let mut found_rel_delete = false;
+    for _ in 0..25 {
+        let _ = app.update(Message::FocusNext);
+        if app.info_inspector_focused_button() == Some(INFO_INSPECTOR_REL_DELETE_START) {
+            found_rel_delete = true;
+            break;
+        }
+    }
+    assert!(
+        found_rel_delete,
+        "Slet-knap for tilknyttet relation skal nås i klasse-inspektorens Tab-cyklus"
+    );
+
+    // Enter skal slette relationen
+    let _ = app.update(Message::EnterPressed);
+    assert!(
+        app.project().information_model().relations().is_empty(),
+        "Enter på relationens slet-knap skal slette relationen fra modellen"
+    );
+}
