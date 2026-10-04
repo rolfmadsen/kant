@@ -1076,6 +1076,7 @@ pub struct App {
     pub modal_focus: FocusCycle,
     pub toolbar_focus: FocusCycle,
     pub info_inspector_focus: FocusCycle,
+    pub concept_inspector_focus: FocusCycle,
     pub is_concept_picker_open: bool,
     pub concept_picker_search: String,
     pub concept_picker_index: usize,
@@ -1217,6 +1218,7 @@ impl App {
                             Some(0),
                         ),
                         info_inspector_focus: FocusCycle::default(),
+                        concept_inspector_focus: FocusCycle::default(),
                         is_concept_picker_open: false,
                         concept_picker_search: String::new(),
                         concept_picker_index: 0,
@@ -1302,6 +1304,7 @@ impl App {
                 Some(0),
             ),
             info_inspector_focus: FocusCycle::default(),
+            concept_inspector_focus: FocusCycle::default(),
             is_concept_picker_open: false,
             concept_picker_search: String::new(),
             concept_picker_index: 0,
@@ -1728,7 +1731,9 @@ impl App {
 
     pub fn info_inspector_focused_button(&self) -> Option<usize> {
         if self.active_tab == Tab::InformationModel
-            && (self.selected_info_class_id.is_some() || self.selected_info_enum_id.is_some())
+            && (self.selected_info_class_id.is_some()
+                || self.selected_info_enum_id.is_some()
+                || self.selected_info_edge.is_some())
             && !self.has_active_modal()
             && self.editor_state.is_none()
         {
@@ -1739,7 +1744,37 @@ impl App {
     }
 
     pub fn concept_inspector_focused_button(&self) -> Option<usize> {
-        None
+        if self.active_tab == Tab::ConceptModel
+            && self.selected_edge.is_some()
+            && !self.has_active_modal()
+            && self.editor_state.is_none()
+        {
+            self.concept_inspector_focus.focused_button()
+        } else {
+            None
+        }
+    }
+
+    fn build_concept_inspector_targets(&self) -> Vec<FocusTarget> {
+        if let Some((from_id, to_id)) = self.selected_edge {
+            if let Some(edge) = self.project.concept_graph().find_edge(from_id, to_id) {
+                let mut targets = vec![
+                    FocusTarget::Input("edge_label_input"),
+                    FocusTarget::Button(CONCEPT_EDGE_BTN_REVERSE),
+                    FocusTarget::Button(CONCEPT_EDGE_BTN_KIND_ASSOC),
+                    FocusTarget::Button(CONCEPT_EDGE_BTN_KIND_GEN),
+                ];
+                if edge.kind() == RelationKind::Association {
+                    targets.push(FocusTarget::Button(CONCEPT_EDGE_BTN_DIRECTED_CHECKBOX));
+                }
+                targets.push(FocusTarget::Button(CONCEPT_EDGE_BTN_DELETE));
+                targets
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        }
     }
 
     fn build_concept_toolbar_targets(&self) -> Vec<FocusTarget> {
@@ -1788,6 +1823,10 @@ impl App {
                 for (j, _) in class.attributes().iter().enumerate() {
                     targets.push(FocusTarget::Button(INFO_INSPECTOR_ATTR_DELETE_START + j));
                 }
+                let class_relations = self.project.information_model().relations_for_class(class_id);
+                for (r, _) in class_relations.iter().enumerate() {
+                    targets.push(FocusTarget::Button(INFO_INSPECTOR_REL_DELETE_START + r));
+                }
             } else {
                 targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION));
                 targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS));
@@ -1811,6 +1850,28 @@ impl App {
                 }
             }
             targets
+        } else if let Some((from_id, to_id)) = self.selected_info_edge {
+            if let Some(edge) = self.project.information_graph().find_edge(from_id, to_id) {
+                let mut targets = vec![
+                    FocusTarget::Input("info_edge_label_input"),
+                    FocusTarget::Button(INFO_EDGE_BTN_REVERSE),
+                    FocusTarget::Button(INFO_EDGE_BTN_KIND_ASSOC),
+                    FocusTarget::Button(INFO_EDGE_BTN_KIND_GEN),
+                    FocusTarget::Button(INFO_EDGE_BTN_KIND_COMP),
+                    FocusTarget::Button(INFO_EDGE_BTN_KIND_DEP),
+                ];
+                if edge.kind() == RelationKind::Association {
+                    targets.push(FocusTarget::Button(INFO_EDGE_BTN_DIRECTED_CHECKBOX));
+                }
+                if edge.kind() != RelationKind::Generalization {
+                    targets.push(FocusTarget::Button(INFO_EDGE_BTN_SRC_MULT));
+                    targets.push(FocusTarget::Button(INFO_EDGE_BTN_TGT_MULT));
+                }
+                targets.push(FocusTarget::Button(INFO_EDGE_BTN_DELETE));
+                targets
+            } else {
+                Vec::new()
+            }
         } else {
             Vec::new()
         }
@@ -1889,7 +1950,9 @@ impl App {
         }
 
         if self.active_tab == Tab::InformationModel
-            && (self.selected_info_class_id.is_some() || self.selected_info_enum_id.is_some())
+            && (self.selected_info_class_id.is_some()
+                || self.selected_info_enum_id.is_some()
+                || self.selected_info_edge.is_some())
         {
             let targets = self.build_info_inspector_targets();
             if targets.is_empty() {
@@ -1908,6 +1971,42 @@ impl App {
             }
 
             match self.info_inspector_focus.current_target() {
+                Some(FocusTarget::Input(id)) => {
+                    return Some(operation::focus(*id));
+                }
+                Some(FocusTarget::Button(_)) => {
+                    return Some(operation::focus(iced::widget::Id::unique()));
+                }
+                None => return Some(Task::none()),
+            }
+        }
+
+        None
+    }
+
+    pub fn advance_concept_inspector_focus(&mut self, reverse: bool) -> Option<Task<Message>> {
+        if self.has_active_modal() || self.editor_state.is_some() {
+            return None;
+        }
+
+        if self.active_tab == Tab::ConceptModel && self.selected_edge.is_some() {
+            let targets = self.build_concept_inspector_targets();
+            if targets.is_empty() {
+                return None;
+            }
+            if self.concept_inspector_focus.count() == 0 {
+                self.concept_inspector_focus = FocusCycle::with_targets(targets, Some(0));
+            } else {
+                self.concept_inspector_focus.update_targets(targets);
+            }
+
+            if reverse {
+                self.concept_inspector_focus.previous();
+            } else {
+                self.concept_inspector_focus.next();
+            }
+
+            match self.concept_inspector_focus.current_target() {
                 Some(FocusTarget::Input(id)) => {
                     return Some(operation::focus(*id));
                 }
@@ -4437,6 +4536,9 @@ impl App {
                 if let Some(task) = self.advance_info_inspector_focus(false) {
                     return task;
                 }
+                if let Some(task) = self.advance_concept_inspector_focus(false) {
+                    return task;
+                }
                 if let Some(task) = self.advance_tab_focus(false) {
                     return task;
                 }
@@ -4450,6 +4552,9 @@ impl App {
                     return task;
                 }
                 if let Some(task) = self.advance_info_inspector_focus(true) {
+                    return task;
+                }
+                if let Some(task) = self.advance_concept_inspector_focus(true) {
                     return task;
                 }
                 if let Some(task) = self.advance_tab_focus(true) {
@@ -4504,9 +4609,11 @@ impl App {
 
                 if had_selection {
                     self.selected_edge = None;
+                    self.concept_inspector_focus = FocusCycle::default();
                     self.selected_graph_node_id = None;
                     self.selected_graph_node_ids.clear();
                     self.selected_info_edge = None;
+                    self.info_inspector_focus = FocusCycle::default();
                     self.selected_info_graph_node_id = None;
                     self.selected_info_graph_node_ids.clear();
                     self.selected_info_class_id = None;
@@ -4735,6 +4842,15 @@ impl App {
                             INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER => {
                                 return self.update(Message::OpenConceptPicker);
                             }
+                            _ if btn >= INFO_INSPECTOR_REL_DELETE_START => {
+                                let rel_idx = btn - INFO_INSPECTOR_REL_DELETE_START;
+                                let class_relations = self.project.information_model().relations_for_class(cid);
+                                if let Some(rel) = class_relations.get(rel_idx) {
+                                    let from = rel.from_class();
+                                    let to = rel.to_class();
+                                    return self.update(Message::DeleteClassRelation(from, to));
+                                }
+                            }
                             _ if btn >= INFO_INSPECTOR_ATTR_DELETE_START => {
                                 let attr_idx = btn - INFO_INSPECTOR_ATTR_DELETE_START;
                                 if let Some(cls) = self.project.information_model().get_class(cid) {
@@ -4751,9 +4867,9 @@ impl App {
                                         cls.concept_ids().get(concept_idx).copied()
                                     {
                                         return self.update(
-                                            Message::RemoveConceptFromInformationClass(
-                                                cid, concept_id,
-                                            ),
+                                             Message::RemoveConceptFromInformationClass(
+                                                 cid, concept_id,
+                                             ),
                                         );
                                     }
                                 }
@@ -4788,6 +4904,81 @@ impl App {
                                             .update(Message::RemoveValueFromEnumeration(eid, val));
                                     }
                                 }
+                            }
+                            _ => {}
+                        }
+                    } else if let Some((from_id, to_id)) = self.selected_info_edge {
+                        match btn {
+                            INFO_EDGE_BTN_REVERSE => {
+                                return self.update(Message::InfoReverseEdge(from_id, to_id));
+                            }
+                            INFO_EDGE_BTN_KIND_ASSOC => {
+                                return self.update(Message::InfoUpdateEdgeKind(from_id, to_id, RelationKind::Association));
+                            }
+                            INFO_EDGE_BTN_KIND_GEN => {
+                                return self.update(Message::InfoUpdateEdgeKind(from_id, to_id, RelationKind::Generalization));
+                            }
+                            INFO_EDGE_BTN_KIND_COMP => {
+                                return self.update(Message::InfoUpdateEdgeKind(from_id, to_id, RelationKind::Composition));
+                            }
+                            INFO_EDGE_BTN_KIND_DEP => {
+                                return self.update(Message::InfoUpdateEdgeKind(from_id, to_id, RelationKind::Dependency));
+                            }
+                            INFO_EDGE_BTN_DIRECTED_CHECKBOX => {
+                                if let Some(edge) = self.project.information_graph().find_edge(from_id, to_id) {
+                                    return self.update(Message::InfoToggleEdgeDirected(from_id, to_id, !edge.is_directed()));
+                                }
+                            }
+                            INFO_EDGE_BTN_SRC_MULT => {
+                                if let Some(edge) = self.project.information_graph().find_edge(from_id, to_id) {
+                                    let current = edge.source_multiplicity();
+                                    let presets = crate::features::information_model::Multiplicity::PRESETS;
+                                    let next_idx = match current {
+                                        Some(m) => (presets.iter().position(|&p| p == m).unwrap_or(0) + 1) % presets.len(),
+                                        None => 0,
+                                    };
+                                    return self.update(Message::InfoUpdateEdgeSourceMultiplicity(from_id, to_id, Some(presets[next_idx])));
+                                }
+                            }
+                            INFO_EDGE_BTN_TGT_MULT => {
+                                if let Some(edge) = self.project.information_graph().find_edge(from_id, to_id) {
+                                    let current = edge.target_multiplicity();
+                                    let presets = crate::features::information_model::Multiplicity::PRESETS;
+                                    let next_idx = match current {
+                                        Some(m) => (presets.iter().position(|&p| p == m).unwrap_or(0) + 1) % presets.len(),
+                                        None => 0,
+                                    };
+                                    return self.update(Message::InfoUpdateEdgeTargetMultiplicity(from_id, to_id, Some(presets[next_idx])));
+                                }
+                            }
+                            INFO_EDGE_BTN_DELETE => {
+                                return self.update(Message::DeleteClassRelation(from_id, to_id));
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                // 3b. Hvis Begrebsdiagrammets inspektor har en fokuseret knap
+                if let Some(btn) = self.concept_inspector_focused_button() {
+                    if let Some((from_id, to_id)) = self.selected_edge {
+                        match btn {
+                            CONCEPT_EDGE_BTN_REVERSE => {
+                                return self.update(Message::GraphReverseEdge(from_id, to_id));
+                            }
+                            CONCEPT_EDGE_BTN_KIND_ASSOC => {
+                                return self.update(Message::GraphUpdateEdgeKind(from_id, to_id, RelationKind::Association));
+                            }
+                            CONCEPT_EDGE_BTN_KIND_GEN => {
+                                return self.update(Message::GraphUpdateEdgeKind(from_id, to_id, RelationKind::Generalization));
+                            }
+                            CONCEPT_EDGE_BTN_DIRECTED_CHECKBOX => {
+                                if let Some(edge) = self.project.concept_graph().find_edge(from_id, to_id) {
+                                    return self.update(Message::GraphToggleEdgeDirected(from_id, to_id, !edge.is_directed()));
+                                }
+                            }
+                            CONCEPT_EDGE_BTN_DELETE => {
+                                return self.update(Message::GraphDeleteRelation(from_id, to_id));
                             }
                             _ => {}
                         }
@@ -4900,6 +5091,10 @@ impl App {
                 if edge.is_some() {
                     self.selected_graph_node_id = None;
                     self.selected_graph_node_ids.clear();
+                    let targets = self.build_concept_inspector_targets();
+                    self.concept_inspector_focus = FocusCycle::with_targets(targets, Some(0));
+                } else {
+                    self.concept_inspector_focus.reset();
                 }
             }
             Message::GraphEdgeCreated(from, to) => {
@@ -6676,6 +6871,11 @@ impl App {
                     self.selected_info_graph_node_id = None;
                     self.selected_info_graph_node_ids.clear();
                     self.selected_info_class_id = None;
+                    self.selected_info_enum_id = None;
+                    let targets = self.build_info_inspector_targets();
+                    self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
+                } else {
+                    self.info_inspector_focus.reset();
                 }
             }
             Message::InfoEdgeCreated(from, to) => {
@@ -9213,6 +9413,7 @@ impl App {
                 self.relation_dialog.as_ref(),
                 self.show_left_sidebar,
                 self.palette_drag.as_ref().is_some_and(|d| d.is_dragging),
+                self.concept_inspector_focused_button(),
             ),
 
             Tab::InformationModel => information_model_view::view(

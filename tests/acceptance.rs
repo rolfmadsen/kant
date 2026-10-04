@@ -11049,12 +11049,30 @@ fn test_task_075_concept_diagram_edge_tab_cycle_and_activation() {
         "Wrap around skal fokusere tekstfeltet"
     );
 
-    // Enter på Delete
-    let _ = app.update(Message::FocusPrevious); // tilbage til Delete
+    // Tab tilbage til KIND_GEN og skift relationstype
+    let _ = app.update(Message::FocusNext); // REVERSE
+    let _ = app.update(Message::FocusNext); // KIND_ASSOC
+    let _ = app.update(Message::FocusNext); // KIND_GEN
     assert_eq!(
         app.concept_inspector_focused_button(),
-        Some(CONCEPT_EDGE_BTN_DELETE)
+        Some(CONCEPT_EDGE_BTN_KIND_GEN)
     );
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(
+        app.project().concept_graph().find_edge(n2, n1).unwrap().kind(),
+        RelationKind::Generalization,
+        "Enter på KIND_GEN skal ændre relationstype til Generalisering"
+    );
+
+    // Nu da kanten er Generalisering, skal Tab fra KIND_GEN springe direkte til DELETE
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.concept_inspector_focused_button(),
+        Some(CONCEPT_EDGE_BTN_DELETE),
+        "Directed checkbox skal udelades fra Tab-cyklus ved Generalisering"
+    );
+
+    // Enter på Delete
     let _ = app.update(Message::EnterPressed);
     assert_eq!(app.selected_edge(), None, "Kant skal være slettet og fravælges");
 }

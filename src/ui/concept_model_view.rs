@@ -29,6 +29,7 @@ pub fn view<'a>(
     relation_dialog: Option<&'a RelationDialogState>,
     show_left_sidebar: bool,
     is_palette_dragging: bool,
+    inspector_focused_button: Option<usize>,
 ) -> Element<'a, Message> {
     // ==========================================
     // 1. VENSTRE PALET (Repository Browser ~240px)
@@ -424,6 +425,8 @@ pub fn view<'a>(
                 Some(Message::GraphEdgeSelected(None)),
             );
 
+            let is_reverse_focused = inspector_focused_button
+                == Some(crate::ui::app::CONCEPT_EDGE_BTN_REVERSE);
             let nodes_info = column![
                 crate::ui::inspector_panel::section_header("Forbindelse"),
                 row![
@@ -432,7 +435,7 @@ pub fn view<'a>(
                         .color(ThemeColors::SLATE_900),
                     Space::new().width(Length::Fill),
                     button(text("⇄ Vend").size(11))
-                        .style(secondary_button_style)
+                        .style(focused_button_style(secondary_button_style, is_reverse_focused))
                         .on_press(Message::GraphReverseEdge(from_id, to_id))
                         .padding([2, 6]),
                 ]
@@ -440,13 +443,20 @@ pub fn view<'a>(
             ]
             .spacing(4);
 
+            let is_assoc_focused = inspector_focused_button
+                == Some(crate::ui::app::CONCEPT_EDGE_BTN_KIND_ASSOC);
+            let is_gen_focused = inspector_focused_button
+                == Some(crate::ui::app::CONCEPT_EDGE_BTN_KIND_GEN);
             let mut buttons = vec![
                 button(text("Association").size(11))
-                    .style(if edge.kind() == RelationKind::Association {
-                        primary_button_style
-                    } else {
-                        secondary_button_style
-                    })
+                    .style(focused_button_style(
+                        if edge.kind() == RelationKind::Association {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        },
+                        is_assoc_focused,
+                    ))
                     .on_press(Message::GraphUpdateEdgeKind(
                         from_id,
                         to_id,
@@ -455,11 +465,14 @@ pub fn view<'a>(
                     .padding([4, 6])
                     .into(),
                 button(text("Generalisering").size(11))
-                    .style(if edge.kind() == RelationKind::Generalization {
-                        primary_button_style
-                    } else {
-                        secondary_button_style
-                    })
+                    .style(focused_button_style(
+                        if edge.kind() == RelationKind::Generalization {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        },
+                        is_gen_focused,
+                    ))
                     .on_press(Message::GraphUpdateEdgeKind(
                         from_id,
                         to_id,
@@ -485,16 +498,33 @@ pub fn view<'a>(
             ]
             .spacing(4);
 
+            let is_dir_focused = inspector_focused_button
+                == Some(crate::ui::app::CONCEPT_EDGE_BTN_DIRECTED_CHECKBOX);
             let directed_selector: Element<'a, Message> =
                 if edge.kind() == RelationKind::Association {
+                    let cb = checkbox(edge.is_directed())
+                        .label("Halv pil (rettet)")
+                        .size(14)
+                        .on_toggle(move |val| Message::GraphToggleEdgeDirected(
+                            from_id, to_id, val
+                        ));
+                    let cb_container = container(cb)
+                        .padding([2, 4])
+                        .style(move |_| container::Style {
+                            border: iced::Border {
+                                color: if is_dir_focused {
+                                    ThemeColors::FOCUS_RING
+                                } else {
+                                    iced::Color::TRANSPARENT
+                                },
+                                width: if is_dir_focused { 1.5 } else { 0.0 },
+                                radius: 4.0.into(),
+                            },
+                            ..Default::default()
+                        });
                     column![
                         crate::ui::inspector_panel::section_header("Retning / Navigabilitet"),
-                        checkbox(edge.is_directed())
-                            .label("Halv pil (rettet)")
-                            .size(14)
-                            .on_toggle(move |val| Message::GraphToggleEdgeDirected(
-                                from_id, to_id, val
-                            )),
+                        cb_container,
                     ]
                     .spacing(4)
                     .into()
@@ -513,8 +543,10 @@ pub fn view<'a>(
             ]
             .spacing(4);
 
+            let is_del_focused = inspector_focused_button
+                == Some(crate::ui::app::CONCEPT_EDGE_BTN_DELETE);
             let actions = row![button(text("🗑️ Slet relation").size(11))
-                .style(danger_button_style)
+                .style(focused_button_style(danger_button_style, is_del_focused))
                 .on_press(Message::GraphDeleteRelation(from_id, to_id))
                 .padding([4, 10]),]
             .align_y(Alignment::Center);

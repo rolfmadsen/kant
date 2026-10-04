@@ -751,6 +751,8 @@ pub fn view<'a>(
                 Some(Message::InfoEdgeSelected(None)),
             );
 
+            let is_reverse_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_EDGE_BTN_REVERSE);
             let nodes_info = column![
                 crate::ui::inspector_panel::section_header("Forbindelse"),
                 row![
@@ -759,7 +761,7 @@ pub fn view<'a>(
                         .color(ThemeColors::SLATE_900),
                     Space::new().width(Length::Fill),
                     button(text("⇄ Vend").size(11))
-                        .style(secondary_button_style)
+                        .style(focused_button_style(secondary_button_style, is_reverse_focused))
                         .on_press(Message::InfoReverseEdge(from_id, to_id))
                         .padding([2, 6]),
                 ]
@@ -767,15 +769,27 @@ pub fn view<'a>(
             ]
             .spacing(4);
 
+            let is_assoc_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_EDGE_BTN_KIND_ASSOC);
+            let is_gen_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_EDGE_BTN_KIND_GEN);
+            let is_comp_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_EDGE_BTN_KIND_COMP);
+            let is_dep_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_EDGE_BTN_KIND_DEP);
+
             let kind_selector = column![
                 crate::ui::inspector_panel::section_header("Relationstype"),
                 row![
                     button(text("Association").size(11))
-                        .style(if edge.kind() == RelationKind::Association {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
+                        .style(focused_button_style(
+                            if edge.kind() == RelationKind::Association {
+                                primary_button_style
+                            } else {
+                                secondary_button_style
+                            },
+                            is_assoc_focused,
+                        ))
                         .on_press(Message::InfoUpdateEdgeKind(
                             from_id,
                             to_id,
@@ -783,11 +797,14 @@ pub fn view<'a>(
                         ))
                         .padding([4, 6]),
                     button(text("Generalisering").size(11))
-                        .style(if edge.kind() == RelationKind::Generalization {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
+                        .style(focused_button_style(
+                            if edge.kind() == RelationKind::Generalization {
+                                primary_button_style
+                            } else {
+                                secondary_button_style
+                            },
+                            is_gen_focused,
+                        ))
                         .on_press(Message::InfoUpdateEdgeKind(
                             from_id,
                             to_id,
@@ -795,11 +812,14 @@ pub fn view<'a>(
                         ))
                         .padding([4, 6]),
                     button(text("Komposition").size(11))
-                        .style(if edge.kind() == RelationKind::Composition {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
+                        .style(focused_button_style(
+                            if edge.kind() == RelationKind::Composition {
+                                primary_button_style
+                            } else {
+                                secondary_button_style
+                            },
+                            is_comp_focused,
+                        ))
                         .on_press(Message::InfoUpdateEdgeKind(
                             from_id,
                             to_id,
@@ -807,11 +827,14 @@ pub fn view<'a>(
                         ))
                         .padding([4, 6]),
                     button(text("Dependency").size(11))
-                        .style(if edge.kind() == RelationKind::Dependency {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
+                        .style(focused_button_style(
+                            if edge.kind() == RelationKind::Dependency {
+                                primary_button_style
+                            } else {
+                                secondary_button_style
+                            },
+                            is_dep_focused,
+                        ))
                         .on_press(Message::InfoUpdateEdgeKind(
                             from_id,
                             to_id,
@@ -823,15 +846,32 @@ pub fn view<'a>(
             ]
             .spacing(4);
 
+            let is_dir_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_EDGE_BTN_DIRECTED_CHECKBOX);
             let directed_selector: Element<'a, Message> = if edge.kind()
                 == RelationKind::Association
             {
+                let cb = checkbox(edge.is_directed())
+                    .label("Halv pil (rettet)")
+                    .size(14)
+                    .on_toggle(move |val| Message::InfoToggleEdgeDirected(from_id, to_id, val));
+                let cb_container = container(cb)
+                    .padding([2, 4])
+                    .style(move |_| container::Style {
+                        border: iced::Border {
+                            color: if is_dir_focused {
+                                ThemeColors::FOCUS_RING
+                            } else {
+                                iced::Color::TRANSPARENT
+                            },
+                            width: if is_dir_focused { 1.5 } else { 0.0 },
+                            radius: 4.0.into(),
+                        },
+                        ..Default::default()
+                    });
                 column![
                     crate::ui::inspector_panel::section_header("Retning / Navigabilitet"),
-                    checkbox(edge.is_directed())
-                        .label("Halv pil (rettet)")
-                        .size(14)
-                        .on_toggle(move |val| Message::InfoToggleEdgeDirected(from_id, to_id, val)),
+                    cb_container,
                 ]
                 .spacing(4)
                 .into()
@@ -839,8 +879,68 @@ pub fn view<'a>(
                 Space::new().height(0).into()
             };
 
+            let is_src_mult_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_EDGE_BTN_SRC_MULT);
+            let is_tgt_mult_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_EDGE_BTN_TGT_MULT);
             let multiplicity_selector: Element<'a, Message> =
                 if edge.kind() != RelationKind::Generalization {
+                    let src_pick = pick_list(
+                        Multiplicity::PRESETS,
+                        edge.source_multiplicity(),
+                        move |m| Message::InfoUpdateEdgeSourceMultiplicity(
+                            from_id,
+                            to_id,
+                            Some(m)
+                        ),
+                    )
+                    .placeholder("Vælg...")
+                    .text_size(11.0)
+                    .padding([3, 6])
+                    .width(Length::Fill);
+
+                    let src_container = container(src_pick)
+                        .style(move |_| container::Style {
+                            border: iced::Border {
+                                color: if is_src_mult_focused {
+                                    ThemeColors::FOCUS_RING
+                                } else {
+                                    iced::Color::TRANSPARENT
+                                },
+                                width: if is_src_mult_focused { 1.5 } else { 0.0 },
+                                radius: 4.0.into(),
+                            },
+                            ..Default::default()
+                        });
+
+                    let tgt_pick = pick_list(
+                        Multiplicity::PRESETS,
+                        edge.target_multiplicity(),
+                        move |m| Message::InfoUpdateEdgeTargetMultiplicity(
+                            from_id,
+                            to_id,
+                            Some(m)
+                        ),
+                    )
+                    .placeholder("Vælg...")
+                    .text_size(11.0)
+                    .padding([3, 6])
+                    .width(Length::Fill);
+
+                    let tgt_container = container(tgt_pick)
+                        .style(move |_| container::Style {
+                            border: iced::Border {
+                                color: if is_tgt_mult_focused {
+                                    ThemeColors::FOCUS_RING
+                                } else {
+                                    iced::Color::TRANSPARENT
+                                },
+                                width: if is_tgt_mult_focused { 1.5 } else { 0.0 },
+                                radius: 4.0.into(),
+                            },
+                            ..Default::default()
+                        });
+
                     column![
                         crate::ui::inspector_panel::section_header("Multipliciteter (FDA §6)"),
                         row![
@@ -848,19 +948,7 @@ pub fn view<'a>(
                                 text(format!("Kilde ({})", from_class))
                                     .size(11)
                                     .color(ThemeColors::SLATE_600),
-                                pick_list(
-                                    Multiplicity::PRESETS,
-                                    edge.source_multiplicity(),
-                                    move |m| Message::InfoUpdateEdgeSourceMultiplicity(
-                                        from_id,
-                                        to_id,
-                                        Some(m)
-                                    ),
-                                )
-                                .placeholder("Vælg...")
-                                .text_size(11.0)
-                                .padding([3, 6])
-                                .width(Length::FillPortion(1)),
+                                src_container,
                             ]
                             .spacing(2)
                             .width(Length::FillPortion(1)),
@@ -868,19 +956,7 @@ pub fn view<'a>(
                                 text(format!("Mål ({})", to_class))
                                     .size(11)
                                     .color(ThemeColors::SLATE_600),
-                                pick_list(
-                                    Multiplicity::PRESETS,
-                                    edge.target_multiplicity(),
-                                    move |m| Message::InfoUpdateEdgeTargetMultiplicity(
-                                        from_id,
-                                        to_id,
-                                        Some(m)
-                                    ),
-                                )
-                                .placeholder("Vælg...")
-                                .text_size(11.0)
-                                .padding([3, 6])
-                                .width(Length::FillPortion(1)),
+                                tgt_container,
                             ]
                             .spacing(2)
                             .width(Length::FillPortion(1)),
@@ -917,8 +993,10 @@ pub fn view<'a>(
 
             let label_input = label_col;
 
+            let is_del_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_EDGE_BTN_DELETE);
             let actions = row![button(text("🗑️ Slet relation").size(11))
-                .style(danger_button_style)
+                .style(focused_button_style(danger_button_style, is_del_focused))
                 .on_press(Message::DeleteClassRelation(from_id, to_id))
                 .padding([4, 10]),]
             .align_y(Alignment::Center);
@@ -1493,7 +1571,7 @@ pub fn view<'a>(
                     .color(ThemeColors::TEXT_MUTED),
             );
         } else {
-            for rel in connected_relations {
+            for (idx, rel) in connected_relations.iter().enumerate() {
                 let from_class = info_model
                     .get_class(rel.from_class())
                     .map(|c| c.name())
@@ -1524,13 +1602,15 @@ pub fn view<'a>(
 
                 let rel_from = rel.from_class();
                 let rel_to = rel.to_class();
+                let is_rel_del_focused = inspector_focused_button
+                    == Some(crate::ui::app::INFO_INSPECTOR_REL_DELETE_START + idx);
                 let edge_row = row![
                     text(desc)
                         .size(11)
                         .color(ThemeColors::SLATE_800)
                         .width(Length::Fill),
                     button(text("🗑️").size(11))
-                        .style(danger_button_style)
+                        .style(focused_button_style(danger_button_style, is_rel_del_focused))
                         .on_press(Message::DeleteClassRelation(rel_from, rel_to))
                         .padding([2, 5]),
                 ]
