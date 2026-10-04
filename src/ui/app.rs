@@ -514,6 +514,15 @@ pub const GIT_CLONE_BTN_CLONE: usize = 2;
 pub const META_BTN_CANCEL: usize = 0;
 pub const META_BTN_SAVE: usize = 1;
 
+pub const TOOLBAR_BTN_NEW_CONCEPT: usize = 0;
+pub const TOOLBAR_BTN_IMPORT_EXCEL: usize = 1;
+pub const TOOLBAR_BTN_EXPORT_EXCEL: usize = 2;
+pub const TOOLBAR_BTN_TEMPLATE: usize = 3;
+pub const TOOLBAR_BTN_GUIDE: usize = 4;
+
+pub const INFO_INSPECTOR_BTN_CANVAS_ACTION: usize = 0;
+pub const INFO_INSPECTOR_BTN_DELETE_CLASS: usize = 1;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SaveStatus {
     Saved { path: String, timestamp: String },
@@ -1018,6 +1027,8 @@ pub struct App {
     excel_import_preview: Option<ExcelImportPreviewState>,
     recent_store: crate::features::model::recent::RecentStore,
     pub modal_focus: FocusCycle,
+    pub toolbar_focus: FocusCycle,
+    pub info_inspector_focus: FocusCycle,
 }
 
 impl Default for App {
@@ -1144,6 +1155,18 @@ impl App {
                         excel_schema_guide_open: false,
                         excel_import_preview: None,
                         modal_focus: FocusCycle::default(),
+                        toolbar_focus: FocusCycle::with_targets(
+                            vec![
+                                FocusTarget::Input("concept_search_input"),
+                                FocusTarget::Button(TOOLBAR_BTN_NEW_CONCEPT),
+                                FocusTarget::Button(TOOLBAR_BTN_IMPORT_EXCEL),
+                                FocusTarget::Button(TOOLBAR_BTN_EXPORT_EXCEL),
+                                FocusTarget::Button(TOOLBAR_BTN_TEMPLATE),
+                                FocusTarget::Button(TOOLBAR_BTN_GUIDE),
+                            ],
+                            Some(0),
+                        ),
+                        info_inspector_focus: FocusCycle::default(),
                     };
                 }
             }
@@ -1214,6 +1237,18 @@ impl App {
             excel_import_preview: None,
             recent_store,
             modal_focus: FocusCycle::default(),
+            toolbar_focus: FocusCycle::with_targets(
+                vec![
+                    FocusTarget::Input("concept_search_input"),
+                    FocusTarget::Button(TOOLBAR_BTN_NEW_CONCEPT),
+                    FocusTarget::Button(TOOLBAR_BTN_IMPORT_EXCEL),
+                    FocusTarget::Button(TOOLBAR_BTN_EXPORT_EXCEL),
+                    FocusTarget::Button(TOOLBAR_BTN_TEMPLATE),
+                    FocusTarget::Button(TOOLBAR_BTN_GUIDE),
+                ],
+                Some(0),
+            ),
+            info_inspector_focus: FocusCycle::default(),
         }
     }
 
@@ -1579,6 +1614,104 @@ impl App {
         self.editor_state.as_ref().and_then(|e| e.focused_button())
     }
 
+    pub fn toolbar_focused_button(&self) -> Option<usize> {
+        if self.active_tab == Tab::ConceptList && !self.has_active_modal() && self.editor_state.is_none() {
+            self.toolbar_focus.focused_button()
+        } else {
+            None
+        }
+    }
+
+    pub fn info_inspector_focused_button(&self) -> Option<usize> {
+        if self.active_tab == Tab::InformationModel
+            && self.selected_info_class_id.is_some()
+            && !self.has_active_modal()
+            && self.editor_state.is_none()
+        {
+            self.info_inspector_focus.focused_button()
+        } else {
+            None
+        }
+    }
+
+    pub fn advance_tab_focus(&mut self, reverse: bool) -> Option<Task<Message>> {
+        if self.has_active_modal() || self.editor_state.is_some() {
+            return None;
+        }
+
+        if self.active_tab == Tab::ConceptList {
+            if self.toolbar_focus.count() == 0 {
+                self.toolbar_focus = FocusCycle::with_targets(
+                    vec![
+                        FocusTarget::Input("concept_search_input"),
+                        FocusTarget::Button(TOOLBAR_BTN_NEW_CONCEPT),
+                        FocusTarget::Button(TOOLBAR_BTN_IMPORT_EXCEL),
+                        FocusTarget::Button(TOOLBAR_BTN_EXPORT_EXCEL),
+                        FocusTarget::Button(TOOLBAR_BTN_TEMPLATE),
+                        FocusTarget::Button(TOOLBAR_BTN_GUIDE),
+                    ],
+                    Some(0),
+                );
+            }
+
+            if reverse {
+                self.toolbar_focus.previous();
+            } else {
+                self.toolbar_focus.next();
+            }
+
+            match self.toolbar_focus.current_target() {
+                Some(FocusTarget::Input(id)) => {
+                    return Some(operation::focus(*id));
+                }
+                Some(FocusTarget::Button(_)) => {
+                    return Some(operation::focus(iced::widget::Id::unique()));
+                }
+                None => return Some(Task::none()),
+            }
+        }
+
+        None
+    }
+
+    pub fn advance_info_inspector_focus(&mut self, reverse: bool) -> Option<Task<Message>> {
+        if self.has_active_modal() || self.editor_state.is_some() {
+            return None;
+        }
+
+        if self.active_tab == Tab::InformationModel && self.selected_info_class_id.is_some() {
+            if self.info_inspector_focus.count() == 0 {
+                self.info_inspector_focus = FocusCycle::with_targets(
+                    vec![
+                        FocusTarget::Input("info_class_name_input"),
+                        FocusTarget::Input("info_class_desc_input"),
+                        FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION),
+                        FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS),
+                    ],
+                    Some(0),
+                );
+            }
+
+            if reverse {
+                self.info_inspector_focus.previous();
+            } else {
+                self.info_inspector_focus.next();
+            }
+
+            match self.info_inspector_focus.current_target() {
+                Some(FocusTarget::Input(id)) => {
+                    return Some(operation::focus(*id));
+                }
+                Some(FocusTarget::Button(_)) => {
+                    return Some(operation::focus(iced::widget::Id::unique()));
+                }
+                None => return Some(Task::none()),
+            }
+        }
+
+        None
+    }
+
     pub fn advance_modal_focus(&mut self, reverse: bool) -> Option<Task<Message>> {
         if !self.has_active_modal() {
             return None;
@@ -1610,10 +1743,10 @@ impl App {
         if let Some(editor) = &mut self.editor_state {
             let target = editor.advance_focus(reverse);
             match target {
-                crate::ui::concept_editor::ConceptEditorFocusTarget::Input(id) => {
+                FocusTarget::Input(id) => {
                     return Some(operation::focus(id));
                 }
-                crate::ui::concept_editor::ConceptEditorFocusTarget::Button(_) => {
+                FocusTarget::Button(_) => {
                     return Some(operation::focus(iced::widget::Id::unique()));
                 }
             }
@@ -2413,8 +2546,21 @@ impl App {
             Message::OpenStartSessionModal => {
                 if !self.collab_state.is_active() {
                     self.active_menu = None;
-                    self.start_session_modal = Some(StartSessionModalState::new());
-                    self.modal_focus = FocusCycle::with_initial(3, Some(2));
+                    let modal = StartSessionModalState::new();
+                    if modal.preset == RelayServerPreset::Custom
+                        || modal.preset == RelayServerPreset::InternalOrg
+                    {
+                        let targets = vec![
+                            FocusTarget::Input("start_session_custom_url"),
+                            FocusTarget::Button(0),
+                            FocusTarget::Button(1),
+                            FocusTarget::Button(2),
+                        ];
+                        self.modal_focus = FocusCycle::with_targets(targets, Some(0));
+                    } else {
+                        self.modal_focus = FocusCycle::with_initial(3, Some(2));
+                    }
+                    self.start_session_modal = Some(modal);
                 }
             }
             Message::CloseCollabModal => {
@@ -2426,6 +2572,19 @@ impl App {
             Message::CollabPresetSelected(preset) => {
                 if let Some(modal) = &mut self.start_session_modal {
                     modal.set_preset(preset);
+                    if preset == RelayServerPreset::Custom
+                        || preset == RelayServerPreset::InternalOrg
+                    {
+                        let targets = vec![
+                            FocusTarget::Input("start_session_custom_url"),
+                            FocusTarget::Button(0),
+                            FocusTarget::Button(1),
+                            FocusTarget::Button(2),
+                        ];
+                        self.modal_focus = FocusCycle::with_targets(targets, Some(0));
+                    } else {
+                        self.modal_focus = FocusCycle::with_initial(3, Some(2));
+                    }
                 }
             }
             Message::CollabCustomUrlChanged(url) => {
@@ -2505,6 +2664,8 @@ impl App {
             }
             Message::SelectTab(tab) => {
                 self.active_tab = tab;
+                self.toolbar_focus.reset();
+                self.info_inspector_focus.reset();
                 if tab == Tab::ConceptModel {
                     self.project.sync_concept_graph();
                 } else if tab == Tab::InformationModel {
@@ -2820,16 +2981,19 @@ impl App {
             Message::OpenModelHistoryModal => {
                 if let Some(dir) = self.repo_dir() {
                     let commits = GitService::get_commit_history(&dir, 50).unwrap_or_default();
+                    self.modal_focus = FocusCycle::with_initial(1, Some(0));
                     self.history_modal = Some(ModelHistoryModalState::new(None, commits));
                 }
             }
             Message::OpenElementHistoryModal(id) => {
                 if let Some(dir) = self.repo_dir() {
                     let commits = GitService::get_element_history(&dir, id).unwrap_or_default();
+                    self.modal_focus = FocusCycle::with_initial(1, Some(0));
                     self.history_modal = Some(ModelHistoryModalState::new(Some(id), commits));
                 }
             }
             Message::CloseModelHistoryModal => {
+                self.modal_focus.reset();
                 self.history_modal = None;
             }
             Message::OpenConflictResolverModal(conflicts) => {
@@ -3472,6 +3636,24 @@ impl App {
                 self.active_menu = None;
                 self.project = ModelProject::default();
                 self.active_tab = Tab::ConceptList;
+                let targets = vec![
+                    FocusTarget::Input("meta_name"),
+                    FocusTarget::Input("meta_desc"),
+                    FocusTarget::Input("meta_uri"),
+                    FocusTarget::Input("meta_approved_by"),
+                    FocusTarget::Input("meta_domain_area"),
+                    FocusTarget::Input("meta_responsible_org"),
+                    FocusTarget::Input("meta_version"),
+                    FocusTarget::Input("meta_language"),
+                    FocusTarget::Input("meta_date_modified"),
+                    FocusTarget::Input("meta_version_notes"),
+                    FocusTarget::Input("meta_legal_sources"),
+                    FocusTarget::Input("meta_source"),
+                    FocusTarget::Input("meta_derived_from"),
+                    FocusTarget::Button(META_BTN_CANCEL),
+                    FocusTarget::Button(META_BTN_SAVE),
+                ];
+                self.modal_focus = FocusCycle::with_targets(targets, Some(0));
                 self.metadata_modal = Some(ModelMetadataModalState::from_metadata(
                     self.project.metadata(),
                 ));
@@ -3489,10 +3671,12 @@ impl App {
                 self.selected_info_graph_node_id = None;
                 self.selected_info_edge = None;
                 self.info_class_search.clear();
+                return operation::focus("meta_name");
             }
             Message::StartNewConcept => {
                 self.editor_state = Some(ConceptEditorState::new_empty());
                 self.is_inline_graph_editing = false;
+                self.toolbar_focus.reset();
                 return operation::focus("preferred_term_input");
             }
             Message::EditConcept(id) => {
@@ -3500,6 +3684,7 @@ impl App {
                     self.editor_state = Some(ConceptEditorState::from_concept(concept));
                     self.is_inline_graph_editing = false;
                     self.active_tab = Tab::ConceptList;
+                    self.toolbar_focus.reset();
                     return operation::focus("preferred_term_input");
                 }
             }
@@ -3586,6 +3771,7 @@ impl App {
             }
             Message::SearchQueryChanged(query) => {
                 self.search_query = query;
+                self.toolbar_focus.sync_input("concept_search_input");
             }
             Message::ToggleShowAllFields => {
                 if let Some(editor) = &mut self.editor_state {
@@ -4037,6 +4223,12 @@ impl App {
                 if let Some(task) = self.advance_editor_focus(false) {
                     return task;
                 }
+                if let Some(task) = self.advance_info_inspector_focus(false) {
+                    return task;
+                }
+                if let Some(task) = self.advance_tab_focus(false) {
+                    return task;
+                }
                 return operation::focus_next();
             }
             Message::FocusPrevious => {
@@ -4044,6 +4236,12 @@ impl App {
                     return task;
                 }
                 if let Some(task) = self.advance_editor_focus(true) {
+                    return task;
+                }
+                if let Some(task) = self.advance_info_inspector_focus(true) {
+                    return task;
+                }
+                if let Some(task) = self.advance_tab_focus(true) {
                     return task;
                 }
                 return operation::focus_previous();
@@ -4227,13 +4425,46 @@ impl App {
                     }
                 }
 
+                // 3. Hvis Informationsmodellens inspektor har en fokuseret knap
+                if let Some(btn) = self.info_inspector_focused_button() {
+                    if let Some(cid) = self.selected_info_class_id {
+                        match btn {
+                            INFO_INSPECTOR_BTN_CANVAS_ACTION => {
+                                if let Some(node) = self.project.information_graph().find_node_by_class(cid) {
+                                    let node_id = node.id();
+                                    return self.update(Message::RemoveClassFromDiagram(node_id));
+                                } else {
+                                    return self.update(Message::AddClassToDiagram(cid));
+                                }
+                            }
+                            INFO_INSPECTOR_BTN_DELETE_CLASS => {
+                                return self.update(Message::DeleteInformationClass(cid));
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                // 4. Hvis Værktøjslinjen (Tab 1) har en fokuseret knap
+                if let Some(btn) = self.toolbar_focused_button() {
+                    match btn {
+                        TOOLBAR_BTN_NEW_CONCEPT => return self.update(Message::StartNewConcept),
+                        TOOLBAR_BTN_IMPORT_EXCEL => return self.update(Message::ImportConceptsExcelDialog),
+                        TOOLBAR_BTN_EXPORT_EXCEL => return self.update(Message::ExportConceptListXlsxDialog),
+                        TOOLBAR_BTN_TEMPLATE => return self.update(Message::ExportFdaTemplateXlsxDialog),
+                        TOOLBAR_BTN_GUIDE => return self.update(Message::OpenExcelSchemaGuideModal),
+                        _ => {}
+                    }
+                }
+
                 match self.active_tab {
                     Tab::ConceptModel => {
                         if let Some(node_id) = self.selected_graph_node_id {
                             if let Some(node) = self.project.concept_graph().find_node(node_id) {
                                 if let Some(concept) = self.project.get_concept(node.concept_id()) {
-                                    self.editor_state =
-                                        Some(ConceptEditorState::from_concept(concept));
+                                    let mut editor = ConceptEditorState::from_concept(concept);
+                                    editor.set_inline(true);
+                                    self.editor_state = Some(editor);
                                     self.is_inline_graph_editing = true;
                                     return operation::focus("preferred_term_input");
                                 }
@@ -4857,6 +5088,7 @@ impl App {
                     self.selected_edge = None;
                     let mut editor = ConceptEditorState::from_concept(&concept);
                     editor.preferred_term = String::new();
+                    editor.set_inline(true);
                     self.editor_state = Some(editor);
                     self.is_inline_graph_editing = true;
                     self.broadcast_mutation(
@@ -4950,7 +5182,9 @@ impl App {
                 self.selected_graph_node_id = Some(node_id);
                 if let Some(node) = self.project.concept_graph().find_node(node_id) {
                     if let Some(concept) = self.project.get_concept(node.concept_id()) {
-                        self.editor_state = Some(ConceptEditorState::from_concept(concept));
+                        let mut editor = ConceptEditorState::from_concept(concept);
+                        editor.set_inline(true);
+                        self.editor_state = Some(editor);
                         self.is_inline_graph_editing = true;
                         return operation::focus("preferred_term_input");
                     }
@@ -4985,6 +5219,12 @@ impl App {
                             return self.update(Message::EnterPressed);
                         }
                     }
+                    if self.info_inspector_focused_button().is_some() {
+                        return self.update(Message::EnterPressed);
+                    }
+                    if self.toolbar_focused_button().is_some() {
+                        return self.update(Message::EnterPressed);
+                    }
                 }
             }
             Message::CanvasModifiersChanged(_mods) => {}
@@ -4996,12 +5236,20 @@ impl App {
                     self.selected_info_edge = None;
                 }
                 if let Some(cid) = id {
+                    let targets = vec![
+                        FocusTarget::Input("info_class_name_input"),
+                        FocusTarget::Input("info_class_desc_input"),
+                        FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION),
+                        FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS),
+                    ];
+                    self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
                     if let Some(node) = self.project.information_graph().find_node_by_class(cid) {
                         self.selected_info_graph_node_id = Some(node.id());
                     } else {
                         self.selected_info_graph_node_id = None;
                     }
                 } else {
+                    self.info_inspector_focus.reset();
                     self.selected_info_graph_node_id = None;
                 }
             }
@@ -5012,6 +5260,13 @@ impl App {
                 self.selected_info_class_id = Some(id);
                 self.selected_info_graph_node_id = Some(node_id);
                 self.selected_info_edge = None;
+                let targets = vec![
+                    FocusTarget::Input("info_class_name_input"),
+                    FocusTarget::Input("info_class_desc_input"),
+                    FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION),
+                    FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS),
+                ];
+                self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
                 if let Some(cls) = self.project.information_model().get_class(id).cloned() {
                     self.broadcast_mutation(
                         &crate::features::collab::protocol::ModelMutation::InformationClassAdded(
@@ -5036,6 +5291,13 @@ impl App {
                 self.selected_info_class_id = Some(id);
                 self.selected_info_graph_node_id = Some(node_id);
                 self.selected_info_edge = None;
+                let targets = vec![
+                    FocusTarget::Input("info_class_name_input"),
+                    FocusTarget::Input("info_class_desc_input"),
+                    FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION),
+                    FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS),
+                ];
+                self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
                 if let Some(cls) = self.project.information_model().get_class(id).cloned() {
                     self.broadcast_mutation(
                         &crate::features::collab::protocol::ModelMutation::InformationClassAdded(
@@ -5192,6 +5454,7 @@ impl App {
                 self.project.remove_information_class(class_id);
                 if self.selected_info_class_id == Some(class_id) {
                     self.selected_info_class_id = None;
+                    self.info_inspector_focus.reset();
                 }
                 if let Some(nid) = self.selected_info_graph_node_id {
                     if self.project.information_graph().find_node(nid).is_none() {
@@ -7289,6 +7552,7 @@ impl App {
                     column![
                         text("Server WebSocket URL").size(12).color(ThemeColors::SLATE_700),
                         text_input("wss://relay.eksempel.dk/ws", &modal_state.custom_url)
+                            .id("start_session_custom_url")
                             .style(modern_input_style)
                             .on_input(Message::CollabCustomUrlChanged)
                             .padding(8)
@@ -8355,7 +8619,12 @@ impl App {
                     editor.view()
                 } else {
                     let filtered = self.filtered_concepts();
-                    concept_table::view(filtered, self.project.concepts().len(), &self.search_query)
+                    concept_table::view(
+                        filtered,
+                        self.project.concepts().len(),
+                        &self.search_query,
+                        self.toolbar_focused_button(),
+                    )
                 }
             }
 
@@ -8391,6 +8660,7 @@ impl App {
                 self.info_relation_dialog.as_ref(),
                 self.show_left_sidebar,
                 self.palette_drag.as_ref().is_some_and(|d| d.is_dragging),
+                self.info_inspector_focused_button(),
             ),
         };
 
@@ -9064,10 +9334,11 @@ impl App {
             scrollable(commits_list).height(Length::Fixed(360.0)).into()
         };
 
+        let is_close_focused = self.modal_focus.is_button_focused(0);
         let footer = row![
             Space::new().width(Length::Fill),
             button(text("Luk"))
-                .style(secondary_button_style)
+                .style(focused_button_style(secondary_button_style, is_close_focused))
                 .on_press(Message::CloseModelHistoryModal),
         ]
         .align_y(Alignment::Center);

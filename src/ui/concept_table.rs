@@ -1,8 +1,11 @@
 use crate::features::concepts::{BelongsToDomain, Concept, DefinitionLinter};
-use crate::ui::app::Message;
+use crate::ui::app::{
+    Message, TOOLBAR_BTN_EXPORT_EXCEL, TOOLBAR_BTN_GUIDE, TOOLBAR_BTN_IMPORT_EXCEL,
+    TOOLBAR_BTN_NEW_CONCEPT, TOOLBAR_BTN_TEMPLATE,
+};
 use crate::ui::theme::{
-    card_container_style, danger_button_style, modern_input_style, pill_container_style,
-    primary_button_style, secondary_button_style, ThemeColors,
+    card_container_style, danger_button_style, focused_button_style, modern_input_style,
+    pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
 };
 use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
 use iced::{Alignment, Color, Element, Length};
@@ -11,12 +14,14 @@ pub fn view<'a>(
     concepts: Vec<&'a Concept>,
     total_count: usize,
     search_query: &'a str,
+    focused_toolbar_button: Option<usize>,
 ) -> Element<'a, Message> {
     // 1. Top bar: Søgning, statistik og "Opret"-knap
     let search_bar = text_input(
         "🔍 Søg i foretrukken term, definition eller kilder...",
         search_query,
     )
+    .id("concept_search_input")
     .style(modern_input_style)
     .on_input(Message::SearchQueryChanged)
     .padding(9)
@@ -36,6 +41,12 @@ pub fn view<'a>(
     .padding([6, 12])
     .align_y(Alignment::Center);
 
+    let is_create_focused = focused_toolbar_button == Some(TOOLBAR_BTN_NEW_CONCEPT);
+    let is_import_focused = focused_toolbar_button == Some(TOOLBAR_BTN_IMPORT_EXCEL);
+    let is_export_focused = focused_toolbar_button == Some(TOOLBAR_BTN_EXPORT_EXCEL);
+    let is_template_focused = focused_toolbar_button == Some(TOOLBAR_BTN_TEMPLATE);
+    let is_guide_focused = focused_toolbar_button == Some(TOOLBAR_BTN_GUIDE);
+
     let create_btn = button(
         row![
             text("+").size(15),
@@ -44,7 +55,7 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .style(primary_button_style)
+    .style(focused_button_style(primary_button_style, is_create_focused))
     .on_press(Message::StartNewConcept)
     .padding([8, 16]);
 
@@ -56,7 +67,7 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .style(secondary_button_style)
+    .style(focused_button_style(secondary_button_style, is_import_focused))
     .on_press(Message::ImportConceptsExcelDialog)
     .padding([8, 14]);
 
@@ -68,7 +79,7 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .style(secondary_button_style)
+    .style(focused_button_style(secondary_button_style, is_export_focused))
     .on_press(Message::ExportConceptListXlsxDialog)
     .padding([8, 14]);
 
@@ -80,7 +91,7 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .style(secondary_button_style)
+    .style(focused_button_style(secondary_button_style, is_template_focused))
     .on_press(Message::ExportFdaTemplateXlsxDialog)
     .padding([8, 14]);
 
@@ -92,7 +103,7 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .style(secondary_button_style)
+    .style(focused_button_style(secondary_button_style, is_guide_focused))
     .on_press(Message::OpenExcelSchemaGuideModal)
     .padding([8, 14]);
 

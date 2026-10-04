@@ -9948,8 +9948,7 @@ fn test_task_071_history_modal_focuses_close_button_and_enter_closes() {
 
 #[test]
 fn test_task_071_start_session_custom_url_in_tab_cycle() {
-    use kant::features::collab::RelayServerPreset;
-    use kant::ui::app::{App, Message};
+    use kant::ui::app::{App, Message, RelayServerPreset};
 
     let mut app = App::new();
     let _ = app.update(Message::OpenStartSessionModal);

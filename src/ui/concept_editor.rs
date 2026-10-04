@@ -2,6 +2,7 @@ use crate::features::concepts::{
     BelongsToDomain, Concept, ConceptValidator, DefinitionLinter, ValidationError,
 };
 use crate::ui::app::Message;
+use crate::ui::focus::{FocusCycle, FocusTarget};
 use crate::ui::theme::ThemeColors;
 use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
 use iced::{Alignment, Color, Element, Length};
@@ -37,12 +38,6 @@ pub const BTN_DOMAIN_LOCAL: usize = 2;
 pub const BTN_DOMAIN_BORROWED: usize = 3;
 pub const BTN_TOGGLE_SUPPLEMENTARY: usize = 4;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ConceptEditorFocusTarget {
-    Input(&'static str),
-    Button(usize),
-}
-
 #[derive(Debug, Clone)]
 pub struct ConceptEditorState {
     pub editing_id: Option<Uuid>,
@@ -70,6 +65,8 @@ pub struct ConceptEditorState {
     pub validation_error: Option<String>,
     pub focused_button: Option<usize>,
     pub current_target_index: usize,
+    pub is_inline: bool,
+    pub focus: FocusCycle,
 }
 
 impl Default for ConceptEditorState {
@@ -80,7 +77,7 @@ impl Default for ConceptEditorState {
 
 impl ConceptEditorState {
     pub fn new_empty() -> Self {
-        Self {
+        let mut editor = Self {
             editing_id: None,
             preferred_term: String::new(),
             definition: String::new(),
@@ -106,7 +103,12 @@ impl ConceptEditorState {
             validation_error: None,
             focused_button: None,
             current_target_index: 0,
-        }
+            is_inline: false,
+            focus: FocusCycle::default(),
+        };
+        let targets = editor.focus_targets();
+        editor.focus = FocusCycle::with_targets(targets, Some(0));
+        editor
     }
 
     pub fn from_concept(concept: &Concept) -> Self {
@@ -137,7 +139,7 @@ impl ConceptEditorState {
             ),
         };
 
-        Self {
+        let mut editor = Self {
             editing_id: Some(concept.id()),
             preferred_term: concept.preferred_term().to_string(),
             definition: concept.definition().to_string(),
@@ -170,98 +172,104 @@ impl ConceptEditorState {
             validation_error: None,
             focused_button: None,
             current_target_index: 0,
-        }
+            is_inline: false,
+            focus: FocusCycle::default(),
+        };
+        let targets = editor.focus_targets();
+        editor.focus = FocusCycle::with_targets(targets, Some(0));
+        editor
+    }
+
+    pub fn set_inline(&mut self, inline: bool) {
+        self.is_inline = inline;
+        let targets = self.focus_targets();
+        self.focus = FocusCycle::with_targets(targets, Some(0));
+        self.current_target_index = 0;
+        self.focused_button = None;
     }
 
     pub fn focused_button(&self) -> Option<usize> {
-        self.focused_button
+        self.focus.focused_button().or(self.focused_button)
     }
 
     pub fn set_focused_button(&mut self, btn: Option<usize>) {
-        self.focused_button = btn;
+        let targets = self.focus_targets();
+        self.focus = FocusCycle::with_targets(targets, None);
         if let Some(b) = btn {
-            let targets = self.focus_targets();
-            if let Some(pos) = targets.iter().position(|t| match t {
-                ConceptEditorFocusTarget::Button(tb) => *tb == b,
-                _ => false,
-            }) {
-                self.current_target_index = pos;
+            if let Some(pos) = self.focus_targets().iter().position(|t| matches!(t, FocusTarget::Button(tb) if *tb == b)) {
+                self.focus.set_current(Some(pos));
             }
         }
+        self.current_target_index = self.focus.current().unwrap_or(0);
+        self.focused_button = self.focus.focused_button();
     }
 
-    pub fn focus_targets(&self) -> Vec<ConceptEditorFocusTarget> {
+    pub fn focus_targets(&self) -> Vec<FocusTarget> {
+        if self.is_inline {
+            return vec![
+                FocusTarget::Input("preferred_term_input"),
+                FocusTarget::Input("inline_concept_definition"),
+                FocusTarget::Button(BTN_CANCEL),
+                FocusTarget::Button(BTN_SAVE),
+            ];
+        }
+
         let mut targets = Vec::new();
         // 1. Foretrukken dansk term
-        targets.push(ConceptEditorFocusTarget::Input("preferred_term_input"));
+        targets.push(FocusTarget::Input("preferred_term_input"));
         // 2. Lokalt begreb (Ja)
-        targets.push(ConceptEditorFocusTarget::Button(BTN_DOMAIN_LOCAL));
+        targets.push(FocusTarget::Button(BTN_DOMAIN_LOCAL));
         // 3. Indlånt begreb (Nej)
-        targets.push(ConceptEditorFocusTarget::Button(BTN_DOMAIN_BORROWED));
+        targets.push(FocusTarget::Button(BTN_DOMAIN_BORROWED));
 
         if self.belongs_to_domain == BelongsToDomain::No {
-            targets.push(ConceptEditorFocusTarget::Input("editor_model_uri"));
+            targets.push(FocusTarget::Input("editor_model_uri"));
         }
 
-        targets.push(ConceptEditorFocusTarget::Input("editor_definition"));
-        targets.push(ConceptEditorFocusTarget::Input("editor_legal_source"));
-        targets.push(ConceptEditorFocusTarget::Input("editor_source"));
+        targets.push(FocusTarget::Input("editor_definition"));
+        targets.push(FocusTarget::Input("editor_legal_source"));
+        targets.push(FocusTarget::Input("editor_source"));
 
-        targets.push(ConceptEditorFocusTarget::Button(BTN_TOGGLE_SUPPLEMENTARY));
+        targets.push(FocusTarget::Button(BTN_TOGGLE_SUPPLEMENTARY));
 
         if self.show_supplementary {
-            targets.push(ConceptEditorFocusTarget::Input("editor_accepted_term"));
-            targets.push(ConceptEditorFocusTarget::Input("editor_deprecated_term"));
-            targets.push(ConceptEditorFocusTarget::Input("editor_example"));
-            targets.push(ConceptEditorFocusTarget::Input("editor_comment"));
-            targets.push(ConceptEditorFocusTarget::Input("editor_application_note"));
-            targets.push(ConceptEditorFocusTarget::Input("editor_identifier"));
-            targets.push(ConceptEditorFocusTarget::Input("editor_derived_from"));
-            targets.push(ConceptEditorFocusTarget::Input("editor_en_preferred_term"));
-            targets.push(ConceptEditorFocusTarget::Input("editor_en_accepted_term"));
-            targets.push(ConceptEditorFocusTarget::Input("editor_en_definition"));
+            targets.push(FocusTarget::Input("editor_accepted_term"));
+            targets.push(FocusTarget::Input("editor_deprecated_term"));
+            targets.push(FocusTarget::Input("editor_example"));
+            targets.push(FocusTarget::Input("editor_comment"));
+            targets.push(FocusTarget::Input("editor_application_note"));
+            targets.push(FocusTarget::Input("editor_identifier"));
+            targets.push(FocusTarget::Input("editor_derived_from"));
+            targets.push(FocusTarget::Input("editor_en_preferred_term"));
+            targets.push(FocusTarget::Input("editor_en_accepted_term"));
+            targets.push(FocusTarget::Input("editor_en_definition"));
         }
 
-        targets.push(ConceptEditorFocusTarget::Button(BTN_CANCEL));
-        targets.push(ConceptEditorFocusTarget::Button(BTN_SAVE));
+        targets.push(FocusTarget::Button(BTN_CANCEL));
+        targets.push(FocusTarget::Button(BTN_SAVE));
         targets
     }
 
-    pub fn advance_focus(&mut self, reverse: bool) -> ConceptEditorFocusTarget {
+    pub fn advance_focus(&mut self, reverse: bool) -> FocusTarget {
         let targets = self.focus_targets();
-        if targets.is_empty() {
-            return ConceptEditorFocusTarget::Button(BTN_SAVE);
+        if self.focus.count() != targets.len() {
+            self.focus = FocusCycle::with_targets(targets, self.focus.current());
         }
         if reverse {
-            if self.current_target_index == 0 {
-                self.current_target_index = targets.len().saturating_sub(1);
-            } else {
-                self.current_target_index -= 1;
-            }
+            self.focus.previous();
         } else {
-            if self.current_target_index + 1 >= targets.len() {
-                self.current_target_index = 0;
-            } else {
-                self.current_target_index += 1;
-            }
+            self.focus.next();
         }
-        let target = targets[self.current_target_index].clone();
-        match target {
-            ConceptEditorFocusTarget::Button(btn) => {
-                self.focused_button = Some(btn);
-            }
-            ConceptEditorFocusTarget::Input(_) => {
-                self.focused_button = None;
-            }
-        }
-        target
+        self.current_target_index = self.focus.current().unwrap_or(0);
+        self.focused_button = self.focus.focused_button();
+        self.focus.current_target().cloned().unwrap_or(FocusTarget::Button(BTN_SAVE))
     }
 
     pub fn sync_focus_to_field(&mut self, field: ConceptFormField) {
         let expected_input = match field {
             ConceptFormField::PreferredTerm => "preferred_term_input",
             ConceptFormField::ModelUri => "editor_model_uri",
-            ConceptFormField::Definition => "editor_definition",
+            ConceptFormField::Definition => if self.is_inline { "inline_concept_definition" } else { "editor_definition" },
             ConceptFormField::LegalSource => "editor_legal_source",
             ConceptFormField::Source => "editor_source",
             ConceptFormField::AcceptedTerm => "editor_accepted_term",
@@ -277,13 +285,10 @@ impl ConceptEditorState {
             _ => return,
         };
         let targets = self.focus_targets();
-        if let Some(pos) = targets.iter().position(|t| match t {
-            ConceptEditorFocusTarget::Input(id) => *id == expected_input,
-            _ => false,
-        }) {
-            self.current_target_index = pos;
-            self.focused_button = None;
-        }
+        self.focus = FocusCycle::with_targets(targets, self.focus.current());
+        self.focus.sync_input(expected_input);
+        self.current_target_index = self.focus.current().unwrap_or(0);
+        self.focused_button = self.focus.focused_button();
     }
 
     pub fn set_domain(&mut self, domain: BelongsToDomain) {

@@ -13,9 +13,9 @@ use crate::ui::diagram_canvas::{
     DiagramCanvas,
 };
 use crate::ui::theme::{
-    card_container_style, danger_button_style, list_item_button, list_item_container_style,
-    modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
-    ThemeColors,
+    card_container_style, danger_button_style, focused_button_style, list_item_button,
+    list_item_container_style, modern_input_style, pill_container_style, primary_button_style,
+    secondary_button_style, ThemeColors,
 };
 use iced::widget::{
     button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text, text_input,
@@ -53,6 +53,7 @@ pub fn view<'a>(
     relation_dialog: Option<&'a RelationDialogState>,
     show_left_sidebar: bool,
     is_palette_dragging: bool,
+    inspector_focused_button: Option<usize>,
 ) -> Element<'a, Message> {
     let existing_class_names: std::collections::HashSet<String> = info_model
         .classes()
@@ -999,6 +1000,7 @@ pub fn view<'a>(
             let name_input = name_col;
 
             let desc_input = text_input("Beskrivelse...", class.description().unwrap_or(""))
+                .id("info_class_desc_input")
                 .style(modern_input_style)
                 .size(12.0)
                 .on_input(move |s| Message::UpdateInformationClassDescription(class_id, s))
@@ -1255,22 +1257,36 @@ pub fn view<'a>(
             }
 
             // Canvas handlinger for denne klasse
+            let is_canvas_action_focused =
+                inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_CANVAS_ACTION);
+            let is_delete_class_focused =
+                inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_DELETE_CLASS);
+
             let canvas_action_btn = if is_on_canvas {
                 if let Some(node) = class_graph.find_node_by_class(class_id) {
                     let node_id = node.id();
                     button(text("Fjern fra diagram").size(11))
-                        .style(secondary_button_style)
+                        .style(focused_button_style(
+                            secondary_button_style,
+                            is_canvas_action_focused,
+                        ))
                         .on_press(Message::RemoveClassFromDiagram(node_id))
                         .padding([4, 8])
                 } else {
                     button(text("Tilføj til diagram").size(11))
-                        .style(primary_button_style)
+                        .style(focused_button_style(
+                            primary_button_style,
+                            is_canvas_action_focused,
+                        ))
                         .on_press(Message::AddClassToDiagram(class_id))
                         .padding([4, 8])
                 }
             } else {
                 button(text("+ Tilføj til diagram").size(11))
-                    .style(primary_button_style)
+                    .style(focused_button_style(
+                        primary_button_style,
+                        is_canvas_action_focused,
+                    ))
                     .on_press(Message::AddClassToDiagram(class_id))
                     .padding([4, 8])
             };
@@ -1360,7 +1376,10 @@ pub fn view<'a>(
                 canvas_action_btn,
                 Space::new().width(Length::Fill),
                 button(text("🗑️ Slet klasse").size(11))
-                    .style(danger_button_style)
+                    .style(focused_button_style(
+                        danger_button_style,
+                        is_delete_class_focused,
+                    ))
                     .on_press(Message::DeleteInformationClass(class_id))
                     .padding([3, 7]),
             ]

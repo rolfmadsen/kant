@@ -1,12 +1,12 @@
 use crate::features::concept_model::{ConceptGraph, NodeId, RelationKind};
 use crate::features::concepts::Concept;
 use crate::ui::app::{Message, NodeOption, PaletteDragItem, RelationDialogState};
-use crate::ui::concept_editor::{ConceptEditorState, ConceptFormField};
+use crate::ui::concept_editor::{ConceptEditorState, ConceptFormField, BTN_CANCEL, BTN_SAVE};
 use crate::ui::diagram_canvas::{render_concept_node, CanvasViewport, DiagramCanvas};
 use crate::ui::theme::{
-    card_container_style, danger_button_style, list_item_button, list_item_container_style,
-    modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
-    ThemeColors,
+    card_container_style, danger_button_style, focused_button_style, list_item_button,
+    list_item_container_style, modern_input_style, pill_container_style, primary_button_style,
+    secondary_button_style, ThemeColors,
 };
 use iced::widget::{
     button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text, text_input,
@@ -628,6 +628,7 @@ pub fn view<'a>(
                                 "Definition (Aristoteles' formel) *"
                             ),
                             text_input("Definition...", &editor.definition)
+                                .id("inline_concept_definition")
                                 .style(modern_input_style)
                                 .on_input(|v| {
                                     Message::UpdateConceptField(ConceptFormField::Definition, v)
@@ -639,14 +640,17 @@ pub fn view<'a>(
                         .spacing(3),
                     );
 
+                    let is_cancel_focused = editor.focused_button() == Some(BTN_CANCEL);
+                    let is_save_focused = editor.focused_button() == Some(BTN_SAVE);
+
                     let edit_actions = row![
                         button(text("Annuller").size(11))
-                            .style(secondary_button_style)
+                            .style(focused_button_style(secondary_button_style, is_cancel_focused))
                             .on_press(Message::CancelConceptEdit)
                             .padding([5, 10]),
                         Space::new().width(Length::Fill),
                         button(text("Gem Begreb").size(11))
-                            .style(primary_button_style)
+                            .style(focused_button_style(primary_button_style, is_save_focused))
                             .on_press(Message::SaveConcept)
                             .padding([5, 12]),
                     ]
