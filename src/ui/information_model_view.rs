@@ -1007,28 +1007,59 @@ pub fn view<'a>(
         let is_abstract = class.is_abstract();
         let is_local = class.is_local();
 
-        let abstract_checkbox = checkbox(is_abstract)
-            .label("Abstrakt klasse ({abstract})")
-            .size(13)
-            .on_toggle(move |val| Message::SetInformationClassAbstract(class_id, val));
+        let is_abstract_focused =
+            inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_ABSTRACT_CHECKBOX);
+        let abstract_checkbox = container(
+            checkbox(is_abstract)
+                .label("Abstrakt klasse ({abstract})")
+                .size(13)
+                .on_toggle(move |val| Message::SetInformationClassAbstract(class_id, val)),
+        )
+        .style(move |_| container::Style {
+            border: iced::Border {
+                color: if is_abstract_focused {
+                    ThemeColors::FOCUS_RING
+                } else {
+                    Color::TRANSPARENT
+                },
+                width: 1.5,
+                radius: 4.0.into(),
+            },
+            ..Default::default()
+        })
+        .padding(2);
+
+        let is_type_local_focused =
+            inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_TYPE_LOCAL);
+        let is_type_borrowed_focused =
+            inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_TYPE_BORROWED);
+
+        let local_base_style = if is_local {
+            primary_button_style
+        } else {
+            secondary_button_style
+        };
+        let borrowed_base_style = if !is_local {
+            primary_button_style
+        } else {
+            secondary_button_style
+        };
 
         let type_selector = column![
             crate::ui::inspector_panel::section_header("Klassetype (FDA)"),
             row![
                 button(text("Lokal (Sand)").size(11))
-                    .style(if is_local {
-                        primary_button_style
-                    } else {
-                        secondary_button_style
-                    })
+                    .style(focused_button_style(
+                        local_base_style,
+                        is_type_local_focused,
+                    ))
                     .on_press(Message::SetInformationClassLocal(class_id, true))
                     .padding([3, 8]),
                 button(text("Indlånt (Blå)").size(11))
-                    .style(if !is_local {
-                        primary_button_style
-                    } else {
-                        secondary_button_style
-                    })
+                    .style(focused_button_style(
+                        borrowed_base_style,
+                        is_type_borrowed_focused,
+                    ))
                     .on_press(Message::SetInformationClassLocal(class_id, false))
                     .padding([3, 8]),
             ]
@@ -1045,6 +1076,7 @@ pub fn view<'a>(
                     "https://data.gov.dk/model/...",
                     class.origin_model().unwrap_or(""),
                 )
+                .id("info_class_origin_model_input")
                 .style(modern_input_style)
                 .size(11.5)
                 .on_input(move |s| Message::SetInformationClassOriginModel(class_id, s))
@@ -1058,20 +1090,25 @@ pub fn view<'a>(
 
         // Begrebssporing (FDA Traceability)
         let mut concept_badges_row = row![].spacing(4);
-        for cid in class.concept_ids() {
+        for (k, cid) in class.concept_ids().iter().enumerate() {
             let term = concepts
                 .iter()
                 .find(|c| c.id() == *cid)
                 .map(|c| c.preferred_term())
                 .unwrap_or("Ukendt");
             let cid_val = *cid;
+            let is_remove_concept_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_INSPECTOR_CONCEPT_REMOVE_START + k);
             let badge = container(
                 row![
                     text(term).size(11).color(ThemeColors::PRIMARY),
                     button(text("✕").size(9))
-                        .style(secondary_button_style)
+                        .style(focused_button_style(
+                            secondary_button_style,
+                            is_remove_concept_focused,
+                        ))
                         .on_press(Message::RemoveConceptFromInformationClass(
-                            class_id, cid_val
+                            class_id, cid_val,
                         ))
                         .padding([1, 4]),
                 ]
@@ -1104,8 +1141,10 @@ pub fn view<'a>(
 
         // Attributter sektion
         let mut attr_list = column![].spacing(6);
-        for attr in class.attributes() {
+        for (j, attr) in class.attributes().iter().enumerate() {
             let attr_id = attr.id();
+            let is_delete_attr_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_INSPECTOR_ATTR_DELETE_START + j);
             let name_val = attr.name().to_string();
             let mut data_type_options = Vec::new();
             for pt in PrimitiveType::ALL {
@@ -1178,7 +1217,10 @@ pub fn view<'a>(
 
             top_row = top_row.push(
                 button(text("✕").size(10))
-                    .style(danger_button_style)
+                    .style(focused_button_style(
+                        danger_button_style,
+                        is_delete_attr_focused,
+                    ))
                     .on_press(Message::DeleteAttribute(class_id, attr_id))
                     .padding([2, 5]),
             );
@@ -1382,6 +1424,9 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center);
 
+        let is_add_attr_focused =
+            inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_ADD_ATTRIBUTE);
+
         let inspector_content = column![
             header,
             crate::ui::inspector_panel::section_header("Generelt"),
@@ -1409,7 +1454,10 @@ pub fn view<'a>(
                         .color(ThemeColors::SLATE_700),
                     Space::new().width(Length::Fill),
                     button(text("+ Tilføj").size(11))
-                        .style(primary_button_style)
+                        .style(focused_button_style(
+                            primary_button_style,
+                            is_add_attr_focused,
+                        ))
                         .on_press(Message::AddAttributeToClass(class_id))
                         .padding([3, 7]),
                 ]

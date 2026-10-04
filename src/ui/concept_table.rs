@@ -1,7 +1,7 @@
 use crate::features::concepts::{BelongsToDomain, Concept, DefinitionLinter};
 use crate::ui::app::{
     Message, TOOLBAR_BTN_EXPORT_EXCEL, TOOLBAR_BTN_GUIDE, TOOLBAR_BTN_IMPORT_EXCEL,
-    TOOLBAR_BTN_NEW_CONCEPT, TOOLBAR_BTN_TEMPLATE,
+    TOOLBAR_BTN_NEW_CONCEPT, TOOLBAR_BTN_TEMPLATE, TOOLBAR_ROW_BTN_START,
 };
 use crate::ui::theme::{
     card_container_style, danger_button_style, focused_button_style, modern_input_style,
@@ -237,8 +237,12 @@ pub fn view<'a>(
     } else {
         let mut rows = column![].spacing(8);
 
-        for concept in concepts {
+        for (i, concept) in concepts.iter().enumerate() {
             let id = concept.id();
+            let edit_btn_idx = TOOLBAR_ROW_BTN_START + i * 2;
+            let delete_btn_idx = TOOLBAR_ROW_BTN_START + i * 2 + 1;
+            let is_edit_focused = focused_toolbar_button == Some(edit_btn_idx);
+            let is_delete_focused = focused_toolbar_button == Some(delete_btn_idx);
 
             // Foretrukken term kolonne
             let mut term_content = column![text(concept.preferred_term())
@@ -374,11 +378,14 @@ pub fn view<'a>(
             // Handlinger kolonne
             let actions = row![
                 button(text("Rediger").size(12))
-                    .style(secondary_button_style)
+                    .style(focused_button_style(
+                        secondary_button_style,
+                        is_edit_focused,
+                    ))
                     .on_press(Message::EditConcept(id))
                     .padding([5, 12]),
                 button(text("Slet").size(12))
-                    .style(danger_button_style)
+                    .style(focused_button_style(danger_button_style, is_delete_focused,))
                     .on_press(Message::DeleteConcept(id))
                     .padding([5, 10]),
             ]

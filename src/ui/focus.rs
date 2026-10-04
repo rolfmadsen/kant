@@ -151,6 +151,25 @@ impl FocusCycle {
     pub fn count(&self) -> usize {
         self.targets.len()
     }
+
+    /// Opdaterer listen af mål dynamisk, mens det aktuelt fokuserede mål bevares hvis det stadig findes.
+    pub fn update_targets(&mut self, new_targets: Vec<FocusTarget>) {
+        if let Some(curr) = self.current_target().cloned() {
+            if let Some(new_idx) = new_targets.iter().position(|t| *t == curr) {
+                self.current = Some(new_idx);
+                self.targets = new_targets;
+                return;
+            }
+        }
+        self.targets = new_targets;
+        if self.targets.is_empty() {
+            self.current = None;
+        } else if let Some(i) = self.current {
+            if i >= self.targets.len() {
+                self.current = Some(self.targets.len().saturating_sub(1));
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -237,5 +256,33 @@ mod tests {
         cycle.sync_input("target_dir");
         assert_eq!(cycle.current(), Some(1));
         assert_eq!(cycle.focused_input(), Some("target_dir"));
+    }
+
+    #[test]
+    fn test_focus_cycle_update_targets() {
+        let targets1 = vec![
+            FocusTarget::Input("search"),
+            FocusTarget::Button(10),
+            FocusTarget::Button(11),
+        ];
+        let mut cycle = FocusCycle::with_targets(targets1, Some(2));
+        assert_eq!(cycle.focused_button(), Some(11));
+
+        // Update preserving current target (Button(11)) at a new index
+        let targets2 = vec![
+            FocusTarget::Input("search"),
+            FocusTarget::Input("filter"),
+            FocusTarget::Button(10),
+            FocusTarget::Button(11),
+        ];
+        cycle.update_targets(targets2);
+        assert_eq!(cycle.current(), Some(3));
+        assert_eq!(cycle.focused_button(), Some(11));
+
+        // Update where current target is removed, clamping to new end
+        let targets3 = vec![FocusTarget::Input("search"), FocusTarget::Button(10)];
+        cycle.update_targets(targets3);
+        assert_eq!(cycle.current(), Some(1));
+        assert_eq!(cycle.focused_button(), Some(10));
     }
 }
