@@ -5,6 +5,7 @@ pub mod concept_table;
 pub mod diagram_canvas;
 pub mod edge_router;
 pub mod file_dialog;
+pub mod focus;
 pub mod graph_canvas;
 pub mod information_canvas;
 pub mod information_model_view;

@@ -31,6 +31,18 @@ pub enum ConceptFormField {
     EnglishApplicationNote,
 }
 
+pub const BTN_CANCEL: usize = 0;
+pub const BTN_SAVE: usize = 1;
+pub const BTN_DOMAIN_LOCAL: usize = 2;
+pub const BTN_DOMAIN_BORROWED: usize = 3;
+pub const BTN_TOGGLE_SUPPLEMENTARY: usize = 4;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConceptEditorFocusTarget {
+    Input(&'static str),
+    Button(usize),
+}
+
 #[derive(Debug, Clone)]
 pub struct ConceptEditorState {
     pub editing_id: Option<Uuid>,
@@ -56,6 +68,8 @@ pub struct ConceptEditorState {
     pub english_application_note: String,
     pub show_supplementary: bool,
     pub validation_error: Option<String>,
+    pub focused_button: Option<usize>,
+    pub current_target_index: usize,
 }
 
 impl Default for ConceptEditorState {
@@ -90,6 +104,8 @@ impl ConceptEditorState {
             english_application_note: String::new(),
             show_supplementary: false,
             validation_error: None,
+            focused_button: None,
+            current_target_index: 0,
         }
     }
 
@@ -152,6 +168,121 @@ impl ConceptEditorState {
                 || concept.derived_from().is_some()
                 || concept.english().is_some(),
             validation_error: None,
+            focused_button: None,
+            current_target_index: 0,
+        }
+    }
+
+    pub fn focused_button(&self) -> Option<usize> {
+        self.focused_button
+    }
+
+    pub fn set_focused_button(&mut self, btn: Option<usize>) {
+        self.focused_button = btn;
+        if let Some(b) = btn {
+            let targets = self.focus_targets();
+            if let Some(pos) = targets.iter().position(|t| match t {
+                ConceptEditorFocusTarget::Button(tb) => *tb == b,
+                _ => false,
+            }) {
+                self.current_target_index = pos;
+            }
+        }
+    }
+
+    pub fn focus_targets(&self) -> Vec<ConceptEditorFocusTarget> {
+        let mut targets = Vec::new();
+        // 1. Foretrukken dansk term
+        targets.push(ConceptEditorFocusTarget::Input("preferred_term_input"));
+        // 2. Lokalt begreb (Ja)
+        targets.push(ConceptEditorFocusTarget::Button(BTN_DOMAIN_LOCAL));
+        // 3. Indlånt begreb (Nej)
+        targets.push(ConceptEditorFocusTarget::Button(BTN_DOMAIN_BORROWED));
+
+        if self.belongs_to_domain == BelongsToDomain::No {
+            targets.push(ConceptEditorFocusTarget::Input("editor_model_uri"));
+        }
+
+        targets.push(ConceptEditorFocusTarget::Input("editor_definition"));
+        targets.push(ConceptEditorFocusTarget::Input("editor_legal_source"));
+        targets.push(ConceptEditorFocusTarget::Input("editor_source"));
+
+        targets.push(ConceptEditorFocusTarget::Button(BTN_TOGGLE_SUPPLEMENTARY));
+
+        if self.show_supplementary {
+            targets.push(ConceptEditorFocusTarget::Input("editor_accepted_term"));
+            targets.push(ConceptEditorFocusTarget::Input("editor_deprecated_term"));
+            targets.push(ConceptEditorFocusTarget::Input("editor_example"));
+            targets.push(ConceptEditorFocusTarget::Input("editor_comment"));
+            targets.push(ConceptEditorFocusTarget::Input("editor_application_note"));
+            targets.push(ConceptEditorFocusTarget::Input("editor_identifier"));
+            targets.push(ConceptEditorFocusTarget::Input("editor_derived_from"));
+            targets.push(ConceptEditorFocusTarget::Input("editor_en_preferred_term"));
+            targets.push(ConceptEditorFocusTarget::Input("editor_en_accepted_term"));
+            targets.push(ConceptEditorFocusTarget::Input("editor_en_definition"));
+        }
+
+        targets.push(ConceptEditorFocusTarget::Button(BTN_CANCEL));
+        targets.push(ConceptEditorFocusTarget::Button(BTN_SAVE));
+        targets
+    }
+
+    pub fn advance_focus(&mut self, reverse: bool) -> ConceptEditorFocusTarget {
+        let targets = self.focus_targets();
+        if targets.is_empty() {
+            return ConceptEditorFocusTarget::Button(BTN_SAVE);
+        }
+        if reverse {
+            if self.current_target_index == 0 {
+                self.current_target_index = targets.len().saturating_sub(1);
+            } else {
+                self.current_target_index -= 1;
+            }
+        } else {
+            if self.current_target_index + 1 >= targets.len() {
+                self.current_target_index = 0;
+            } else {
+                self.current_target_index += 1;
+            }
+        }
+        let target = targets[self.current_target_index].clone();
+        match target {
+            ConceptEditorFocusTarget::Button(btn) => {
+                self.focused_button = Some(btn);
+            }
+            ConceptEditorFocusTarget::Input(_) => {
+                self.focused_button = None;
+            }
+        }
+        target
+    }
+
+    pub fn sync_focus_to_field(&mut self, field: ConceptFormField) {
+        let expected_input = match field {
+            ConceptFormField::PreferredTerm => "preferred_term_input",
+            ConceptFormField::ModelUri => "editor_model_uri",
+            ConceptFormField::Definition => "editor_definition",
+            ConceptFormField::LegalSource => "editor_legal_source",
+            ConceptFormField::Source => "editor_source",
+            ConceptFormField::AcceptedTerm => "editor_accepted_term",
+            ConceptFormField::DeprecatedTerm => "editor_deprecated_term",
+            ConceptFormField::Example => "editor_example",
+            ConceptFormField::Comment => "editor_comment",
+            ConceptFormField::ApplicationNote => "editor_application_note",
+            ConceptFormField::Identifier => "editor_identifier",
+            ConceptFormField::DerivedFrom => "editor_derived_from",
+            ConceptFormField::EnglishPreferredTerm => "editor_en_preferred_term",
+            ConceptFormField::EnglishAcceptedTerm => "editor_en_accepted_term",
+            ConceptFormField::EnglishDefinition => "editor_en_definition",
+            _ => return,
+        };
+        let targets = self.focus_targets();
+        if let Some(pos) = targets.iter().position(|t| match t {
+            ConceptEditorFocusTarget::Input(id) => *id == expected_input,
+            _ => false,
+        }) {
+            self.current_target_index = pos;
+            self.focused_button = None;
         }
     }
 
@@ -161,6 +292,7 @@ impl ConceptEditorState {
 
     pub fn update_field(&mut self, field: ConceptFormField, value: String) {
         self.validation_error = None;
+        self.sync_focus_to_field(field);
         match field {
             ConceptFormField::PreferredTerm => self.preferred_term = value,
             ConceptFormField::Definition => self.definition = value,
@@ -252,7 +384,8 @@ impl ConceptEditorState {
 
     pub fn view(&self) -> Element<'_, Message> {
         use crate::ui::theme::{
-            card_container_style, modern_input_style, primary_button_style, secondary_button_style,
+            card_container_style, focused_button_style, modern_input_style, primary_button_style,
+            secondary_button_style,
         };
 
         let is_edit = self.editing_id.is_some();
@@ -317,25 +450,33 @@ impl ConceptEditorState {
         .width(Length::FillPortion(2));
 
         let is_local = self.belongs_to_domain == BelongsToDomain::Yes;
+        let is_local_focused = self.focused_button == Some(BTN_DOMAIN_LOCAL);
+        let is_borrowed_focused = self.focused_button == Some(BTN_DOMAIN_BORROWED);
         let mut domain_col = column![
             text("Domæne / Kontekst (Tilhører emneområde §26) *")
                 .size(13)
                 .color(ThemeColors::SLATE_800),
             row![
                 button(text("Lokalt begreb (Ja)").size(11))
-                    .style(if is_local {
-                        primary_button_style
-                    } else {
-                        secondary_button_style
-                    })
+                    .style(focused_button_style(
+                        if is_local {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        },
+                        is_local_focused,
+                    ))
                     .on_press(Message::SetConceptDomain(BelongsToDomain::Yes))
                     .padding([6, 12]),
                 button(text("Indlånt begreb (Nej)").size(11))
-                    .style(if !is_local {
-                        primary_button_style
-                    } else {
-                        secondary_button_style
-                    })
+                    .style(focused_button_style(
+                        if !is_local {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        },
+                        is_borrowed_focused,
+                    ))
                     .on_press(Message::SetConceptDomain(BelongsToDomain::No))
                     .padding([6, 12]),
             ]
@@ -355,6 +496,7 @@ impl ConceptEditorState {
                         .size(12)
                         .color(ThemeColors::SLATE_700),
                     text_input("F.eks. https://data.gov.dk/model/core/cpr", &self.model_uri)
+                        .id("editor_model_uri")
                         .style(modern_input_style)
                         .on_input(|v| Message::UpdateConceptField(ConceptFormField::ModelUri, v))
                         .padding(6),
@@ -385,6 +527,7 @@ impl ConceptEditorState {
                 "Genus proximum + differentia specifica (hvad er det, og hvad adskiller det)...",
                 &self.definition,
             )
+            .id("editor_definition")
             .style(modern_input_style)
             .on_input(|v| Message::UpdateConceptField(ConceptFormField::Definition, v))
             .padding(10),
@@ -470,6 +613,7 @@ impl ConceptEditorState {
                 .size(13)
                 .color(ThemeColors::SLATE_800),
             text_input("F.eks. LBK nr 1324 af 21/11/2023 § 2", &self.legal_source)
+                .id("editor_legal_source")
                 .style(modern_input_style)
                 .on_input(|v| Message::UpdateConceptField(ConceptFormField::LegalSource, v))
                 .padding(8),
@@ -483,6 +627,7 @@ impl ConceptEditorState {
                 "F.eks. Dansk Standard, ISO 10241, fagordbog...",
                 &self.source
             )
+            .id("editor_source")
             .style(modern_input_style)
             .on_input(|v| Message::UpdateConceptField(ConceptFormField::Source, v))
             .padding(8),
@@ -501,6 +646,7 @@ impl ConceptEditorState {
         form = form.push(primary_card);
 
         // Foldbar sektion med supplerende felter
+        let is_supp_focused = self.focused_button == Some(BTN_TOGGLE_SUPPLEMENTARY);
         let toggle_supplementary_btn = button(
             text(if self.show_supplementary {
                 "▲ Skjul supplerende felter"
@@ -509,7 +655,7 @@ impl ConceptEditorState {
             })
             .size(13),
         )
-        .style(secondary_button_style)
+        .style(focused_button_style(secondary_button_style, is_supp_focused))
         .on_press(Message::ToggleShowAllFields)
         .padding([7, 14]);
 
@@ -523,6 +669,7 @@ impl ConceptEditorState {
                             .size(13)
                             .color(ThemeColors::SLATE_700),
                         text_input("Synonym eller tilladt betegnelse...", &self.accepted_term)
+                            .id("editor_accepted_term")
                             .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(
                                 ConceptFormField::AcceptedTerm,
@@ -537,6 +684,7 @@ impl ConceptEditorState {
                             .size(13)
                             .color(ThemeColors::SLATE_700),
                         text_input("Betegnelse der ikke bør anvendes...", &self.deprecated_term)
+                            .id("editor_deprecated_term")
                             .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(
                                 ConceptFormField::DeprecatedTerm,
@@ -552,6 +700,7 @@ impl ConceptEditorState {
                     column![
                         text("Eksempel").size(13).color(ThemeColors::SLATE_700),
                         text_input("Typisk tilfælde der illustrerer begrebet...", &self.example)
+                            .id("editor_example")
                             .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(ConceptFormField::Example, v))
                             .padding(8),
@@ -561,6 +710,7 @@ impl ConceptEditorState {
                     column![
                         text("Kommentar").size(13).color(ThemeColors::SLATE_700),
                         text_input("Supplerende bemærkning...", &self.comment)
+                            .id("editor_comment")
                             .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(ConceptFormField::Comment, v))
                             .padding(8),
@@ -577,6 +727,7 @@ impl ConceptEditorState {
                         "Note om specifik anvendelseskontekst...",
                         &self.application_note
                     )
+                    .id("editor_application_note")
                     .style(modern_input_style)
                     .on_input(|v| Message::UpdateConceptField(ConceptFormField::ApplicationNote, v))
                     .padding(8),
@@ -591,6 +742,7 @@ impl ConceptEditorState {
                             "https://data.gov.dk/model/core/domain/Term",
                             &self.identifier
                         )
+                        .id("editor_identifier")
                         .style(modern_input_style)
                         .on_input(|v| Message::UpdateConceptField(ConceptFormField::Identifier, v))
                         .padding(8),
@@ -603,6 +755,7 @@ impl ConceptEditorState {
                     column![
                         text("Afledt af").size(13).color(ThemeColors::SLATE_700),
                         text_input("HTTP-URI på oprindeligt begreb...", &self.derived_from)
+                            .id("editor_derived_from")
                             .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(
                                 ConceptFormField::DerivedFrom,
@@ -628,6 +781,7 @@ impl ConceptEditorState {
                     column![
                         text("Foretrukken term (en)").size(13).color(ThemeColors::SLATE_700),
                         text_input("prefLabel (en)...", &self.english_preferred_term)
+                            .id("editor_en_preferred_term")
                             .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(ConceptFormField::EnglishPreferredTerm, v))
                             .padding(8),
@@ -637,6 +791,7 @@ impl ConceptEditorState {
                     column![
                         text("Accepteret term (en)").size(13).color(ThemeColors::SLATE_700),
                         text_input("altLabel (en)...", &self.english_accepted_term)
+                            .id("editor_en_accepted_term")
                             .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(ConceptFormField::EnglishAcceptedTerm, v))
                             .padding(8),
@@ -648,6 +803,7 @@ impl ConceptEditorState {
                 column![
                     text("Definition (en)").size(13).color(ThemeColors::SLATE_700),
                     text_input("definition (en)...", &self.english_definition)
+                        .id("editor_en_definition")
                         .style(modern_input_style)
                         .on_input(|v| Message::UpdateConceptField(ConceptFormField::EnglishDefinition, v))
                         .padding(8),
@@ -664,10 +820,13 @@ impl ConceptEditorState {
             form = form.push(supp_card);
         }
 
+        let is_cancel_focused = self.focused_button == Some(BTN_CANCEL);
+        let is_save_focused = self.focused_button == Some(BTN_SAVE);
+
         let action_bar = row![
             Space::new().width(Length::Fill),
             button(text("Annuller").size(13))
-                .style(secondary_button_style)
+                .style(focused_button_style(secondary_button_style, is_cancel_focused))
                 .on_press(Message::CancelConceptEdit)
                 .padding([8, 16]),
             button(
@@ -678,7 +837,7 @@ impl ConceptEditorState {
                 })
                 .size(13)
             )
-            .style(primary_button_style)
+            .style(focused_button_style(primary_button_style, is_save_focused))
             .on_press(Message::SaveConcept)
             .padding([8, 20]),
         ]

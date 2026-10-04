@@ -9455,6 +9455,9 @@ fn test_task_070_start_session_modal_tab_cycle_and_enter_confirm() {
 fn test_task_070_concept_editor_tab_cycle_to_buttons() {
     use kant::features::concepts::{BelongsToDomain, Concept};
     use kant::ui::app::{App, Message};
+    use kant::ui::concept_editor::{
+        BTN_CANCEL, BTN_DOMAIN_BORROWED, BTN_DOMAIN_LOCAL, BTN_SAVE,
+    };
 
     let mut app = App::new();
     let cid = app
@@ -9465,16 +9468,91 @@ fn test_task_070_concept_editor_tab_cycle_to_buttons() {
     let _ = app.update(Message::EditConcept(cid));
     assert!(app.concept_editor().is_some(), "ConceptEditor skal være åben");
 
-    // Verificer at editoren har fokusstyring for handlingsknapper
-    assert_eq!(app.editor_focused_button(), None, "Startfokus er i tekstfelter");
+    // 1. Verificer at startfokus er i første tekstfelt (preferred_term_input)
+    assert_eq!(app.editor_focused_button(), None, "Startfokus er i tekstfelt");
 
-    // Når man tabber hen til knapperne
-    let _ = app.update(Message::FocusEditorButton(Some(0))); // 0: Annuller
-    assert_eq!(app.editor_focused_button(), Some(0));
+    // 2. Første Tab rykker til 'Lokalt begreb (Ja)' knappen
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.editor_focused_button(),
+        Some(BTN_DOMAIN_LOCAL),
+        "Tab skal rykke fokus til 'Lokalt begreb (Ja)' knappen"
+    );
 
-    // Enter på Annuller lukker editoren
+    // 3. Næste Tab rykker til 'Indlånt begreb (Nej)' knappen
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.editor_focused_button(),
+        Some(BTN_DOMAIN_BORROWED),
+        "Tab skal rykke fokus til 'Indlånt begreb (Nej)' knappen"
+    );
+
+    // 4. Enter på 'Indlånt begreb (Nej)' aktiverer knappen og sætter domæne til No
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(
+        app.concept_editor().unwrap().belongs_to_domain,
+        BelongsToDomain::No,
+        "Enter på fokuseret 'Indlånt begreb' skal ændre domænet til No"
+    );
+
+    // 5. Shift+Tab går baglæns til 'Lokalt begreb (Ja)' knappen
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(
+        app.editor_focused_button(),
+        Some(BTN_DOMAIN_LOCAL),
+        "Shift+Tab skal gå baglæns til Lokalt begreb"
+    );
+
+    // 6. Enter på Lokalt begreb sætter domænet tilbage til Yes
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(
+        app.concept_editor().unwrap().belongs_to_domain,
+        BelongsToDomain::Yes,
+        "Enter på fokuseret 'Lokalt begreb' skal sætte domænet tilbage til Yes"
+    );
+
+    // 7. Tab fremad igennem felterne indtil Annuller (BTN_CANCEL)
+    let mut reached_cancel = false;
+    for _ in 0..20 {
+        let _ = app.update(Message::FocusNext);
+        if app.editor_focused_button() == Some(BTN_CANCEL) {
+            reached_cancel = true;
+            break;
+        }
+    }
+    assert!(reached_cancel, "Tab skal nå Annuller-knappen");
+
+    // 8. Næste Tab skal nå Gem ændringer (BTN_SAVE)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.editor_focused_button(), Some(BTN_SAVE), "Tab skal nå Gem-knappen");
+
+    // 9. Næste Tab skal loope tilbage til tekstfelterne (fokus_button == None)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.editor_focused_button(), None, "Tab fra Gem skal loope tilbage til tekstfelterne");
+
+    // 10. Enter på fokuseret Annuller lukker editoren
+    let _ = app.update(Message::FocusEditorButton(Some(BTN_CANCEL)));
     let _ = app.update(Message::EnterPressed);
     assert!(app.concept_editor().is_none(), "Enter på fokuseret Annuller skal lukke editoren");
+}
+
+#[test]
+fn test_task_070_join_session_modal_tab_cycle_and_enter() {
+    use kant::ui::app::{App, Message};
+
+    let mut app = App::new();
+    let _ = app.update(Message::OpenJoinSessionModal);
+    assert!(app.join_session_modal().is_some(), "Join session modal skal være åben");
+
+    let _ = app.update(Message::FocusNext);
+    assert!(app.modal_focused_button_index().is_some(), "Tab skal fokusere en modal knap");
+
+    // Annuller (indeks 0) lukker modalen
+    while app.modal_focused_button_index() != Some(0) {
+        let _ = app.update(Message::FocusNext);
+    }
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.join_session_modal().is_none(), "Enter på Annuller skal lukke JoinSessionModal");
 }
 
 

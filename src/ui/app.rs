@@ -21,10 +21,11 @@ use crate::ui::concept_model_view;
 use crate::ui::concept_table;
 use crate::ui::diagram_canvas::{CanvasEdge, CanvasNode};
 use crate::ui::information_model_view;
+use crate::ui::focus::FocusCycle;
 use crate::ui::theme::{
-    card_container_style, modal_backdrop_style, modal_card_style, modern_input_style,
-    pill_container_style, primary_button_style, secondary_button_style, segmented_tab_button,
-    ThemeColors,
+    card_container_style, focused_button_style, modal_backdrop_style, modal_card_style,
+    modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
+    segmented_tab_button, ThemeColors,
 };
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
@@ -815,6 +816,7 @@ pub enum Message {
     // Tastaturnavigation & genveje
     FocusNext,
     FocusPrevious,
+    FocusEditorButton(Option<usize>),
     EscapePressed,
     EnterPressed,
 
@@ -1003,6 +1005,7 @@ pub struct App {
     excel_schema_guide_open: bool,
     excel_import_preview: Option<ExcelImportPreviewState>,
     recent_store: crate::features::model::recent::RecentStore,
+    pub modal_focus: FocusCycle,
 }
 
 impl Default for App {
@@ -1128,6 +1131,7 @@ impl App {
                         diagnostics_modal: None,
                         excel_schema_guide_open: false,
                         excel_import_preview: None,
+                        modal_focus: FocusCycle::default(),
                     };
                 }
             }
@@ -1197,6 +1201,7 @@ impl App {
             excel_schema_guide_open: false,
             excel_import_preview: None,
             recent_store,
+            modal_focus: FocusCycle::default(),
         }
     }
 
@@ -1496,6 +1501,7 @@ impl App {
 
     /// Lukker den øverste åbne modal eller dialog. Returnerer true hvis en modal blev lukket.
     pub fn close_active_modal(&mut self) -> bool {
+        self.modal_focus.reset();
         if self.diagnostics_modal.is_some() {
             self.diagnostics_modal = None;
             true
@@ -1547,6 +1553,50 @@ impl App {
         } else {
             false
         }
+    }
+
+    pub fn modal_focused_button_index(&self) -> Option<usize> {
+        if self.has_active_modal() {
+            self.modal_focus.current()
+        } else {
+            None
+        }
+    }
+
+    pub fn editor_focused_button(&self) -> Option<usize> {
+        self.editor_state.as_ref().and_then(|e| e.focused_button())
+    }
+
+    pub fn advance_modal_focus(&mut self, reverse: bool) -> bool {
+        if !self.has_active_modal() {
+            return false;
+        }
+
+        if self.modal_focus.count() > 0 {
+            if reverse {
+                self.modal_focus.previous();
+            } else {
+                self.modal_focus.next();
+            }
+            return true;
+        }
+
+        false
+    }
+
+    pub fn advance_editor_focus(&mut self, reverse: bool) -> Option<Task<Message>> {
+        if let Some(editor) = &mut self.editor_state {
+            let target = editor.advance_focus(reverse);
+            match target {
+                crate::ui::concept_editor::ConceptEditorFocusTarget::Input(id) => {
+                    return Some(operation::focus(id));
+                }
+                crate::ui::concept_editor::ConceptEditorFocusTarget::Button(_) => {
+                    return Some(Task::none());
+                }
+            }
+        }
+        None
     }
 
     pub fn collab_state(&self) -> CollabState {
@@ -2342,12 +2392,14 @@ impl App {
                 if !self.collab_state.is_active() {
                     self.active_menu = None;
                     self.start_session_modal = Some(StartSessionModalState::new());
+                    self.modal_focus = FocusCycle::with_initial(3, Some(2));
                 }
             }
             Message::CloseCollabModal => {
                 self.start_session_modal = None;
                 self.join_session_modal = None;
                 self.guest_ended_notice = None;
+                self.modal_focus.reset();
             }
             Message::CollabPresetSelected(preset) => {
                 if let Some(modal) = &mut self.start_session_modal {
@@ -2391,6 +2443,7 @@ impl App {
                 if !self.collab_state.is_active() {
                     self.active_menu = None;
                     self.join_session_modal = Some(JoinSessionModalState::new());
+                    self.modal_focus = FocusCycle::with_initial(2, Some(0));
                 }
             }
             Message::CollabJoinTokenChanged(tok) => {
@@ -2447,16 +2500,20 @@ impl App {
                 self.metadata_modal = Some(ModelMetadataModalState::from_metadata(
                     self.project.metadata(),
                 ));
+                self.modal_focus = FocusCycle::with_initial(2, Some(0));
             }
             Message::CloseMetadataModal => {
                 self.metadata_modal = None;
+                self.modal_focus.reset();
             }
             Message::OpenDiagnosticsModal => {
                 self.diagnostics_modal = Some(DiagnosticsModalState::new());
+                self.modal_focus = FocusCycle::with_initial(2, Some(0));
                 self.active_menu = None;
             }
             Message::CloseDiagnosticsModal => {
                 self.diagnostics_modal = None;
+                self.modal_focus.reset();
             }
             Message::CopyDiagnosticsToClipboard => {
                 let report =
@@ -3825,10 +3882,27 @@ impl App {
 
             // Tastaturnavigation & genveje
             Message::FocusNext => {
+                if self.advance_modal_focus(false) {
+                    return Task::none();
+                }
+                if let Some(task) = self.advance_editor_focus(false) {
+                    return task;
+                }
                 return operation::focus_next();
             }
             Message::FocusPrevious => {
+                if self.advance_modal_focus(true) {
+                    return Task::none();
+                }
+                if let Some(task) = self.advance_editor_focus(true) {
+                    return task;
+                }
                 return operation::focus_previous();
+            }
+            Message::FocusEditorButton(btn) => {
+                if let Some(editor) = &mut self.editor_state {
+                    editor.set_focused_button(btn);
+                }
             }
             Message::EscapePressed => {
                 // 1. Aktiv menu overlay
@@ -3883,6 +3957,124 @@ impl App {
                 return operation::focus(tab_id);
             }
             Message::EnterPressed => {
+                // 1. Åbne modaler
+                if self.has_active_modal() {
+                    let focused = self.modal_focus.current();
+                    if self.start_session_modal.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::CollabCopyTicket),
+                            Some(1) => return self.update(Message::CloseCollabModal),
+                            Some(2) | None => return self.update(Message::CollabStartSession),
+                            _ => {}
+                        }
+                    } else if self.join_session_modal.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::CloseCollabModal),
+                            Some(1) | None => return self.update(Message::CollabJoinSession),
+                            _ => {}
+                        }
+                    } else if self.metadata_modal.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::CloseMetadataModal),
+                            Some(1) | None => return self.update(Message::SaveMetadataModal),
+                            _ => {}
+                        }
+                    } else if self.publish_modal.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::ClosePublishModal),
+                            Some(1) | None => return self.update(Message::ConfirmPublish),
+                            _ => {}
+                        }
+                    } else if self.git_clone_modal.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::CloseGitCloneModal),
+                            Some(1) | None => return self.update(Message::ExecuteGitClone),
+                            _ => {}
+                        }
+                    } else if self.git_connection_modal.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::CloseGitConnectionModal),
+                            Some(1) | None => return self.update(Message::SaveGitConnection),
+                            _ => {}
+                        }
+                    } else if self.conflict_resolver_modal.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::CloseConflictResolverModal),
+                            Some(1) | None => return self.update(Message::ApplyResolvedConflicts),
+                            _ => {}
+                        }
+                    } else if self.excel_import_preview.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::DismissExcelImportModal),
+                            Some(1) | None => return self.update(Message::ConfirmExcelImport),
+                            _ => {}
+                        }
+                    } else if self.diagnostics_modal.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::CopyDiagnosticsToClipboard),
+                            Some(1) | None => return self.update(Message::CloseDiagnosticsModal),
+                            _ => {}
+                        }
+                    } else if self.guest_ended_notice.is_some() {
+                        return self.update(Message::CollabGuestDismissEndedModal);
+                    } else if self.excel_schema_guide_open {
+                        return self.update(Message::CloseExcelSchemaGuideModal);
+                    } else if self.history_modal.is_some() {
+                        return self.update(Message::CloseModelHistoryModal);
+                    } else if self.file_dialog_mode.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::CloseFileDialog),
+                            Some(1) | None => return self.update(Message::ConfirmFileDialog),
+                            _ => {}
+                        }
+                    } else if self.relation_dialog.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::GraphCloseRelationDialog),
+                            Some(1) | None => return self.update(Message::GraphCreateRelation),
+                            _ => {}
+                        }
+                    } else if self.info_relation_dialog.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::CloseInfoRelationDialog),
+                            Some(1) | None => return self.update(Message::InfoCreateRelation),
+                            _ => {}
+                        }
+                    } else if self.quick_create.is_some() {
+                        match focused {
+                            Some(0) => return self.update(Message::QuickCreateCancel),
+                            Some(1) | None => return self.update(Message::QuickCreateSubmit),
+                            _ => {}
+                        }
+                    }
+                    return Task::none();
+                }
+
+                // 2. Hvis ConceptEditor har en fokuseret handlingsknap
+                if let Some(editor) = &self.editor_state {
+                    match editor.focused_button() {
+                        Some(crate::ui::concept_editor::BTN_CANCEL) => {
+                            return self.update(Message::CancelConceptEdit);
+                        }
+                        Some(crate::ui::concept_editor::BTN_SAVE) => {
+                            return self.update(Message::SaveConcept);
+                        }
+                        Some(crate::ui::concept_editor::BTN_DOMAIN_LOCAL) => {
+                            return self.update(Message::SetConceptDomain(
+                                crate::features::concepts::BelongsToDomain::Yes,
+                            ));
+                        }
+                        Some(crate::ui::concept_editor::BTN_DOMAIN_BORROWED) => {
+                            return self.update(Message::SetConceptDomain(
+                                crate::features::concepts::BelongsToDomain::No,
+                            ));
+                        }
+                        Some(crate::ui::concept_editor::BTN_TOGGLE_SUPPLEMENTARY) => {
+                            return self.update(Message::ToggleShowAllFields);
+                        }
+                        _ => {}
+                    }
+                }
+
                 match self.active_tab {
                     Tab::ConceptModel => {
                         if let Some(node_id) = self.selected_graph_node_id {
@@ -4632,6 +4824,16 @@ impl App {
             }
             Message::CanvasSpacePressed(pressed) => {
                 self.is_space_pressed = pressed;
+                if pressed {
+                    if self.has_active_modal() && self.modal_focus.current().is_some() {
+                        return self.update(Message::EnterPressed);
+                    }
+                    if let Some(editor) = &self.editor_state {
+                        if editor.focused_button().is_some() {
+                            return self.update(Message::EnterPressed);
+                        }
+                    }
+                }
             }
             Message::CanvasModifiersChanged(_mods) => {}
 
@@ -6797,15 +6999,18 @@ impl App {
 
                 let source_derived_row = row![source_field, derived_field].spacing(12);
 
+                let is_cancel_focused = self.modal_focus.is_focused(0);
+                let is_save_focused = self.modal_focus.is_focused(1);
+
                 // 7. Action knapper
                 let actions = row![
                     Space::new().width(Length::Fill),
                     button(text("Annuller").size(12))
-                        .style(secondary_button_style)
+                        .style(focused_button_style(secondary_button_style, is_cancel_focused))
                         .on_press(Message::CloseMetadataModal)
                         .padding([6, 14]),
                     button(text("💾 Gem Omslag").size(12))
-                        .style(primary_button_style)
+                        .style(focused_button_style(primary_button_style, is_save_focused))
                         .on_press(Message::SaveMetadataModal)
                         .padding([6, 16]),
                 ]
@@ -6960,12 +7165,18 @@ impl App {
                     "📋 Kopiér sessionskode"
                 };
 
+                let is_copy_focused = self.modal_focus.is_focused(0);
+                let is_cancel_focused = self.modal_focus.is_focused(1);
+                let is_start_focused = self.modal_focus.is_focused(2);
+
+                let copy_base_style = if modal_state.copied {
+                    primary_button_style
+                } else {
+                    secondary_button_style
+                };
+
                 let copy_btn = button(text(copy_label).size(12))
-                    .style(if modal_state.copied {
-                        primary_button_style
-                    } else {
-                        secondary_button_style
-                    })
+                    .style(focused_button_style(copy_base_style, is_copy_focused))
                     .on_press(Message::CollabCopyTicket)
                     .padding([6, 14]);
 
@@ -6973,11 +7184,11 @@ impl App {
                     copy_btn,
                     Space::new().width(Length::Fill),
                     button(text("Annuller").size(12))
-                        .style(secondary_button_style)
+                        .style(focused_button_style(secondary_button_style, is_cancel_focused))
                         .on_press(Message::CloseCollabModal)
                         .padding([6, 14]),
                     button(text("🚀 Start Session").size(12))
-                        .style(primary_button_style)
+                        .style(focused_button_style(primary_button_style, is_start_focused))
                         .on_press(Message::CollabStartSession)
                         .padding([6, 16]),
                 ]
@@ -7086,8 +7297,11 @@ impl App {
                 ]
                 .spacing(4);
 
+                let is_cancel_focused = self.modal_focus.is_focused(0);
+                let is_join_focused = self.modal_focus.is_focused(1);
+
                 let mut join_btn = button(text("🔗 Forbind").size(12))
-                    .style(primary_button_style)
+                    .style(focused_button_style(primary_button_style, is_join_focused))
                     .padding([6, 16]);
 
                 if modal_state.is_valid() {
@@ -7097,7 +7311,7 @@ impl App {
                 let actions = row![
                     Space::new().width(Length::Fill),
                     button(text("Annuller").size(12))
-                        .style(secondary_button_style)
+                        .style(focused_button_style(secondary_button_style, is_cancel_focused))
                         .on_press(Message::CloseCollabModal)
                         .padding([6, 14]),
                     join_btn,
@@ -7143,14 +7357,17 @@ impl App {
                     .size(12)
                     .color(ThemeColors::TEXT_MUTED);
 
+                let is_close_focused = self.modal_focus.is_focused(0);
+                let is_save_focused = self.modal_focus.is_focused(1);
+
                 let actions = row![
                     Space::new().width(Length::Fill),
                     button(text("Luk uden at gemme").size(12))
-                        .style(secondary_button_style)
+                        .style(focused_button_style(secondary_button_style, is_close_focused))
                         .on_press(Message::CollabGuestDismissEndedModal)
                         .padding([6, 14]),
                     button(text("💾 Gem som kopi...").size(12))
-                        .style(primary_button_style)
+                        .style(focused_button_style(primary_button_style, is_save_focused))
                         .on_press(Message::SaveProjectAsDialog)
                         .padding([6, 16]),
                 ]
@@ -7249,14 +7466,17 @@ impl App {
                 }
             }
 
+            let is_cancel_focused = self.modal_focus.is_focused(0);
+            let is_confirm_focused = self.modal_focus.is_focused(1);
+
             let actions_row = row![
                 Space::new().width(Length::Fill),
                 button(text("Annuller").size(12))
-                    .style(secondary_button_style)
+                    .style(focused_button_style(secondary_button_style, is_cancel_focused))
                     .on_press(Message::CloseFileDialog)
                     .padding([6, 14]),
                 button(text(confirm_label).size(12))
-                    .style(primary_button_style)
+                    .style(focused_button_style(primary_button_style, is_confirm_focused))
                     .on_press(Message::ConfirmFileDialog)
                     .padding([6, 16]),
             ]
@@ -7545,14 +7765,17 @@ impl App {
                 dialog_col = dialog_col.push(def_field);
                 dialog_col = dialog_col.push(domain_row);
 
+                let is_cancel_focused = self.modal_focus.is_focused(0);
+                let is_submit_focused = self.modal_focus.is_focused(1);
+
                 let actions = row![
                     Space::new().width(Length::Fill),
                     button(text("Annuller").size(12))
-                        .style(secondary_button_style)
+                        .style(focused_button_style(secondary_button_style, is_cancel_focused))
                         .on_press(Message::QuickCreateCancel)
                         .padding([6, 14]),
                     button(text("Opret Begreb").size(12))
-                        .style(primary_button_style)
+                        .style(focused_button_style(primary_button_style, is_submit_focused))
                         .on_press(Message::QuickCreateSubmit)
                         .padding([6, 16]),
                 ]
@@ -8434,22 +8657,25 @@ impl App {
             ]
             .align_y(Alignment::Center)
         } else if is_completely_synced {
+            let is_close_focused = self.modal_focus.is_focused(0);
             row![
                 Space::new().width(Length::Fill),
                 button(text("Luk"))
-                    .style(primary_button_style)
+                    .style(focused_button_style(primary_button_style, is_close_focused))
                     .on_press(Message::ClosePublishModal),
             ]
             .align_y(Alignment::Center)
         } else {
+            let is_cancel_focused = self.modal_focus.is_focused(0);
+            let is_confirm_focused = self.modal_focus.is_focused(1);
             row![
                 Space::new().width(Length::Fill),
                 button(text("Annuller"))
-                    .style(secondary_button_style)
+                    .style(focused_button_style(secondary_button_style, is_cancel_focused))
                     .on_press(Message::ClosePublishModal),
                 Space::new().width(8),
                 button(text(primary_button_label))
-                    .style(primary_button_style)
+                    .style(focused_button_style(primary_button_style, is_confirm_focused))
                     .on_press(Message::ConfirmPublish),
             ]
             .align_y(Alignment::Center)
@@ -8793,14 +9019,17 @@ impl App {
             conflicts_list = conflicts_list.push(card);
         }
 
+        let is_cancel_focused = self.modal_focus.is_focused(0);
+        let is_apply_focused = self.modal_focus.is_focused(1);
+
         let footer = row![
             Space::new().width(Length::Fill),
             button(text("Annuller"))
-                .style(secondary_button_style)
+                .style(focused_button_style(secondary_button_style, is_cancel_focused))
                 .on_press(Message::CloseConflictResolverModal),
             Space::new().width(8),
             button(text("Anvend valgte versioner"))
-                .style(primary_button_style)
+                .style(focused_button_style(primary_button_style, is_apply_focused))
                 .on_press(Message::ApplyResolvedConflicts),
         ]
         .align_y(Alignment::Center);
@@ -8987,10 +9216,13 @@ impl App {
             );
         }
 
+        let is_cancel_focused = self.modal_focus.is_focused(0);
+        let is_save_focused = self.modal_focus.is_focused(1);
+
         actions = actions.push(Space::new().width(Length::Fill));
         actions = actions.push(
             button(text("Annuller").size(12))
-                .style(secondary_button_style)
+                .style(focused_button_style(secondary_button_style, is_cancel_focused))
                 .on_press(Message::CloseGitConnectionModal)
                 .padding([6, 14]),
         );
@@ -9006,7 +9238,7 @@ impl App {
         };
         actions = actions.push(
             button(text(save_label).size(12))
-                .style(primary_button_style)
+                .style(focused_button_style(primary_button_style, is_save_focused))
                 .on_press(Message::SaveGitConnection)
                 .padding([6, 16]),
         );
@@ -9123,14 +9355,17 @@ impl App {
             body = body.push(err_box);
         }
 
+        let is_cancel_focused = self.modal_focus.is_focused(0);
+        let is_clone_focused = self.modal_focus.is_focused(1);
+
         let actions = row![
             Space::new().width(Length::Fill),
             button(text("Annuller").size(12))
-                .style(secondary_button_style)
+                .style(focused_button_style(secondary_button_style, is_cancel_focused))
                 .on_press(Message::CloseGitCloneModal)
                 .padding([6, 14]),
             button(text("Klon og åbn model").size(12))
-                .style(primary_button_style)
+                .style(focused_button_style(primary_button_style, is_clone_focused))
                 .on_press(Message::ExecuteGitClone)
                 .padding([6, 16]),
         ]

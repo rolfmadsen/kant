@@ -509,3 +509,25 @@ pub fn modern_input_style(_theme: &iced::Theme, status: text_input::Status) -> t
         },
     }
 }
+
+pub fn focused_button_style(
+    base_style: fn(&iced::Theme, button::Status) -> button::Style,
+    is_focused: bool,
+) -> impl Fn(&iced::Theme, button::Status) -> button::Style {
+    move |theme, status| {
+        let mut s = base_style(theme, status);
+        if is_focused {
+            s.border = Border {
+                color: ThemeColors::PRIMARY,
+                width: 2.0,
+                radius: s.border.radius,
+            };
+            s.shadow = Shadow {
+                color: Color::from_rgba(0.08, 0.38, 0.74, 0.40),
+                offset: Vector::new(0.0, 0.0),
+                blur_radius: 5.0,
+            };
+        }
+        s
+    }
+}
