@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 072: Komplet Tastaturnavigation for Begrebsliste, Inspektorer og Modaler"
 description: "Fuldendt tastaturstyring for tabelrækker i Begrebsliste, alle elementer i Informationsmodellens Egenskabspanel samt modaler for historik og samarbejde."
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-04T21:37:00Z" }
 tags: [ui, keyboard, focus, accessibility, a11y, table, inspector, modals]
 ---
 
 # Task 072: Komplet Tastaturnavigation for Begrebsliste, Inspektorer og Modaler
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-10-04`
 
@@ -41,22 +41,22 @@ Sikre 100% tastaturnavigation til samtlige interaktive kontroller i applikatione
      - For hver attribut: Attributnavn-felt samt slet-knap (`✕`) modtager fokus med orange ring.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Begrebsliste Tabelrækker tastaturnavigation**:
+- [x] **AC1 - Begrebsliste Tabelrækker tastaturnavigation**:
   - Tab cykler fra værktøjslinjens knapper videre til begrebsrækkernes Rediger- og Slet-knapper.
   - Hver fokuseret knap viser den 1.5px orange fokusring.
   - Enter eller Mellemrum på Rediger åbner ConceptEditor med det valgte begreb.
   - Enter eller Mellemrum på Slet fjerner begrebet.
-- [ ] **AC2 - Start Live Session kontroller**:
+- [x] **AC2 - Start Live Session kontroller**:
   - Titellinjens luk-kryds ("✕") og checkboxen for "Husk servervalg" kan fokuseres med Tab.
   - Checkboxen viser den orange fokusring og kan toggles med Enter eller Mellemrum.
-- [ ] **AC3 - Modelhistorik tidslinje navigation**:
+- [x] **AC3 - Modelhistorik tidslinje navigation**:
   - Titellinjens luk-kryds ("✕"), eventuel "Commit ændringer"-knap og de enkelte commit-kort i listen kan fokuseres med Tab og viser orange fokusring.
-- [ ] **AC4 - Informationsmodel Egenskabspanel fuld dækning**:
+- [x] **AC4 - Informationsmodel Egenskabspanel fuld dækning**:
   - Abstrakt klasse checkbox kan fokuseres og toggles med Enter/Mellemrum.
   - Klassetype-knapper (Lokal/Indlånt) kan fokuseres og aktiveres med Enter/Mellemrum.
   - Tilknyttede begrebers fjern-knap ("✕") kan fokuseres og aktiveres med Enter/Mellemrum.
   - "+ Tilføj" attribut knap samt hver enkelt attributs tekstfelt og slet-knap kan fokuseres og aktiveres.
-- [ ] **AC5 - Regression Gauntlet**:
+- [x] **AC5 - Regression Gauntlet**:
   - Samtlige nye flows verificeres med automatiserede accepttests i `tests/acceptance.rs`.
   - `cargo test --workspace` og `cargo clippy --workspace -- -D warnings` forbliver 100% grønne uden warnings.
 
@@ -67,6 +67,7 @@ Sikre 100% tastaturnavigation til samtlige interaktive kontroller i applikatione
 
 ## 📝 Revisions
 - 2026-10-04: Oprettet opgavepakke efter brugerfeedback for at dække samtlige interaktive kontroller i tabeller, inspektorer og modaler.
+- 2026-10-04: Implementeret fuld tastaturnavigation og verificeret med 4 accepttests samt 100% grøn testsuite.
 
 ## 🧪 Verifikation
 - `cargo test --test acceptance test_task_072_`
