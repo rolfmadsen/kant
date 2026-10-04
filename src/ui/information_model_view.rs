@@ -527,7 +527,7 @@ pub fn view<'a>(
             Message::SelectInfoGraphNode,
             Message::UpdateClassNodePosition,
             Message::CreateInformationClassAt,
-            |node_id| Message::SelectInfoGraphNode(Some(node_id)),
+            Message::InfoNodeDoubleClicked,
             Message::InfoCanvasViewportChanged,
         )
         .selected_node_ids(selected_node_ids.iter().copied())

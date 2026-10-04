@@ -10882,4 +10882,3 @@ fn test_task_073_canvas_node_double_click_focuses_name_for_concept_class_and_enu
         "Eventuel relation skal fravælges ved dobbeltklik på node"
     );
 }
-

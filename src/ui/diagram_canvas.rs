@@ -757,7 +757,7 @@ where
                     let dist =
                         (cursor_pos.x - last.position.x).hypot(cursor_pos.y - last.position.y);
                     let elapsed = now.duration_since(last.time).as_millis();
-                    dist <= 15.0 && elapsed <= 350
+                    dist <= 20.0 && elapsed <= 500
                 } else {
                     false
                 };
@@ -768,6 +768,8 @@ where
 
                 if is_double_click {
                     state.last_click = None;
+                    state.dragging_node = None;
+                    state.bulk_drag = None;
                     for node in self.nodes.iter().rev() {
                         if node.contains(world_pos.x, world_pos.y) {
                             return Some(

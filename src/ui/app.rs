@@ -5519,6 +5519,8 @@ impl App {
             }
             Message::GraphNodeDoubleClicked(node_id) => {
                 self.selected_graph_node_id = Some(node_id);
+                self.selected_graph_node_ids = Some(node_id).into_iter().collect();
+                self.selected_edge = None;
                 if let Some(node) = self.project.concept_graph().find_node(node_id) {
                     if let Some(concept) = self.project.get_concept(node.concept_id()) {
                         let mut editor = ConceptEditorState::from_concept(concept);
@@ -5528,6 +5530,7 @@ impl App {
                         return operation::focus("preferred_term_input");
                     }
                 }
+                return Task::none();
             }
 
             // Canvas ergonomi (Task 008)
@@ -6577,7 +6580,31 @@ impl App {
                     self.info_inspector_focus.reset();
                 }
             }
-            Message::InfoNodeDoubleClicked(_id) => {
+            Message::InfoNodeDoubleClicked(node_id) => {
+                self.selected_info_graph_node_id = Some(node_id);
+                self.selected_info_graph_node_ids = Some(node_id).into_iter().collect();
+                self.selected_info_edge = None;
+                if let Some(node) = self.project.information_graph().find_node(node_id) {
+                    let cid = node.class_id();
+                    if self
+                        .project
+                        .information_model()
+                        .get_enumeration(cid)
+                        .is_some()
+                    {
+                        self.selected_info_enum_id = Some(cid);
+                        self.selected_info_class_id = None;
+                        let targets = self.build_info_inspector_targets();
+                        self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
+                        return operation::focus("info_enum_name_input");
+                    } else {
+                        self.selected_info_class_id = Some(cid);
+                        self.selected_info_enum_id = None;
+                        let targets = self.build_info_inspector_targets();
+                        self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
+                        return operation::focus("info_class_name_input");
+                    }
+                }
                 return Task::none();
             }
             Message::InfoEdgeSelected(edge) => {
