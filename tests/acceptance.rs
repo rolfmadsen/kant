@@ -10275,3 +10275,230 @@ fn test_task_071_information_model_inspector_tab_cycle_and_actions() {
         .information_graph()
         .is_class_on_diagram(class_id));
 }
+
+#[test]
+fn test_task_072_concept_table_rows_tab_cycle_and_activation() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::app::{
+        App, Message, Tab, TOOLBAR_BTN_GUIDE, TOOLBAR_ROW_BTN_START,
+    };
+
+    let mut app = App::new();
+    let c1 = Concept::new("Aftale", "En juridisk bindende aftale", BelongsToDomain::Yes);
+    let c2 = Concept::new("Kunde", "En modtager af ydelser", BelongsToDomain::Yes);
+    let id1 = c1.id();
+    let id2 = c2.id();
+    app.project_mut().add_concept(c1).unwrap();
+    app.project_mut().add_concept(c2).unwrap();
+
+    assert_eq!(app.active_tab(), Tab::ConceptList);
+
+    // Initialt er ingen værktøjsknap fokuseret (tekstfelt har fokus)
+    assert_eq!(app.toolbar_focused_button(), None);
+
+    // Tab 1..5 -> Værktøjsknapper (+ Nyt Begreb, Importér, Eksportér, Skabelon, Guide)
+    for _ in 0..5 {
+        let _ = app.update(Message::FocusNext);
+    }
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_BTN_GUIDE));
+
+    // Tab 6 -> Række 0 Rediger-knap
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_ROW_BTN_START));
+
+    // Tab 7 -> Række 0 Slet-knap
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_ROW_BTN_START + 1));
+
+    // Tab 8 -> Række 1 Rediger-knap
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_ROW_BTN_START + 2));
+
+    // Tab 9 -> Række 1 Slet-knap
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_ROW_BTN_START + 3));
+
+    // Tab 10 -> Looper tilbage til søgefeltet
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), None);
+
+    // Shift+Tab looper baglæns til Række 1 Slet-knap
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_ROW_BTN_START + 3));
+
+    // Enter på Række 1 Slet sletter begreb 2
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(app.project().concepts().len(), 1, "Række 1 skal være slettet");
+    assert!(app.project().get_concept(id2).is_none());
+    assert!(app.project().get_concept(id1).is_some());
+
+    // Tab til Række 0 Rediger og tryk Enter -> åbner ConceptEditor med id1
+    let _ = app.update(Message::FocusNext); // søgefelt
+    for _ in 0..5 {
+        let _ = app.update(Message::FocusNext); // værktøjsknapper
+    }
+    let _ = app.update(Message::FocusNext); // Række 0 Rediger
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_ROW_BTN_START));
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.concept_editor().is_some(), "Enter på Rediger skal åbne ConceptEditor");
+    assert_eq!(app.concept_editor().unwrap().preferred_term, "Aftale");
+}
+
+#[test]
+fn test_task_072_start_session_modal_checkbox_and_close_cross() {
+    use kant::ui::app::{
+        App, Message, START_SESSION_BTN_CLOSE_CROSS, START_SESSION_BTN_REMEMBER,
+    };
+
+    let mut app = App::new();
+    let _ = app.update(Message::OpenStartSessionModal);
+    assert!(app.start_session_modal().is_some());
+
+    let initial_remember = app.start_session_modal().unwrap().remember_choice;
+
+    // Shift+Tab fra startfokus (Start Session knap) baglæns gennem Annuller, Kopiér, til Remember checkbox
+    // Cyklussen indeholder: Luk kryds, [Custom URL hvis aktiv], Remember checkbox, Kopiér, Annuller, Start Session
+    let _ = app.update(Message::FocusPrevious); // Annuller
+    let _ = app.update(Message::FocusPrevious); // Kopiér
+    let _ = app.update(Message::FocusPrevious); // Remember checkbox
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(START_SESSION_BTN_REMEMBER),
+        "Remember checkbox skal være fokuserbar"
+    );
+
+    // Enter på Remember checkbox skal toggle værdien
+    let _ = app.update(Message::EnterPressed);
+    assert_ne!(
+        app.start_session_modal().unwrap().remember_choice,
+        initial_remember,
+        "Enter på checkbox skal toggle remember_choice"
+    );
+
+    // Shift+Tab til START_SESSION_BTN_CLOSE_CROSS
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(START_SESSION_BTN_CLOSE_CROSS),
+        "Luk-kryds skal være fokuserbart"
+    );
+
+    // Enter på Luk-kryds lukker modalen
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.start_session_modal().is_none(), "Enter på luk-kryds skal lukke modalen");
+}
+
+#[test]
+fn test_task_072_history_modal_close_cross_and_timeline_cards() {
+    use kant::features::git::GitService;
+    use kant::ui::app::{App, Message, HISTORY_BTN_CLOSE_CROSS};
+    use uuid::Uuid;
+
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_072_{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    GitService::init_repository(&temp_dir).expect("init repo");
+    let mut app = App::new_with_path(Some(temp_dir.clone()));
+
+    let _ = app.update(Message::OpenModelHistoryModal);
+    assert!(app.history_modal().is_some());
+
+    // Startfokus er på Luk-knappen i bunden (indeks 1 eller primær luk)
+    // Cyklussen indeholder luk-kryds (HISTORY_BTN_CLOSE_CROSS), eventuelle commits, og Luk-knap
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(HISTORY_BTN_CLOSE_CROSS),
+        "Luk-kryds i toppen skal kunne fokuseres"
+    );
+
+    // Enter på luk-kryds lukker modalen
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.history_modal().is_none(), "Enter på luk-kryds skal lukke modalen");
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_task_072_information_model_inspector_full_properties_cycle() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::InformationClass;
+    use kant::ui::app::{
+        App, Message, Tab, INFO_INSPECTOR_BTN_ABSTRACT_CHECKBOX,
+        INFO_INSPECTOR_BTN_ADD_ATTRIBUTE, INFO_INSPECTOR_BTN_TYPE_BORROWED,
+        INFO_INSPECTOR_BTN_TYPE_LOCAL,
+    };
+
+    let mut app = App::new();
+    let mut class = InformationClass::new("Kunde");
+    let cid = app
+        .project_mut()
+        .add_concept(Concept::new("Kunde", "Person", BelongsToDomain::Yes))
+        .unwrap();
+    class.add_concept_id(cid);
+    let class_id = class.id();
+    app.project_mut().information_model_mut().add_class(class);
+
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    let _ = app.update(Message::SelectInformationClass(Some(class_id)));
+    assert_eq!(app.selected_info_class_id(), Some(class_id));
+
+    // 1. info_class_name_input (tekstfelt)
+    // 2. info_class_desc_input (tekstfelt)
+    // 3. INFO_INSPECTOR_BTN_ABSTRACT_CHECKBOX (checkbox)
+    let _ = app.update(Message::FocusNext); // desc_input
+    let _ = app.update(Message::FocusNext); // abstract_checkbox
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_BTN_ABSTRACT_CHECKBOX),
+        "Abstrakt checkbox skal være fokuserbar"
+    );
+
+    // Enter toggler abstrakt klasse
+    assert!(!app.project().information_model().get_class(class_id).unwrap().is_abstract());
+    let _ = app.update(Message::EnterPressed);
+    assert!(
+        app.project().information_model().get_class(class_id).unwrap().is_abstract(),
+        "Enter på abstrakt checkbox skal gøre klassen abstrakt"
+    );
+
+    // 4. INFO_INSPECTOR_BTN_TYPE_LOCAL
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_BTN_TYPE_LOCAL)
+    );
+
+    // 5. INFO_INSPECTOR_BTN_TYPE_BORROWED
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_BTN_TYPE_BORROWED)
+    );
+    // Enter gør klassen indlånt
+    let _ = app.update(Message::EnterPressed);
+    assert!(
+        !app.project().information_model().get_class(class_id).unwrap().is_local(),
+        "Enter på Indlånt skal gøre klassen ikke-lokal"
+    );
+
+    // 6. INFO_INSPECTOR_BTN_ADD_ATTRIBUTE
+    // Find add attribute knappen ved at tabbe fremad
+    let mut found_add_attr = false;
+    for _ in 0..10 {
+        let _ = app.update(Message::FocusNext);
+        if app.info_inspector_focused_button() == Some(INFO_INSPECTOR_BTN_ADD_ATTRIBUTE) {
+            found_add_attr = true;
+            break;
+        }
+    }
+    assert!(found_add_attr, "Skal finde + Tilføj attribut knap i cyklussen");
+
+    // Enter tilføjer en attribut
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(
+        app.project().information_model().get_class(class_id).unwrap().attributes().len(),
+        1,
+        "Enter på + Tilføj attribut skal oprette en ny attribut"
+    );
+}
+
