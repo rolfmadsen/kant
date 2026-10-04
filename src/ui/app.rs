@@ -816,6 +816,7 @@ pub enum Message {
     FocusNext,
     FocusPrevious,
     EscapePressed,
+    EnterPressed,
 
     // Graf-handlinger (Fase 3)
     GraphNodeSelected(Option<NodeId>),
@@ -1229,6 +1230,14 @@ impl App {
 
     pub fn git_clone_modal(&self) -> Option<&GitCloneModalState> {
         self.git_clone_modal.as_ref()
+    }
+
+    pub fn is_excel_schema_guide_open(&self) -> bool {
+        self.excel_schema_guide_open
+    }
+
+    pub fn is_excel_import_preview_open(&self) -> bool {
+        self.excel_import_preview.is_some()
     }
 
     pub fn set_active_file_path(&mut self, path: Option<PathBuf>) {
@@ -3725,6 +3734,10 @@ impl App {
                 } else if self.selected_info_graph_node_id.is_some() {
                     self.selected_info_graph_node_id = None;
                 }
+            }
+            Message::EnterPressed => {
+                // Task 069 placeholder for RED test
+                return Task::none();
             }
 
             // Graf-handlinger (Fase 3)

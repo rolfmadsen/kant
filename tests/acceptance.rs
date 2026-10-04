@@ -9178,3 +9178,200 @@ fn test_task_068_palette_ergonomics_and_header_rendering() {
     }
 }
 
+#[test]
+fn test_task_069_enter_quick_edit_on_canvas_node_and_edge() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::app::{App, Message, Tab};
+
+    let mut app = App::new();
+    let cid1 = app
+        .project_mut()
+        .add_concept(Concept::new("A", "Beskrivelse A", BelongsToDomain::Yes))
+        .unwrap();
+    let _ = app.update(Message::AddConceptToDiagram(cid1));
+    let nid1 = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(cid1)
+        .unwrap()
+        .id();
+
+    let cid2 = app
+        .project_mut()
+        .add_concept(Concept::new("B", "Beskrivelse B", BelongsToDomain::Yes))
+        .unwrap();
+    let _ = app.update(Message::AddConceptToDiagram(cid2));
+    let nid2 = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(cid2)
+        .unwrap()
+        .id();
+
+    let _ = app.update(Message::GraphEdgeCreated(nid1, nid2));
+    let _ = app.update(Message::GraphUpdateEdgeLabel(
+        nid1,
+        nid2,
+        "relaterer til".to_string(),
+    ));
+
+    // 1. Enter på valgt node åbner inline editor for preferred_term
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.update(Message::GraphNodeSelected(Some(nid1)));
+    assert_eq!(app.selected_graph_node_id(), Some(nid1));
+    assert!(!app.is_node_editing(), "Skal ikke være i inline redigering før Enter");
+
+    let _ = app.update(Message::EnterPressed);
+    assert!(
+        app.is_node_editing(),
+        "Enter på valgt node skal åbne inline editor og sætte is_node_editing til true"
+    );
+
+    // Luk editoren igen med Esc
+    let _ = app.update(Message::EscapePressed);
+    assert!(!app.is_node_editing(), "Esc skal lukke inline editor");
+    assert_eq!(app.selected_graph_node_id(), Some(nid1), "Node forbliver valgt efter inline editor lukkes");
+
+    // 2. Enter på valgt relation
+    let _ = app.update(Message::GraphEdgeSelected(Some((nid1, nid2))));
+    assert_eq!(app.selected_edge(), Some((nid1, nid2)));
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(app.selected_edge(), Some((nid1, nid2)), "Relationen forbliver valgt og klar til input");
+
+    // 3. Enter i Informationsmodel
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    let _ = app.update(Message::CreateInformationClass);
+    let info_node = app.selected_info_graph_node_id();
+    assert!(info_node.is_some(), "Informationsklasse node skal være oprettet og valgt");
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(app.selected_info_graph_node_id(), info_node, "Info node forbliver valgt ved Enter");
+}
+
+#[test]
+fn test_task_069_escape_hierarchy_all_nine_modals_closing() {
+    use kant::ui::app::{App, Message};
+
+    let mut app = App::new();
+
+    // 1. Diagnostics Modal
+    let _ = app.update(Message::OpenDiagnosticsModal);
+    assert!(app.diagnostics_modal().is_some(), "Diagnostics modal skal være åben");
+    let _ = app.update(Message::EscapePressed);
+    assert!(app.diagnostics_modal().is_none(), "Diagnostics modal skal lukkes på Esc");
+
+    // 2. Publish Modal
+    let _ = app.update(Message::OpenPublishModal);
+    assert!(app.publish_modal().is_some(), "Publish modal skal være åben");
+    let _ = app.update(Message::EscapePressed);
+    assert!(app.publish_modal().is_none(), "Publish modal skal lukkes på Esc");
+
+    // 3. Model History Modal
+    let _ = app.update(Message::OpenModelHistoryModal);
+    assert!(app.history_modal().is_some(), "History modal skal være åben");
+    let _ = app.update(Message::EscapePressed);
+    assert!(app.history_modal().is_none(), "History modal skal lukkes på Esc");
+
+    // 4. Conflict Resolver Modal
+    let _ = app.update(Message::OpenConflictResolverModal(vec![]));
+    assert!(app.conflict_resolver_modal().is_some(), "Conflict resolver modal skal være åben");
+    let _ = app.update(Message::EscapePressed);
+    assert!(app.conflict_resolver_modal().is_none(), "Conflict resolver modal skal lukkes på Esc");
+
+    // 5. Git Connection Modal
+    let _ = app.update(Message::OpenGitConnectionModal);
+    assert!(app.git_connection_modal().is_some(), "Git connection modal skal være åben");
+    let _ = app.update(Message::EscapePressed);
+    assert!(app.git_connection_modal().is_none(), "Git connection modal skal lukkes på Esc");
+
+    // 6. Git Clone Modal
+    let _ = app.update(Message::OpenGitCloneModal);
+    assert!(app.git_clone_modal().is_some(), "Git clone modal skal være åben");
+    let _ = app.update(Message::EscapePressed);
+    assert!(app.git_clone_modal().is_none(), "Git clone modal skal lukkes på Esc");
+
+    // 7. Metadata Modal
+    let _ = app.update(Message::OpenMetadataModal);
+    assert!(app.metadata_modal().is_some(), "Metadata modal skal være åben");
+    let _ = app.update(Message::EscapePressed);
+    assert!(app.metadata_modal().is_none(), "Metadata modal skal lukkes på Esc");
+
+    // 8. Start Session Modal
+    let _ = app.update(Message::OpenStartSessionModal);
+    assert!(app.start_session_modal().is_some(), "Start session modal skal være åben");
+    let _ = app.update(Message::EscapePressed);
+    assert!(app.start_session_modal().is_none(), "Start session modal skal lukkes på Esc");
+
+    // 9. Join Session Modal
+    let _ = app.update(Message::OpenJoinSessionModal);
+    assert!(app.join_session_modal().is_some(), "Join session modal skal være åben");
+    let _ = app.update(Message::EscapePressed);
+    assert!(app.join_session_modal().is_none(), "Join session modal skal lukkes på Esc");
+
+    // Bonus: Excel Schema Guide Modal
+    let _ = app.update(Message::OpenExcelSchemaGuideModal);
+    assert!(app.is_excel_schema_guide_open(), "Excel schema guide modal skal være åben");
+    let _ = app.update(Message::EscapePressed);
+    assert!(!app.is_excel_schema_guide_open(), "Excel schema guide modal skal lukkes på Esc");
+}
+
+#[test]
+fn test_task_069_escape_hierarchy_layer_by_layer() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::app::{App, Message, Tab};
+
+    let mut app = App::new();
+    let cid = app
+        .project_mut()
+        .add_concept(Concept::new("Patient", "Definition", BelongsToDomain::Yes))
+        .unwrap();
+    let _ = app.update(Message::AddConceptToDiagram(cid));
+    let nid = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(cid)
+        .unwrap()
+        .id();
+
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.update(Message::GraphNodeSelected(Some(nid)));
+    // Simuler inline redigering
+    let _ = app.update(Message::GraphNodeDoubleClicked(nid));
+    assert!(app.is_node_editing(), "Inline editor skal være aktiv");
+    assert_eq!(app.selected_graph_node_id(), Some(nid));
+
+    // Lag 2: 1. Esc lukker inline editor, men beholder nodemarkering
+    let _ = app.update(Message::EscapePressed);
+    assert!(!app.is_node_editing(), "Inline editor skal være lukket");
+    assert_eq!(app.selected_graph_node_id(), Some(nid), "Node forbliver markeret");
+
+    // Lag 4: 2. Esc fjerner nodemarkering på canvas
+    let _ = app.update(Message::EscapePressed);
+    assert_eq!(app.selected_graph_node_id(), None, "Canvas markering skal være ryddet");
+    assert!(app.selected_graph_node_ids().is_empty());
+
+    // Lag 5: 3. Esc lander på fanebladene (skal køre uden panik og bevare en konsistent tilstand)
+    let _ = app.update(Message::EscapePressed);
+    assert_eq!(app.active_tab(), Tab::ConceptModel);
+}
+
+#[test]
+fn test_task_069_tab_direct_shortcuts_ctrl_1_2_3() {
+    use kant::ui::app::{App, Message, Tab};
+
+    let mut app = App::new();
+    assert_eq!(app.active_tab(), Tab::ConceptList);
+
+    // Ctrl+2: Begrebsdiagram
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    assert_eq!(app.active_tab(), Tab::ConceptModel);
+
+    // Ctrl+3: Informationsmodel
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    assert_eq!(app.active_tab(), Tab::InformationModel);
+
+    // Ctrl+1: Begrebsliste
+    let _ = app.update(Message::SelectTab(Tab::ConceptList));
+    assert_eq!(app.active_tab(), Tab::ConceptList);
+}
+
+
