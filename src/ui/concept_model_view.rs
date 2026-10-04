@@ -227,9 +227,7 @@ pub fn view<'a>(
         .into(),
     );
 
-    let toolbar = row(toolbar_elements)
-        .spacing(2)
-        .align_y(Alignment::Center);
+    let toolbar = row(toolbar_elements).spacing(2).align_y(Alignment::Center);
 
     let canvas_widget = iced::widget::canvas(
         DiagramCanvas::new(
@@ -645,7 +643,10 @@ pub fn view<'a>(
 
                     let edit_actions = row![
                         button(text("Annuller").size(11))
-                            .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                            .style(focused_button_style(
+                                secondary_button_style,
+                                is_cancel_focused
+                            ))
                             .on_press(Message::CancelConceptEdit)
                             .padding([5, 10]),
                         Space::new().width(Length::Fill),

@@ -55,7 +55,10 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .style(focused_button_style(primary_button_style, is_create_focused))
+    .style(focused_button_style(
+        primary_button_style,
+        is_create_focused,
+    ))
     .on_press(Message::StartNewConcept)
     .padding([8, 16]);
 
@@ -67,7 +70,10 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .style(focused_button_style(secondary_button_style, is_import_focused))
+    .style(focused_button_style(
+        secondary_button_style,
+        is_import_focused,
+    ))
     .on_press(Message::ImportConceptsExcelDialog)
     .padding([8, 14]);
 
@@ -79,7 +85,10 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .style(focused_button_style(secondary_button_style, is_export_focused))
+    .style(focused_button_style(
+        secondary_button_style,
+        is_export_focused,
+    ))
     .on_press(Message::ExportConceptListXlsxDialog)
     .padding([8, 14]);
 
@@ -91,7 +100,10 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .style(focused_button_style(secondary_button_style, is_template_focused))
+    .style(focused_button_style(
+        secondary_button_style,
+        is_template_focused,
+    ))
     .on_press(Message::ExportFdaTemplateXlsxDialog)
     .padding([8, 14]);
 
@@ -103,7 +115,10 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .style(focused_button_style(secondary_button_style, is_guide_focused))
+    .style(focused_button_style(
+        secondary_button_style,
+        is_guide_focused,
+    ))
     .on_press(Message::OpenExcelSchemaGuideModal)
     .padding([8, 14]);
 

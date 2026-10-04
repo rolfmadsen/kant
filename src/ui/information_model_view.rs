@@ -436,9 +436,7 @@ pub fn view<'a>(
         .into(),
     );
 
-    let toolbar = row(toolbar_elements)
-        .spacing(2)
-        .align_y(Alignment::Center);
+    let toolbar = row(toolbar_elements).spacing(2).align_y(Alignment::Center);
 
     let canvas_widget = iced::widget::canvas(
         DiagramCanvas::new(
@@ -977,105 +975,255 @@ pub fn view<'a>(
         let class_id = class.id();
         let is_on_canvas = class_graph.is_class_on_diagram(class_id);
 
-            // Klassenavn & beskrivelse
-            let mut name_col = column![text_input("Klassenavn...", class.name())
-                .id("info_class_name_input")
-                .style(modern_input_style)
-                .size(13.0)
-                .on_input(move |s| Message::UpdateInformationClassName(class_id, s))
-                .padding([4, 6]),]
-            .spacing(4);
+        // Klassenavn & beskrivelse
+        let mut name_col = column![text_input("Klassenavn...", class.name())
+            .id("info_class_name_input")
+            .style(modern_input_style)
+            .size(13.0)
+            .on_input(move |s| Message::UpdateInformationClassName(class_id, s))
+            .padding([4, 6]),]
+        .spacing(4);
 
-            if let Some(issue) = NamingLinter::check_class_name(class.name()) {
-                if !class.name().trim().is_empty() {
-                    let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
-                    if let Some(fix) = &issue.suggested_fix {
-                        msg.push_str(&format!(" (Forslag: {})", fix));
-                    }
-                    name_col =
-                        name_col.push(text(msg).size(10.5).color(Color::from_rgb(0.85, 0.55, 0.1)));
+        if let Some(issue) = NamingLinter::check_class_name(class.name()) {
+            if !class.name().trim().is_empty() {
+                let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
+                if let Some(fix) = &issue.suggested_fix {
+                    msg.push_str(&format!(" (Forslag: {})", fix));
                 }
+                name_col =
+                    name_col.push(text(msg).size(10.5).color(Color::from_rgb(0.85, 0.55, 0.1)));
+            }
+        }
+
+        let name_input = name_col;
+
+        let desc_input = text_input("Beskrivelse...", class.description().unwrap_or(""))
+            .id("info_class_desc_input")
+            .style(modern_input_style)
+            .size(12.0)
+            .on_input(move |s| Message::UpdateInformationClassDescription(class_id, s))
+            .padding([4, 6]);
+
+        let is_abstract = class.is_abstract();
+        let is_local = class.is_local();
+
+        let abstract_checkbox = checkbox(is_abstract)
+            .label("Abstrakt klasse ({abstract})")
+            .size(13)
+            .on_toggle(move |val| Message::SetInformationClassAbstract(class_id, val));
+
+        let type_selector = column![
+            crate::ui::inspector_panel::section_header("Klassetype (FDA)"),
+            row![
+                button(text("Lokal (Sand)").size(11))
+                    .style(if is_local {
+                        primary_button_style
+                    } else {
+                        secondary_button_style
+                    })
+                    .on_press(Message::SetInformationClassLocal(class_id, true))
+                    .padding([3, 8]),
+                button(text("Indlånt (Blå)").size(11))
+                    .style(if !is_local {
+                        primary_button_style
+                    } else {
+                        secondary_button_style
+                    })
+                    .on_press(Message::SetInformationClassLocal(class_id, false))
+                    .padding([3, 8]),
+            ]
+            .spacing(6),
+        ]
+        .spacing(4);
+
+        let origin_section: Element<'a, Message> = if !is_local {
+            column![
+                text("Oprindelsesmodel / Kilde URI:")
+                    .size(11.0)
+                    .color(ThemeColors::SLATE_600),
+                text_input(
+                    "https://data.gov.dk/model/...",
+                    class.origin_model().unwrap_or(""),
+                )
+                .style(modern_input_style)
+                .size(11.5)
+                .on_input(move |s| Message::SetInformationClassOriginModel(class_id, s))
+                .padding([3, 6]),
+            ]
+            .spacing(4)
+            .into()
+        } else {
+            Space::new().height(0).into()
+        };
+
+        // Begrebssporing (FDA Traceability)
+        let mut concept_badges_row = row![].spacing(4);
+        for cid in class.concept_ids() {
+            let term = concepts
+                .iter()
+                .find(|c| c.id() == *cid)
+                .map(|c| c.preferred_term())
+                .unwrap_or("Ukendt");
+            let cid_val = *cid;
+            let badge = container(
+                row![
+                    text(term).size(11).color(ThemeColors::PRIMARY),
+                    button(text("✕").size(9))
+                        .style(secondary_button_style)
+                        .on_press(Message::RemoveConceptFromInformationClass(
+                            class_id, cid_val
+                        ))
+                        .padding([1, 4]),
+                ]
+                .spacing(4)
+                .align_y(Alignment::Center),
+            )
+            .style(pill_container_style)
+            .padding([2, 6]);
+
+            concept_badges_row = concept_badges_row.push(badge);
+        }
+        let concept_badges: Element<'a, Message> = concept_badges_row.wrap().into();
+
+        let available_concepts: Vec<ConceptOption> = concepts
+            .iter()
+            .filter(|c| !class.concept_ids().contains(&c.id()))
+            .map(|c| ConceptOption {
+                id: c.id(),
+                term: c.preferred_term().to_string(),
+            })
+            .collect();
+
+        let add_concept_picker = pick_list(available_concepts, None::<ConceptOption>, move |opt| {
+            Message::AddConceptToInformationClass(class_id, opt)
+        })
+        .placeholder("+ Knyt begreb...")
+        .text_size(11.5)
+        .padding([3, 6])
+        .width(Length::Fill);
+
+        // Attributter sektion
+        let mut attr_list = column![].spacing(6);
+        for attr in class.attributes() {
+            let attr_id = attr.id();
+            let name_val = attr.name().to_string();
+            let mut data_type_options = Vec::new();
+            for pt in PrimitiveType::ALL {
+                data_type_options.push(DataTypeOption {
+                    label: pt.as_str().to_string(),
+                    data_type: InformationDataType::Primitive(*pt),
+                });
+            }
+            for e in info_model.enumerations() {
+                data_type_options.push(DataTypeOption {
+                    label: format!("{} (enum)", e.name()),
+                    data_type: InformationDataType::Enumeration {
+                        enumeration_id: e.id(),
+                    },
+                });
+            }
+            for st in info_model.structured_types() {
+                data_type_options.push(DataTypeOption {
+                    label: format!("{} (type)", st.name()),
+                    data_type: InformationDataType::Structured {
+                        structured_id: st.id(),
+                    },
+                });
             }
 
-            let name_input = name_col;
+            let current_dt = attr.data_type();
+            let selected_dt_opt = data_type_options
+                .iter()
+                .find(|opt| opt.data_type == *current_dt)
+                .cloned();
 
-            let desc_input = text_input("Beskrivelse...", class.description().unwrap_or(""))
-                .id("info_class_desc_input")
+            let mult_val = attr.multiplicity();
+
+            let linked_concept_id = attr.concept_ids().first().copied();
+            let linked_concept =
+                linked_concept_id.and_then(|cid| concepts.iter().find(|c| c.id() == cid));
+
+            let mut attr_concept_options = vec![AttributeConceptOption {
+                id: None,
+                label: "— Intet begreb (teknisk felt) —".to_string(),
+            }];
+            for c in concepts {
+                attr_concept_options.push(AttributeConceptOption {
+                    id: Some(c.id()),
+                    label: c.preferred_term().to_string(),
+                });
+            }
+
+            let selected_concept_opt = match linked_concept {
+                Some(c) => AttributeConceptOption {
+                    id: Some(c.id()),
+                    label: c.preferred_term().to_string(),
+                },
+                None => AttributeConceptOption {
+                    id: None,
+                    label: "— Intet begreb (teknisk felt) —".to_string(),
+                },
+            };
+
+            let mut top_row = row![text_input("attributNavn", &name_val)
                 .style(modern_input_style)
                 .size(12.0)
-                .on_input(move |s| Message::UpdateInformationClassDescription(class_id, s))
-                .padding([4, 6]);
+                .on_input(move |s| { Message::UpdateAttributeName(class_id, attr_id, s) })
+                .padding([3, 6])
+                .width(Length::Fill),];
 
-            let is_abstract = class.is_abstract();
-            let is_local = class.is_local();
+            if linked_concept.is_some() {
+                top_row = top_row.push(text("🔗").size(11).color(ThemeColors::PRIMARY));
+            }
 
-            let abstract_checkbox = checkbox(is_abstract)
-                .label("Abstrakt klasse ({abstract})")
-                .size(13)
-                .on_toggle(move |val| Message::SetInformationClassAbstract(class_id, val));
+            top_row = top_row.push(
+                button(text("✕").size(10))
+                    .style(danger_button_style)
+                    .on_press(Message::DeleteAttribute(class_id, attr_id))
+                    .padding([2, 5]),
+            );
 
-            let type_selector = column![
-                crate::ui::inspector_panel::section_header("Klassetype (FDA)"),
+            let mut attr_col = column![
+                top_row.spacing(4).align_y(Alignment::Center),
                 row![
-                    button(text("Lokal (Sand)").size(11))
-                        .style(if is_local {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
-                        .on_press(Message::SetInformationClassLocal(class_id, true))
-                        .padding([3, 8]),
-                    button(text("Indlånt (Blå)").size(11))
-                        .style(if !is_local {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
-                        .on_press(Message::SetInformationClassLocal(class_id, false))
-                        .padding([3, 8]),
+                    pick_list(data_type_options, selected_dt_opt, move |opt| {
+                        Message::UpdateAttributeDataType(class_id, attr_id, opt.data_type)
+                    })
+                    .text_size(11.0)
+                    .padding([3, 6])
+                    .width(Length::FillPortion(3)),
+                    pick_list(Multiplicity::PRESETS, Some(mult_val), move |m| {
+                        Message::UpdateAttributeMultiplicity(class_id, attr_id, m)
+                    },)
+                    .text_size(11.0)
+                    .padding([3, 6])
+                    .width(Length::FillPortion(2)),
                 ]
-                .spacing(6),
+                .spacing(4)
+                .align_y(Alignment::Center),
+                row![
+                    text("Begreb:").size(11.0).color(ThemeColors::SLATE_500),
+                    pick_list(
+                        attr_concept_options,
+                        Some(selected_concept_opt),
+                        move |opt| Message::SetAttributeConcept(class_id, attr_id, opt.id)
+                    )
+                    .text_size(11.0)
+                    .padding([3, 6])
+                    .width(Length::Fill),
+                ]
+                .spacing(4)
+                .align_y(Alignment::Center),
             ]
             .spacing(4);
 
-            let origin_section: Element<'a, Message> = if !is_local {
-                column![
-                    text("Oprindelsesmodel / Kilde URI:")
-                        .size(11.0)
-                        .color(ThemeColors::SLATE_600),
-                    text_input(
-                        "https://data.gov.dk/model/...",
-                        class.origin_model().unwrap_or(""),
-                    )
-                    .style(modern_input_style)
-                    .size(11.5)
-                    .on_input(move |s| Message::SetInformationClassOriginModel(class_id, s))
-                    .padding([3, 6]),
-                ]
-                .spacing(4)
-                .into()
-            } else {
-                Space::new().height(0).into()
-            };
-
-            // Begrebssporing (FDA Traceability)
-            let mut concept_badges_row = row![].spacing(4);
-            for cid in class.concept_ids() {
-                let term = concepts
-                    .iter()
-                    .find(|c| c.id() == *cid)
-                    .map(|c| c.preferred_term())
-                    .unwrap_or("Ukendt");
-                let cid_val = *cid;
+            if let Some(c) = linked_concept {
                 let badge = container(
                     row![
-                        text(term).size(11).color(ThemeColors::PRIMARY),
-                        button(text("✕").size(9))
-                            .style(secondary_button_style)
-                            .on_press(Message::RemoveConceptFromInformationClass(
-                                class_id, cid_val
-                            ))
-                            .padding([1, 4]),
+                        text("🔗").size(10).color(ThemeColors::PRIMARY),
+                        text(format!("Lineage: {}", c.preferred_term()))
+                            .size(10.5)
+                            .color(ThemeColors::PRIMARY),
                     ]
                     .spacing(4)
                     .align_y(Alignment::Center),
@@ -1083,347 +1231,196 @@ pub fn view<'a>(
                 .style(pill_container_style)
                 .padding([2, 6]);
 
-                concept_badges_row = concept_badges_row.push(badge);
+                attr_col = attr_col.push(badge);
             }
-            let concept_badges: Element<'a, Message> = concept_badges_row.wrap().into();
 
-            let available_concepts: Vec<ConceptOption> = concepts
-                .iter()
-                .filter(|c| !class.concept_ids().contains(&c.id()))
-                .map(|c| ConceptOption {
-                    id: c.id(),
-                    term: c.preferred_term().to_string(),
-                })
-                .collect();
+            if let Some(issue) = NamingLinter::check_attribute_name(&name_val) {
+                if !name_val.trim().is_empty() {
+                    let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
+                    if let Some(fix) = &issue.suggested_fix {
+                        msg.push_str(&format!(" (Forslag: {})", fix));
+                    }
+                    attr_col =
+                        attr_col.push(text(msg).size(10.0).color(Color::from_rgb(0.85, 0.55, 0.1)));
+                }
+            }
 
-            let add_concept_picker =
-                pick_list(available_concepts, None::<ConceptOption>, move |opt| {
-                    Message::AddConceptToInformationClass(class_id, opt)
-                })
-                .placeholder("+ Knyt begreb...")
-                .text_size(11.5)
-                .padding([3, 6])
+            let attr_card = container(attr_col)
+                .style(card_container_style)
+                .padding(6)
                 .width(Length::Fill);
 
-            // Attributter sektion
-            let mut attr_list = column![].spacing(6);
-            for attr in class.attributes() {
-                let attr_id = attr.id();
-                let name_val = attr.name().to_string();
-                let mut data_type_options = Vec::new();
-                for pt in PrimitiveType::ALL {
-                    data_type_options.push(DataTypeOption {
-                        label: pt.as_str().to_string(),
-                        data_type: InformationDataType::Primitive(*pt),
-                    });
-                }
-                for e in info_model.enumerations() {
-                    data_type_options.push(DataTypeOption {
-                        label: format!("{} (enum)", e.name()),
-                        data_type: InformationDataType::Enumeration {
-                            enumeration_id: e.id(),
-                        },
-                    });
-                }
-                for st in info_model.structured_types() {
-                    data_type_options.push(DataTypeOption {
-                        label: format!("{} (type)", st.name()),
-                        data_type: InformationDataType::Structured {
-                            structured_id: st.id(),
-                        },
-                    });
-                }
+            attr_list = attr_list.push(attr_card);
+        }
 
-                let current_dt = attr.data_type();
-                let selected_dt_opt = data_type_options
-                    .iter()
-                    .find(|opt| opt.data_type == *current_dt)
-                    .cloned();
+        // Canvas handlinger for denne klasse
+        let is_canvas_action_focused =
+            inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_CANVAS_ACTION);
+        let is_delete_class_focused =
+            inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_DELETE_CLASS);
 
-                let mult_val = attr.multiplicity();
-
-                let linked_concept_id = attr.concept_ids().first().copied();
-                let linked_concept =
-                    linked_concept_id.and_then(|cid| concepts.iter().find(|c| c.id() == cid));
-
-                let mut attr_concept_options = vec![AttributeConceptOption {
-                    id: None,
-                    label: "— Intet begreb (teknisk felt) —".to_string(),
-                }];
-                for c in concepts {
-                    attr_concept_options.push(AttributeConceptOption {
-                        id: Some(c.id()),
-                        label: c.preferred_term().to_string(),
-                    });
-                }
-
-                let selected_concept_opt = match linked_concept {
-                    Some(c) => AttributeConceptOption {
-                        id: Some(c.id()),
-                        label: c.preferred_term().to_string(),
-                    },
-                    None => AttributeConceptOption {
-                        id: None,
-                        label: "— Intet begreb (teknisk felt) —".to_string(),
-                    },
-                };
-
-                let mut top_row = row![text_input("attributNavn", &name_val)
-                    .style(modern_input_style)
-                    .size(12.0)
-                    .on_input(move |s| { Message::UpdateAttributeName(class_id, attr_id, s) })
-                    .padding([3, 6])
-                    .width(Length::Fill),];
-
-                if linked_concept.is_some() {
-                    top_row = top_row.push(text("🔗").size(11).color(ThemeColors::PRIMARY));
-                }
-
-                top_row = top_row.push(
-                    button(text("✕").size(10))
-                        .style(danger_button_style)
-                        .on_press(Message::DeleteAttribute(class_id, attr_id))
-                        .padding([2, 5]),
-                );
-
-                let mut attr_col = column![
-                    top_row.spacing(4).align_y(Alignment::Center),
-                    row![
-                        pick_list(data_type_options, selected_dt_opt, move |opt| {
-                            Message::UpdateAttributeDataType(class_id, attr_id, opt.data_type)
-                        })
-                        .text_size(11.0)
-                        .padding([3, 6])
-                        .width(Length::FillPortion(3)),
-                        pick_list(Multiplicity::PRESETS, Some(mult_val), move |m| {
-                            Message::UpdateAttributeMultiplicity(class_id, attr_id, m)
-                        },)
-                        .text_size(11.0)
-                        .padding([3, 6])
-                        .width(Length::FillPortion(2)),
-                    ]
-                    .spacing(4)
-                    .align_y(Alignment::Center),
-                    row![
-                        text("Begreb:").size(11.0).color(ThemeColors::SLATE_500),
-                        pick_list(
-                            attr_concept_options,
-                            Some(selected_concept_opt),
-                            move |opt| Message::SetAttributeConcept(class_id, attr_id, opt.id)
-                        )
-                        .text_size(11.0)
-                        .padding([3, 6])
-                        .width(Length::Fill),
-                    ]
-                    .spacing(4)
-                    .align_y(Alignment::Center),
-                ]
-                .spacing(4);
-
-                if let Some(c) = linked_concept {
-                    let badge = container(
-                        row![
-                            text("🔗").size(10).color(ThemeColors::PRIMARY),
-                            text(format!("Lineage: {}", c.preferred_term()))
-                                .size(10.5)
-                                .color(ThemeColors::PRIMARY),
-                        ]
-                        .spacing(4)
-                        .align_y(Alignment::Center),
-                    )
-                    .style(pill_container_style)
-                    .padding([2, 6]);
-
-                    attr_col = attr_col.push(badge);
-                }
-
-                if let Some(issue) = NamingLinter::check_attribute_name(&name_val) {
-                    if !name_val.trim().is_empty() {
-                        let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
-                        if let Some(fix) = &issue.suggested_fix {
-                            msg.push_str(&format!(" (Forslag: {})", fix));
-                        }
-                        attr_col = attr_col
-                            .push(text(msg).size(10.0).color(Color::from_rgb(0.85, 0.55, 0.1)));
-                    }
-                }
-
-                let attr_card = container(attr_col)
-                    .style(card_container_style)
-                    .padding(6)
-                    .width(Length::Fill);
-
-                attr_list = attr_list.push(attr_card);
-            }
-
-            // Canvas handlinger for denne klasse
-            let is_canvas_action_focused =
-                inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_CANVAS_ACTION);
-            let is_delete_class_focused =
-                inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_DELETE_CLASS);
-
-            let canvas_action_btn = if is_on_canvas {
-                if let Some(node) = class_graph.find_node_by_class(class_id) {
-                    let node_id = node.id();
-                    button(text("Fjern fra diagram").size(11))
-                        .style(focused_button_style(
-                            secondary_button_style,
-                            is_canvas_action_focused,
-                        ))
-                        .on_press(Message::RemoveClassFromDiagram(node_id))
-                        .padding([4, 8])
-                } else {
-                    button(text("Tilføj til diagram").size(11))
-                        .style(focused_button_style(
-                            primary_button_style,
-                            is_canvas_action_focused,
-                        ))
-                        .on_press(Message::AddClassToDiagram(class_id))
-                        .padding([4, 8])
-                }
+        let canvas_action_btn = if is_on_canvas {
+            if let Some(node) = class_graph.find_node_by_class(class_id) {
+                let node_id = node.id();
+                button(text("Fjern fra diagram").size(11))
+                    .style(focused_button_style(
+                        secondary_button_style,
+                        is_canvas_action_focused,
+                    ))
+                    .on_press(Message::RemoveClassFromDiagram(node_id))
+                    .padding([4, 8])
             } else {
-                button(text("+ Tilføj til diagram").size(11))
+                button(text("Tilføj til diagram").size(11))
                     .style(focused_button_style(
                         primary_button_style,
                         is_canvas_action_focused,
                     ))
                     .on_press(Message::AddClassToDiagram(class_id))
                     .padding([4, 8])
-            };
-
-            // Tilknyttede relationer for denne klasse
-            let connected_relations = info_model.relations_for_class(class_id);
-
-            let mut relations_col = column![text("Tilknyttede relationer:")
-                .size(11)
-                .color(ThemeColors::SLATE_700),]
-            .spacing(4);
-
-            if connected_relations.is_empty() {
-                relations_col = relations_col.push(
-                    text("(ingen relationer)")
-                        .size(11)
-                        .color(ThemeColors::TEXT_MUTED),
-                );
-            } else {
-                for rel in connected_relations {
-                    let from_class = info_model
-                        .get_class(rel.from_class())
-                        .map(|c| c.name())
-                        .unwrap_or("?");
-                    let to_class = info_model
-                        .get_class(rel.to_class())
-                        .map(|c| c.name())
-                        .unwrap_or("?");
-
-                    let desc = match rel.kind() {
-                        RelationKind::Generalization => {
-                            format!("{} ⮞ {}", from_class, to_class)
-                        }
-                        RelationKind::Association => {
-                            if let Some(lbl) = rel.label() {
-                                format!("{} ──({})── {}", from_class, lbl, to_class)
-                            } else {
-                                format!("{} ── {}", from_class, to_class)
-                            }
-                        }
-                        RelationKind::Composition => {
-                            format!("{} ◆── {}", from_class, to_class)
-                        }
-                        RelationKind::Dependency => {
-                            format!("{} ⤏ {}", from_class, to_class)
-                        }
-                    };
-
-                    let rel_from = rel.from_class();
-                    let rel_to = rel.to_class();
-                    let edge_row = row![
-                        text(desc)
-                            .size(11)
-                            .color(ThemeColors::SLATE_800)
-                            .width(Length::Fill),
-                        button(text("🗑️").size(11))
-                            .style(danger_button_style)
-                            .on_press(Message::DeleteClassRelation(rel_from, rel_to))
-                            .padding([2, 5]),
-                    ]
-                    .spacing(4)
-                    .align_y(Alignment::Center);
-
-                    relations_col = relations_col.push(edge_row);
-                }
             }
+        } else {
+            button(text("+ Tilføj til diagram").size(11))
+                .style(focused_button_style(
+                    primary_button_style,
+                    is_canvas_action_focused,
+                ))
+                .on_press(Message::AddClassToDiagram(class_id))
+                .padding([4, 8])
+        };
 
-            let badge_bg = if is_local {
-                ThemeColors::FDA_SAND
-            } else {
-                ThemeColors::FDA_BORROWED_BLUE
-            };
-            let badge_border = if is_local {
-                ThemeColors::FDA_SAND_BORDER
-            } else {
-                Color::from_rgb(0.35, 0.65, 0.85)
-            };
-            let badge_text = if is_local { "Klasse" } else { "Indlånt" };
+        // Tilknyttede relationer for denne klasse
+        let connected_relations = info_model.relations_for_class(class_id);
 
-            let header = crate::ui::inspector_panel::panel_header(
-                crate::ui::inspector_panel::PROPERTIES_TITLE,
-                Some((badge_text, badge_bg, badge_border)),
-                Some(Message::SelectInformationClass(None)),
+        let mut relations_col = column![text("Tilknyttede relationer:")
+            .size(11)
+            .color(ThemeColors::SLATE_700),]
+        .spacing(4);
+
+        if connected_relations.is_empty() {
+            relations_col = relations_col.push(
+                text("(ingen relationer)")
+                    .size(11)
+                    .color(ThemeColors::TEXT_MUTED),
             );
+        } else {
+            for rel in connected_relations {
+                let from_class = info_model
+                    .get_class(rel.from_class())
+                    .map(|c| c.name())
+                    .unwrap_or("?");
+                let to_class = info_model
+                    .get_class(rel.to_class())
+                    .map(|c| c.name())
+                    .unwrap_or("?");
 
-            let actions_row = row![
-                canvas_action_btn,
-                Space::new().width(Length::Fill),
-                button(text("🗑️ Slet klasse").size(11))
-                    .style(focused_button_style(
-                        danger_button_style,
-                        is_delete_class_focused,
-                    ))
-                    .on_press(Message::DeleteInformationClass(class_id))
-                    .padding([3, 7]),
-            ]
-            .align_y(Alignment::Center);
+                let desc = match rel.kind() {
+                    RelationKind::Generalization => {
+                        format!("{} ⮞ {}", from_class, to_class)
+                    }
+                    RelationKind::Association => {
+                        if let Some(lbl) = rel.label() {
+                            format!("{} ──({})── {}", from_class, lbl, to_class)
+                        } else {
+                            format!("{} ── {}", from_class, to_class)
+                        }
+                    }
+                    RelationKind::Composition => {
+                        format!("{} ◆── {}", from_class, to_class)
+                    }
+                    RelationKind::Dependency => {
+                        format!("{} ⤏ {}", from_class, to_class)
+                    }
+                };
 
-            let inspector_content = column![
-                header,
-                crate::ui::inspector_panel::section_header("Generelt"),
-                name_input,
-                desc_input,
-                crate::ui::inspector_panel::section_header("Egenskaber (UML & FDA)"),
-                abstract_checkbox,
-                type_selector,
-                origin_section,
-                actions_row,
-                // Begreber
-                column![
-                    crate::ui::inspector_panel::section_header("Tilknyttede Begreber"),
-                    concept_badges,
-                    add_concept_picker,
+                let rel_from = rel.from_class();
+                let rel_to = rel.to_class();
+                let edge_row = row![
+                    text(desc)
+                        .size(11)
+                        .color(ThemeColors::SLATE_800)
+                        .width(Length::Fill),
+                    button(text("🗑️").size(11))
+                        .style(danger_button_style)
+                        .on_press(Message::DeleteClassRelation(rel_from, rel_to))
+                        .padding([2, 5]),
                 ]
-                .spacing(4),
-                // Tilknyttede Relationer
-                relations_col,
-                // Attributter
-                column![
-                    row![
-                        text(format!("Attributter ({})", class.attributes().len()))
-                            .size(12)
-                            .color(ThemeColors::SLATE_700),
-                        Space::new().width(Length::Fill),
-                        button(text("+ Tilføj").size(11))
-                            .style(primary_button_style)
-                            .on_press(Message::AddAttributeToClass(class_id))
-                            .padding([3, 7]),
-                    ]
-                    .align_y(Alignment::Center),
-                    attr_list,
-                ]
-                .spacing(6),
-            ]
-            .spacing(10);
+                .spacing(4)
+                .align_y(Alignment::Center);
 
-            crate::ui::inspector_panel::panel_container(inspector_content.into())
+                relations_col = relations_col.push(edge_row);
+            }
+        }
+
+        let badge_bg = if is_local {
+            ThemeColors::FDA_SAND
+        } else {
+            ThemeColors::FDA_BORROWED_BLUE
+        };
+        let badge_border = if is_local {
+            ThemeColors::FDA_SAND_BORDER
+        } else {
+            Color::from_rgb(0.35, 0.65, 0.85)
+        };
+        let badge_text = if is_local { "Klasse" } else { "Indlånt" };
+
+        let header = crate::ui::inspector_panel::panel_header(
+            crate::ui::inspector_panel::PROPERTIES_TITLE,
+            Some((badge_text, badge_bg, badge_border)),
+            Some(Message::SelectInformationClass(None)),
+        );
+
+        let actions_row = row![
+            canvas_action_btn,
+            Space::new().width(Length::Fill),
+            button(text("🗑️ Slet klasse").size(11))
+                .style(focused_button_style(
+                    danger_button_style,
+                    is_delete_class_focused,
+                ))
+                .on_press(Message::DeleteInformationClass(class_id))
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center);
+
+        let inspector_content = column![
+            header,
+            crate::ui::inspector_panel::section_header("Generelt"),
+            name_input,
+            desc_input,
+            crate::ui::inspector_panel::section_header("Egenskaber (UML & FDA)"),
+            abstract_checkbox,
+            type_selector,
+            origin_section,
+            actions_row,
+            // Begreber
+            column![
+                crate::ui::inspector_panel::section_header("Tilknyttede Begreber"),
+                concept_badges,
+                add_concept_picker,
+            ]
+            .spacing(4),
+            // Tilknyttede Relationer
+            relations_col,
+            // Attributter
+            column![
+                row![
+                    text(format!("Attributter ({})", class.attributes().len()))
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    Space::new().width(Length::Fill),
+                    button(text("+ Tilføj").size(11))
+                        .style(primary_button_style)
+                        .on_press(Message::AddAttributeToClass(class_id))
+                        .padding([3, 7]),
+                ]
+                .align_y(Alignment::Center),
+                attr_list,
+            ]
+            .spacing(6),
+        ]
+        .spacing(10);
+
+        crate::ui::inspector_panel::panel_container(inspector_content.into())
     } else if let Some(e) = selected_enum_id
         .or(selected_class_id)
         .and_then(|id| info_model.get_enumeration(id))
@@ -1431,148 +1428,148 @@ pub fn view<'a>(
         let enum_id = e.id();
         let is_on_canvas = class_graph.is_class_on_diagram(enum_id);
 
-            let header = crate::ui::inspector_panel::panel_header(
-                crate::ui::inspector_panel::PROPERTIES_TITLE,
-                Some((
-                    "Enumeration",
-                    ThemeColors::FDA_ENUM_GREEN,
-                    Color::from_rgb(0.60, 0.82, 0.60),
-                )),
-                Some(Message::SelectInformationEnumeration(None)),
-            );
+        let header = crate::ui::inspector_panel::panel_header(
+            crate::ui::inspector_panel::PROPERTIES_TITLE,
+            Some((
+                "Enumeration",
+                ThemeColors::FDA_ENUM_GREEN,
+                Color::from_rgb(0.60, 0.82, 0.60),
+            )),
+            Some(Message::SelectInformationEnumeration(None)),
+        );
 
-            // Navn & linter
-            let mut name_col = column![text_input("Enumerationsnavn...", e.name())
-                .id("info_enum_name_input")
-                .style(modern_input_style)
-                .size(13.0)
-                .on_input(move |s| Message::UpdateInformationEnumerationName(enum_id, s))
-                .padding([4, 6]),]
-            .spacing(4);
+        // Navn & linter
+        let mut name_col = column![text_input("Enumerationsnavn...", e.name())
+            .id("info_enum_name_input")
+            .style(modern_input_style)
+            .size(13.0)
+            .on_input(move |s| Message::UpdateInformationEnumerationName(enum_id, s))
+            .padding([4, 6]),]
+        .spacing(4);
 
-            if let Some(issue) = NamingLinter::check_enumeration_name(e.name()) {
-                if !e.name().trim().is_empty() {
-                    let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
-                    if let Some(fix) = &issue.suggested_fix {
-                        msg.push_str(&format!(" (Forslag: {})", fix));
-                    }
-                    name_col =
-                        name_col.push(text(msg).size(10.5).color(Color::from_rgb(0.85, 0.55, 0.1)));
+        if let Some(issue) = NamingLinter::check_enumeration_name(e.name()) {
+            if !e.name().trim().is_empty() {
+                let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
+                if let Some(fix) = &issue.suggested_fix {
+                    msg.push_str(&format!(" (Forslag: {})", fix));
                 }
+                name_col =
+                    name_col.push(text(msg).size(10.5).color(Color::from_rgb(0.85, 0.55, 0.1)));
             }
+        }
 
-            let def_input = text_input("Valgfri definition...", e.definition().unwrap_or(""))
+        let def_input = text_input("Valgfri definition...", e.definition().unwrap_or(""))
+            .style(modern_input_style)
+            .size(12.0)
+            .on_input(move |s| Message::UpdateInformationEnumerationDefinition(enum_id, s))
+            .padding([4, 6]);
+
+        // Handlinger for lærred
+        let canvas_action_btn = if is_on_canvas {
+            button(text("Fjern fra diagram").size(11))
+                .style(secondary_button_style)
+                .on_press(Message::RemoveEnumerationFromDiagram(enum_id))
+                .padding([4, 8])
+        } else {
+            button(text("+ Tilføj til diagram").size(11))
+                .style(primary_button_style)
+                .on_press(Message::AddEnumerationToDiagram(enum_id))
+                .padding([4, 8])
+        };
+
+        let actions_row = row![
+            canvas_action_btn,
+            Space::new().width(Length::Fill),
+            button(text("🗑️ Slet enumeration").size(11))
+                .style(danger_button_style)
+                .on_press(Message::DeleteInformationEnumeration(enum_id))
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center);
+
+        // Værdier (FDA Tabel B: lowerCamelCase)
+        let mut values_list = column![].spacing(4);
+        for val in e.values() {
+            let val_str = val.clone();
+            let val_row = container(
+                row![
+                    text(val)
+                        .size(12)
+                        .color(ThemeColors::SLATE_800)
+                        .width(Length::Fill),
+                    button(text("✕").size(9))
+                        .style(danger_button_style)
+                        .on_press(Message::RemoveValueFromEnumeration(enum_id, val_str))
+                        .padding([2, 5]),
+                ]
+                .spacing(4)
+                .align_y(Alignment::Center),
+            )
+            .style(card_container_style)
+            .padding([3, 6])
+            .width(Length::Fill);
+
+            values_list = values_list.push(val_row);
+        }
+
+        let new_val_trimmed = new_enum_value_input.trim();
+        let is_val_valid =
+            !new_val_trimmed.is_empty() && NamingLinter::is_lower_camel_case(new_val_trimmed);
+
+        let mut add_val_col = column![row![
+            text_input("nyVærdi (lowerCamelCase)...", new_enum_value_input)
+                .id("new_enum_val_input")
                 .style(modern_input_style)
                 .size(12.0)
-                .on_input(move |s| Message::UpdateInformationEnumerationDefinition(enum_id, s))
-                .padding([4, 6]);
-
-            // Handlinger for lærred
-            let canvas_action_btn = if is_on_canvas {
-                button(text("Fjern fra diagram").size(11))
-                    .style(secondary_button_style)
-                    .on_press(Message::RemoveEnumerationFromDiagram(enum_id))
-                    .padding([4, 8])
-            } else {
-                button(text("+ Tilføj til diagram").size(11))
-                    .style(primary_button_style)
-                    .on_press(Message::AddEnumerationToDiagram(enum_id))
-                    .padding([4, 8])
-            };
-
-            let actions_row = row![
-                canvas_action_btn,
-                Space::new().width(Length::Fill),
-                button(text("🗑️ Slet enumeration").size(11))
-                    .style(danger_button_style)
-                    .on_press(Message::DeleteInformationEnumeration(enum_id))
-                    .padding([3, 7]),
-            ]
-            .align_y(Alignment::Center);
-
-            // Værdier (FDA Tabel B: lowerCamelCase)
-            let mut values_list = column![].spacing(4);
-            for val in e.values() {
-                let val_str = val.clone();
-                let val_row = container(
-                    row![
-                        text(val)
-                            .size(12)
-                            .color(ThemeColors::SLATE_800)
-                            .width(Length::Fill),
-                        button(text("✕").size(9))
-                            .style(danger_button_style)
-                            .on_press(Message::RemoveValueFromEnumeration(enum_id, val_str))
-                            .padding([2, 5]),
-                    ]
-                    .spacing(4)
-                    .align_y(Alignment::Center),
-                )
-                .style(card_container_style)
+                .on_input(Message::NewEnumValueInputChanged)
+                .on_submit(Message::AddValueToEnumeration(
+                    enum_id,
+                    new_enum_value_input.to_string()
+                ))
                 .padding([3, 6])
-                .width(Length::Fill);
+                .width(Length::Fill),
+            button(text("+ Tilføj").size(11))
+                .style(if is_val_valid {
+                    primary_button_style
+                } else {
+                    secondary_button_style
+                })
+                .on_press(Message::AddValueToEnumeration(
+                    enum_id,
+                    new_enum_value_input.to_string()
+                ))
+                .padding([3, 8]),
+        ]
+        .spacing(4)
+        .align_y(Alignment::Center),]
+        .spacing(3);
 
-                values_list = values_list.push(val_row);
-            }
-
-            let new_val_trimmed = new_enum_value_input.trim();
-            let is_val_valid =
-                !new_val_trimmed.is_empty() && NamingLinter::is_lower_camel_case(new_val_trimmed);
-
-            let mut add_val_col = column![row![
-                text_input("nyVærdi (lowerCamelCase)...", new_enum_value_input)
-                    .id("new_enum_val_input")
-                    .style(modern_input_style)
-                    .size(12.0)
-                    .on_input(Message::NewEnumValueInputChanged)
-                    .on_submit(Message::AddValueToEnumeration(
-                        enum_id,
-                        new_enum_value_input.to_string()
-                    ))
-                    .padding([3, 6])
-                    .width(Length::Fill),
-                button(text("+ Tilføj").size(11))
-                    .style(if is_val_valid {
-                        primary_button_style
-                    } else {
-                        secondary_button_style
-                    })
-                    .on_press(Message::AddValueToEnumeration(
-                        enum_id,
-                        new_enum_value_input.to_string()
-                    ))
-                    .padding([3, 8]),
-            ]
-            .spacing(4)
-            .align_y(Alignment::Center),]
-            .spacing(3);
-
-            if let Some(issue) = NamingLinter::check_enumeration_value(new_enum_value_input) {
-                if !new_enum_value_input.trim().is_empty() {
-                    let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
-                    if let Some(fix) = &issue.suggested_fix {
-                        msg.push_str(&format!(" (Forslag: {})", fix));
-                    }
-                    add_val_col = add_val_col
-                        .push(text(msg).size(10.0).color(Color::from_rgb(0.85, 0.55, 0.1)));
+        if let Some(issue) = NamingLinter::check_enumeration_value(new_enum_value_input) {
+            if !new_enum_value_input.trim().is_empty() {
+                let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
+                if let Some(fix) = &issue.suggested_fix {
+                    msg.push_str(&format!(" (Forslag: {})", fix));
                 }
+                add_val_col =
+                    add_val_col.push(text(msg).size(10.0).color(Color::from_rgb(0.85, 0.55, 0.1)));
             }
+        }
 
-            let inspector_content = column![
-                header,
-                crate::ui::inspector_panel::section_header("Generelt (FDA Tabel B)"),
-                name_col,
-                def_input,
-                actions_row,
-                text(format!("Udfaldsrum / Værdier ({})", e.values().len()))
-                    .size(12)
-                    .color(ThemeColors::SLATE_700),
-                add_val_col,
-                values_list,
-            ]
-            .spacing(10);
+        let inspector_content = column![
+            header,
+            crate::ui::inspector_panel::section_header("Generelt (FDA Tabel B)"),
+            name_col,
+            def_input,
+            actions_row,
+            text(format!("Udfaldsrum / Værdier ({})", e.values().len()))
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+            add_val_col,
+            values_list,
+        ]
+        .spacing(10);
 
-            crate::ui::inspector_panel::panel_container(inspector_content.into())
+        crate::ui::inspector_panel::panel_container(inspector_content.into())
     } else if selected_class_id.is_some() {
         crate::ui::inspector_panel::panel_container(
             text("Klasse ikke fundet")

@@ -9088,8 +9088,12 @@ fn test_task_068_in_app_header_logo_and_os_icons() {
 
     // 2. Verificer at assets/icons/kant.svg er synkroniseret med assets/kant_logo.svg
     let icon_svg_path = Path::new("assets/icons/kant.svg");
-    assert!(icon_svg_path.exists(), "assets/icons/kant.svg skal eksistere");
-    let icon_svg = std::fs::read_to_string(icon_svg_path).expect("skal kunne læse assets/icons/kant.svg");
+    assert!(
+        icon_svg_path.exists(),
+        "assets/icons/kant.svg skal eksistere"
+    );
+    let icon_svg =
+        std::fs::read_to_string(icon_svg_path).expect("skal kunne læse assets/icons/kant.svg");
     assert_eq!(
         icon_svg.trim(),
         logo_svg.trim(),
@@ -9098,7 +9102,10 @@ fn test_task_068_in_app_header_logo_and_os_icons() {
 
     // 3. Verificer kant-32.rgba: skal være 32x32x4 = 4096 bytes og genereret fra nyt logo
     let rgba_path = Path::new("assets/icons/kant-32.rgba");
-    assert!(rgba_path.exists(), "assets/icons/kant-32.rgba skal eksistere");
+    assert!(
+        rgba_path.exists(),
+        "assets/icons/kant-32.rgba skal eksistere"
+    );
     let rgba_bytes = std::fs::read(rgba_path).expect("skal kunne læse kant-32.rgba");
     assert_eq!(
         rgba_bytes.len(),
@@ -9117,16 +9124,10 @@ fn test_task_068_in_app_header_logo_and_os_icons() {
     let ico_path = Path::new("assets/icons/kant.ico");
     assert!(ico_path.exists(), "assets/icons/kant.ico skal eksistere");
     let ico_bytes = std::fs::read(ico_path).expect("skal kunne læse kant.ico");
-    assert!(
-        ico_bytes.len() >= 6,
-        "kant.ico skal have gyldig header"
-    );
+    assert!(ico_bytes.len() >= 6, "kant.ico skal have gyldig header");
     assert_eq!(&ico_bytes[0..4], &[0x00, 0x00, 0x01, 0x00]);
     let image_count = u16::from_le_bytes([ico_bytes[4], ico_bytes[5]]);
-    assert!(
-        image_count >= 1,
-        "kant.ico skal indeholde mindst 1 billede"
-    );
+    assert!(image_count >= 1, "kant.ico skal indeholde mindst 1 billede");
 }
 
 #[test]
@@ -9219,7 +9220,10 @@ fn test_task_069_enter_quick_edit_on_canvas_node_and_edge() {
     let _ = app.update(Message::SelectTab(Tab::ConceptModel));
     let _ = app.update(Message::GraphNodeSelected(Some(nid1)));
     assert_eq!(app.selected_graph_node_id(), Some(nid1));
-    assert!(!app.is_node_editing(), "Skal ikke være i inline redigering før Enter");
+    assert!(
+        !app.is_node_editing(),
+        "Skal ikke være i inline redigering før Enter"
+    );
 
     let _ = app.update(Message::EnterPressed);
     assert!(
@@ -9230,33 +9234,59 @@ fn test_task_069_enter_quick_edit_on_canvas_node_and_edge() {
     // Luk editoren igen med Esc
     let _ = app.update(Message::EscapePressed);
     assert!(!app.is_node_editing(), "Esc skal lukke inline editor");
-    assert_eq!(app.selected_graph_node_id(), Some(nid1), "Node forbliver valgt efter inline editor lukkes");
+    assert_eq!(
+        app.selected_graph_node_id(),
+        Some(nid1),
+        "Node forbliver valgt efter inline editor lukkes"
+    );
 
     // 2. Enter på valgt relation
     let _ = app.update(Message::GraphEdgeSelected(Some((nid1, nid2))));
     assert_eq!(app.selected_edge(), Some((nid1, nid2)));
     let _ = app.update(Message::EnterPressed);
-    assert_eq!(app.selected_edge(), Some((nid1, nid2)), "Relationen forbliver valgt og klar til input");
+    assert_eq!(
+        app.selected_edge(),
+        Some((nid1, nid2)),
+        "Relationen forbliver valgt og klar til input"
+    );
 
     // 3. Enter i Informationsmodel (Klasse)
     let _ = app.update(Message::SelectTab(Tab::InformationModel));
     let _ = app.update(Message::CreateInformationClass);
     let info_node = app.selected_info_graph_node_id();
-    assert!(info_node.is_some(), "Informationsklasse node skal være oprettet og valgt");
+    assert!(
+        info_node.is_some(),
+        "Informationsklasse node skal være oprettet og valgt"
+    );
     let _ = app.update(Message::EnterPressed);
-    assert_eq!(app.selected_info_graph_node_id(), info_node, "Info node forbliver valgt ved Enter");
+    assert_eq!(
+        app.selected_info_graph_node_id(),
+        info_node,
+        "Info node forbliver valgt ved Enter"
+    );
 
     // 4. Enter på enumeration node i Informationsmodel
     let enum_id = app.project_mut().information_model_mut().add_enumeration(
-        kant::features::information_model::InformationEnumeration::new("Status", Vec::new())
+        kant::features::information_model::InformationEnumeration::new("Status", Vec::new()),
     );
-    let enum_node_id = app.project_mut().information_graph_mut().add_node(enum_id, 0);
+    let enum_node_id = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(enum_id, 0);
     let _ = app.update(Message::SelectInfoGraphNode(Some(enum_node_id)));
     assert_eq!(app.selected_info_enum_id(), Some(enum_id));
     assert_eq!(app.selected_info_class_id(), None);
     let _ = app.update(Message::EnterPressed);
-    assert_eq!(app.selected_info_enum_id(), Some(enum_id), "Enumeration skal forblive valgt");
-    assert_eq!(app.selected_info_class_id(), None, "Må ikke overskrive selected_info_class_id med enumeration id");
+    assert_eq!(
+        app.selected_info_enum_id(),
+        Some(enum_id),
+        "Enumeration skal forblive valgt"
+    );
+    assert_eq!(
+        app.selected_info_class_id(),
+        None,
+        "Må ikke overskrive selected_info_class_id med enumeration id"
+    );
 }
 
 #[test]
@@ -9273,63 +9303,123 @@ fn test_task_069_escape_hierarchy_all_nine_modals_closing() {
 
     // 1. Diagnostics Modal
     let _ = app.update(Message::OpenDiagnosticsModal);
-    assert!(app.diagnostics_modal().is_some(), "Diagnostics modal skal være åben");
+    assert!(
+        app.diagnostics_modal().is_some(),
+        "Diagnostics modal skal være åben"
+    );
     let _ = app.update(Message::EscapePressed);
-    assert!(app.diagnostics_modal().is_none(), "Diagnostics modal skal lukkes på Esc");
+    assert!(
+        app.diagnostics_modal().is_none(),
+        "Diagnostics modal skal lukkes på Esc"
+    );
 
     // 2. Publish Modal
     let _ = app.update(Message::OpenPublishModal);
-    assert!(app.publish_modal().is_some(), "Publish modal skal være åben");
+    assert!(
+        app.publish_modal().is_some(),
+        "Publish modal skal være åben"
+    );
     let _ = app.update(Message::EscapePressed);
-    assert!(app.publish_modal().is_none(), "Publish modal skal lukkes på Esc");
+    assert!(
+        app.publish_modal().is_none(),
+        "Publish modal skal lukkes på Esc"
+    );
 
     // 3. Model History Modal
     let _ = app.update(Message::OpenModelHistoryModal);
-    assert!(app.history_modal().is_some(), "History modal skal være åben");
+    assert!(
+        app.history_modal().is_some(),
+        "History modal skal være åben"
+    );
     let _ = app.update(Message::EscapePressed);
-    assert!(app.history_modal().is_none(), "History modal skal lukkes på Esc");
+    assert!(
+        app.history_modal().is_none(),
+        "History modal skal lukkes på Esc"
+    );
 
     // 4. Conflict Resolver Modal
     let _ = app.update(Message::OpenConflictResolverModal(vec![]));
-    assert!(app.conflict_resolver_modal().is_some(), "Conflict resolver modal skal være åben");
+    assert!(
+        app.conflict_resolver_modal().is_some(),
+        "Conflict resolver modal skal være åben"
+    );
     let _ = app.update(Message::EscapePressed);
-    assert!(app.conflict_resolver_modal().is_none(), "Conflict resolver modal skal lukkes på Esc");
+    assert!(
+        app.conflict_resolver_modal().is_none(),
+        "Conflict resolver modal skal lukkes på Esc"
+    );
 
     // 5. Git Connection Modal
     let _ = app.update(Message::OpenGitConnectionModal);
-    assert!(app.git_connection_modal().is_some(), "Git connection modal skal være åben");
+    assert!(
+        app.git_connection_modal().is_some(),
+        "Git connection modal skal være åben"
+    );
     let _ = app.update(Message::EscapePressed);
-    assert!(app.git_connection_modal().is_none(), "Git connection modal skal lukkes på Esc");
+    assert!(
+        app.git_connection_modal().is_none(),
+        "Git connection modal skal lukkes på Esc"
+    );
 
     // 6. Git Clone Modal
     let _ = app.update(Message::OpenGitCloneModal);
-    assert!(app.git_clone_modal().is_some(), "Git clone modal skal være åben");
+    assert!(
+        app.git_clone_modal().is_some(),
+        "Git clone modal skal være åben"
+    );
     let _ = app.update(Message::EscapePressed);
-    assert!(app.git_clone_modal().is_none(), "Git clone modal skal lukkes på Esc");
+    assert!(
+        app.git_clone_modal().is_none(),
+        "Git clone modal skal lukkes på Esc"
+    );
 
     // 7. Metadata Modal
     let _ = app.update(Message::OpenMetadataModal);
-    assert!(app.metadata_modal().is_some(), "Metadata modal skal være åben");
+    assert!(
+        app.metadata_modal().is_some(),
+        "Metadata modal skal være åben"
+    );
     let _ = app.update(Message::EscapePressed);
-    assert!(app.metadata_modal().is_none(), "Metadata modal skal lukkes på Esc");
+    assert!(
+        app.metadata_modal().is_none(),
+        "Metadata modal skal lukkes på Esc"
+    );
 
     // 8. Start Session Modal
     let _ = app.update(Message::OpenStartSessionModal);
-    assert!(app.start_session_modal().is_some(), "Start session modal skal være åben");
+    assert!(
+        app.start_session_modal().is_some(),
+        "Start session modal skal være åben"
+    );
     let _ = app.update(Message::EscapePressed);
-    assert!(app.start_session_modal().is_none(), "Start session modal skal lukkes på Esc");
+    assert!(
+        app.start_session_modal().is_none(),
+        "Start session modal skal lukkes på Esc"
+    );
 
     // 9. Join Session Modal
     let _ = app.update(Message::OpenJoinSessionModal);
-    assert!(app.join_session_modal().is_some(), "Join session modal skal være åben");
+    assert!(
+        app.join_session_modal().is_some(),
+        "Join session modal skal være åben"
+    );
     let _ = app.update(Message::EscapePressed);
-    assert!(app.join_session_modal().is_none(), "Join session modal skal lukkes på Esc");
+    assert!(
+        app.join_session_modal().is_none(),
+        "Join session modal skal lukkes på Esc"
+    );
 
     // Bonus: Excel Schema Guide Modal
     let _ = app.update(Message::OpenExcelSchemaGuideModal);
-    assert!(app.is_excel_schema_guide_open(), "Excel schema guide modal skal være åben");
+    assert!(
+        app.is_excel_schema_guide_open(),
+        "Excel schema guide modal skal være åben"
+    );
     let _ = app.update(Message::EscapePressed);
-    assert!(!app.is_excel_schema_guide_open(), "Excel schema guide modal skal lukkes på Esc");
+    assert!(
+        !app.is_excel_schema_guide_open(),
+        "Excel schema guide modal skal lukkes på Esc"
+    );
 
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
@@ -9362,11 +9452,19 @@ fn test_task_069_escape_hierarchy_layer_by_layer() {
     // Lag 2: 1. Esc lukker inline editor, men beholder nodemarkering
     let _ = app.update(Message::EscapePressed);
     assert!(!app.is_node_editing(), "Inline editor skal være lukket");
-    assert_eq!(app.selected_graph_node_id(), Some(nid), "Node forbliver markeret");
+    assert_eq!(
+        app.selected_graph_node_id(),
+        Some(nid),
+        "Node forbliver markeret"
+    );
 
     // Lag 4: 2. Esc fjerner nodemarkering på canvas
     let _ = app.update(Message::EscapePressed);
-    assert_eq!(app.selected_graph_node_id(), None, "Canvas markering skal være ryddet");
+    assert_eq!(
+        app.selected_graph_node_id(),
+        None,
+        "Canvas markering skal være ryddet"
+    );
     assert!(app.selected_graph_node_ids().is_empty());
 
     // Lag 5: 3. Esc lander på fanebladene (skal køre uden panik og bevare en konsistent tilstand)
@@ -9423,7 +9521,10 @@ fn test_task_070_start_session_modal_tab_cycle_and_enter_confirm() {
 
     let mut app = App::new();
     let _ = app.update(Message::OpenStartSessionModal);
-    assert!(app.start_session_modal().is_some(), "Start live session modal skal være åben");
+    assert!(
+        app.start_session_modal().is_some(),
+        "Start live session modal skal være åben"
+    );
 
     // 1. Enter i StartSessionModal uden inputfelter skal som standard bekræfte/starte sessionen
     // Eller Tab skifter mellem knapperne (Kopiér -> Annuller -> Start)
@@ -9436,11 +9537,18 @@ fn test_task_070_start_session_modal_tab_cycle_and_enter_confirm() {
     let init_idx = app.modal_focused_button_index().unwrap();
     let _ = app.update(Message::FocusNext);
     let next_idx = app.modal_focused_button_index().unwrap();
-    assert_ne!(init_idx, next_idx, "Tab skal skifte fokuseret knap i modalen");
+    assert_ne!(
+        init_idx, next_idx,
+        "Tab skal skifte fokuseret knap i modalen"
+    );
 
     // Tab baglæns med FocusPrevious
     let _ = app.update(Message::FocusPrevious);
-    assert_eq!(app.modal_focused_button_index(), Some(init_idx), "Shift+Tab skal gå baglæns");
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(init_idx),
+        "Shift+Tab skal gå baglæns"
+    );
 
     // Enter på Annuller-knap lukker modalen
     // Cykl indtil Annuller-knappen (Cancel) er valgt
@@ -9448,28 +9556,40 @@ fn test_task_070_start_session_modal_tab_cycle_and_enter_confirm() {
         let _ = app.update(Message::FocusNext);
     }
     let _ = app.update(Message::EnterPressed);
-    assert!(app.start_session_modal().is_none(), "Enter på fokuseret Annuller-knap skal lukke modalen");
+    assert!(
+        app.start_session_modal().is_none(),
+        "Enter på fokuseret Annuller-knap skal lukke modalen"
+    );
 }
 
 #[test]
 fn test_task_070_concept_editor_tab_cycle_to_buttons() {
     use kant::features::concepts::{BelongsToDomain, Concept};
     use kant::ui::app::{App, Message};
-    use kant::ui::concept_editor::{
-        BTN_CANCEL, BTN_DOMAIN_BORROWED, BTN_DOMAIN_LOCAL, BTN_SAVE,
-    };
+    use kant::ui::concept_editor::{BTN_CANCEL, BTN_DOMAIN_BORROWED, BTN_DOMAIN_LOCAL, BTN_SAVE};
 
     let mut app = App::new();
     let cid = app
         .project_mut()
-        .add_concept(Concept::new("Bil", "Et firehjulet motorkøretøj", BelongsToDomain::Yes))
+        .add_concept(Concept::new(
+            "Bil",
+            "Et firehjulet motorkøretøj",
+            BelongsToDomain::Yes,
+        ))
         .unwrap();
 
     let _ = app.update(Message::EditConcept(cid));
-    assert!(app.concept_editor().is_some(), "ConceptEditor skal være åben");
+    assert!(
+        app.concept_editor().is_some(),
+        "ConceptEditor skal være åben"
+    );
 
     // 1. Verificer at startfokus er i første tekstfelt (preferred_term_input)
-    assert_eq!(app.editor_focused_button(), None, "Startfokus er i tekstfelt");
+    assert_eq!(
+        app.editor_focused_button(),
+        None,
+        "Startfokus er i tekstfelt"
+    );
 
     // 2. Første Tab rykker til 'Lokalt begreb (Ja)' knappen
     let _ = app.update(Message::FocusNext);
@@ -9524,16 +9644,27 @@ fn test_task_070_concept_editor_tab_cycle_to_buttons() {
 
     // 8. Næste Tab skal nå Gem ændringer (BTN_SAVE)
     let _ = app.update(Message::FocusNext);
-    assert_eq!(app.editor_focused_button(), Some(BTN_SAVE), "Tab skal nå Gem-knappen");
+    assert_eq!(
+        app.editor_focused_button(),
+        Some(BTN_SAVE),
+        "Tab skal nå Gem-knappen"
+    );
 
     // 9. Næste Tab skal loope tilbage til tekstfelterne (fokus_button == None)
     let _ = app.update(Message::FocusNext);
-    assert_eq!(app.editor_focused_button(), None, "Tab fra Gem skal loope tilbage til tekstfelterne");
+    assert_eq!(
+        app.editor_focused_button(),
+        None,
+        "Tab fra Gem skal loope tilbage til tekstfelterne"
+    );
 
     // 10. Enter på fokuseret Annuller lukker editoren
     let _ = app.update(Message::FocusEditorButton(Some(BTN_CANCEL)));
     let _ = app.update(Message::EnterPressed);
-    assert!(app.concept_editor().is_none(), "Enter på fokuseret Annuller skal lukke editoren");
+    assert!(
+        app.concept_editor().is_none(),
+        "Enter på fokuseret Annuller skal lukke editoren"
+    );
 }
 
 #[test]
@@ -9542,17 +9673,26 @@ fn test_task_070_join_session_modal_tab_cycle_and_enter() {
 
     let mut app = App::new();
     let _ = app.update(Message::OpenJoinSessionModal);
-    assert!(app.join_session_modal().is_some(), "Join session modal skal være åben");
+    assert!(
+        app.join_session_modal().is_some(),
+        "Join session modal skal være åben"
+    );
 
     let _ = app.update(Message::FocusNext);
-    assert!(app.modal_focused_button_index().is_some(), "Tab skal fokusere en modal knap");
+    assert!(
+        app.modal_focused_button_index().is_some(),
+        "Tab skal fokusere en modal knap"
+    );
 
     // Annuller (indeks 0) lukker modalen
     while app.modal_focused_button_index() != Some(0) {
         let _ = app.update(Message::FocusNext);
     }
     let _ = app.update(Message::EnterPressed);
-    assert!(app.join_session_modal().is_none(), "Enter på Annuller skal lukke JoinSessionModal");
+    assert!(
+        app.join_session_modal().is_none(),
+        "Enter på Annuller skal lukke JoinSessionModal"
+    );
 }
 
 #[test]
@@ -9569,9 +9709,7 @@ fn test_task_070_subscription_handles_captured_tab_and_escape() {
         repeat: false,
         text: None,
         modified_key: Key::Named(Named::Tab),
-        physical_key: iced::keyboard::key::Physical::Unidentified(
-            NativeCode::Unidentified,
-        ),
+        physical_key: iced::keyboard::key::Physical::Unidentified(NativeCode::Unidentified),
     });
     assert!(
         matches!(
@@ -9589,9 +9727,7 @@ fn test_task_070_subscription_handles_captured_tab_and_escape() {
         repeat: false,
         text: None,
         modified_key: Key::Named(Named::Tab),
-        physical_key: iced::keyboard::key::Physical::Unidentified(
-            NativeCode::Unidentified,
-        ),
+        physical_key: iced::keyboard::key::Physical::Unidentified(NativeCode::Unidentified),
     });
     assert!(
         matches!(
@@ -9609,9 +9745,7 @@ fn test_task_070_subscription_handles_captured_tab_and_escape() {
         repeat: false,
         text: None,
         modified_key: Key::Named(Named::Escape),
-        physical_key: iced::keyboard::key::Physical::Unidentified(
-            NativeCode::Unidentified,
-        ),
+        physical_key: iced::keyboard::key::Physical::Unidentified(NativeCode::Unidentified),
     });
     assert!(
         matches!(
@@ -9629,9 +9763,7 @@ fn test_task_070_subscription_handles_captured_tab_and_escape() {
         repeat: false,
         text: Some("a".into()),
         modified_key: Key::Character("a".into()),
-        physical_key: iced::keyboard::key::Physical::Unidentified(
-            NativeCode::Unidentified,
-        ),
+        physical_key: iced::keyboard::key::Physical::Unidentified(NativeCode::Unidentified),
     });
     assert!(
         App::handle_event_for_subscription(char_event, Status::Captured).is_none(),
@@ -9729,11 +9861,16 @@ fn test_task_070_git_connection_modal_tab_cycle_and_escape() {
 
 #[test]
 fn test_task_070_git_clone_modal_tab_cycle_and_cancel() {
-    use kant::ui::app::{App, Message, GIT_CLONE_BTN_BROWSE, GIT_CLONE_BTN_CANCEL, GIT_CLONE_BTN_CLONE};
+    use kant::ui::app::{
+        App, Message, GIT_CLONE_BTN_BROWSE, GIT_CLONE_BTN_CANCEL, GIT_CLONE_BTN_CLONE,
+    };
 
     let mut app = App::new();
     let _ = app.update(Message::OpenGitCloneModal);
-    assert!(app.git_clone_modal().is_some(), "Git clone modal skal være åben");
+    assert!(
+        app.git_clone_modal().is_some(),
+        "Git clone modal skal være åben"
+    );
 
     // Start: inputfelt
     assert_eq!(app.modal_focused_button_index(), None);
@@ -9767,7 +9904,10 @@ fn test_task_070_git_clone_modal_tab_cycle_and_cancel() {
     let _ = app.update(Message::FocusPrevious); // CANCEL
     assert_eq!(app.modal_focused_button_index(), Some(GIT_CLONE_BTN_CANCEL));
     let _ = app.update(Message::EnterPressed);
-    assert!(app.git_clone_modal().is_none(), "Enter på Annuller skal lukke Clone modalen");
+    assert!(
+        app.git_clone_modal().is_none(),
+        "Enter på Annuller skal lukke Clone modalen"
+    );
 }
 
 #[test]
@@ -9776,7 +9916,10 @@ fn test_task_070_metadata_modal_tab_cycle_and_cancel() {
 
     let mut app = App::new();
     let _ = app.update(Message::OpenMetadataModal);
-    assert!(app.metadata_modal().is_some(), "Metadata modal skal være åben");
+    assert!(
+        app.metadata_modal().is_some(),
+        "Metadata modal skal være åben"
+    );
 
     // Start: inputfelt meta_name
     assert_eq!(app.modal_focused_button_index(), None);
@@ -9811,7 +9954,10 @@ fn test_task_070_file_dialog_modal_tab_cycle_and_cancel() {
 
     let mut app = App::new();
     let _ = app.update(Message::OpenInlineFileDialog(FileDialogMode::Open));
-    assert!(app.is_file_dialog_open(), "File dialog modal skal være åben");
+    assert!(
+        app.is_file_dialog_open(),
+        "File dialog modal skal være åben"
+    );
 
     // Start på inputfeltet
     assert_eq!(app.modal_focused_button_index(), None);
@@ -9832,7 +9978,10 @@ fn test_task_070_file_dialog_modal_tab_cycle_and_cancel() {
     let _ = app.update(Message::FocusNext);
     assert_eq!(app.modal_focused_button_index(), Some(0));
     let _ = app.update(Message::EnterPressed);
-    assert!(!app.is_file_dialog_open(), "Enter på Annuller skal lukke fil-dialogen");
+    assert!(
+        !app.is_file_dialog_open(),
+        "Enter på Annuller skal lukke fil-dialogen"
+    );
 }
 
 #[test]
@@ -9878,7 +10027,10 @@ fn test_task_071_toolbar_tab_cycle_and_activation() {
 
     // Enter på Skemaguide åbner modalen
     let _ = app.update(Message::EnterPressed);
-    assert!(app.is_excel_schema_guide_open(), "Enter på fokuseret Skemaguide-knap skal åbne guiden");
+    assert!(
+        app.is_excel_schema_guide_open(),
+        "Enter på fokuseret Skemaguide-knap skal åbne guiden"
+    );
     let _ = app.update(Message::CloseExcelSchemaGuideModal);
     assert!(!app.is_excel_schema_guide_open());
 
@@ -9887,7 +10039,10 @@ fn test_task_071_toolbar_tab_cycle_and_activation() {
     let _ = app.update(Message::FocusNext); // + Nyt Begreb
     assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_BTN_NEW_CONCEPT));
     let _ = app.update(Message::EnterPressed);
-    assert!(app.concept_editor().is_some(), "Enter på + Nyt Begreb skal åbne ConceptEditor");
+    assert!(
+        app.concept_editor().is_some(),
+        "Enter på + Nyt Begreb skal åbne ConceptEditor"
+    );
 }
 
 #[test]
@@ -9896,10 +10051,17 @@ fn test_task_071_new_project_initializes_modal_focus_on_meta_name() {
 
     let mut app = App::new();
     let _ = app.update(Message::NewProject);
-    assert!(app.metadata_modal().is_some(), "Nyt projekt skal åbne metadata modalen");
+    assert!(
+        app.metadata_modal().is_some(),
+        "Nyt projekt skal åbne metadata modalen"
+    );
 
     // Start-tilstand: meta_name har fokus, ingen knap fokuseret
-    assert_eq!(app.modal_focused_button_index(), None, "Startfokus skal være i meta_name tekstfelt");
+    assert_eq!(
+        app.modal_focused_button_index(),
+        None,
+        "Startfokus skal være i meta_name tekstfelt"
+    );
 
     // Shift+Tab looper direkte baglæns til META_BTN_SAVE
     let _ = app.update(Message::FocusPrevious);
@@ -9919,7 +10081,10 @@ fn test_task_071_new_project_initializes_modal_focus_on_meta_name() {
 
     // Enter på Annuller lukker modalen
     let _ = app.update(Message::EnterPressed);
-    assert!(app.metadata_modal().is_none(), "Enter på Annuller skal lukke modalen");
+    assert!(
+        app.metadata_modal().is_none(),
+        "Enter på Annuller skal lukke modalen"
+    );
 }
 
 #[test]
@@ -9934,7 +10099,10 @@ fn test_task_071_history_modal_focuses_close_button_and_enter_closes() {
     let mut app = App::new_with_path(Some(temp_dir.clone()));
 
     let _ = app.update(Message::OpenModelHistoryModal);
-    assert!(app.history_modal().is_some(), "History modal skal være åben");
+    assert!(
+        app.history_modal().is_some(),
+        "History modal skal være åben"
+    );
     assert_eq!(
         app.modal_focused_button_index(),
         Some(0),
@@ -9942,7 +10110,10 @@ fn test_task_071_history_modal_focuses_close_button_and_enter_closes() {
     );
 
     let _ = app.update(Message::EnterPressed);
-    assert!(app.history_modal().is_none(), "Enter på Luk-knappen skal lukke history modal");
+    assert!(
+        app.history_modal().is_none(),
+        "Enter på Luk-knappen skal lukke history modal"
+    );
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
 
@@ -10032,7 +10203,10 @@ fn test_task_071_inline_graph_editing_inspector_tab_cycle_and_cancel() {
 
     // 8. Enter på Annuller lukker inline redigeringen
     let _ = app.update(Message::EnterPressed);
-    assert!(!app.is_node_editing(), "Enter på Annuller skal lukke inline redigering");
+    assert!(
+        !app.is_node_editing(),
+        "Enter på Annuller skal lukke inline redigering"
+    );
 }
 
 #[test]
@@ -10091,12 +10265,13 @@ fn test_task_071_information_model_inspector_tab_cycle_and_actions() {
     );
 
     // Enter på Tilføj til diagram tilføjer klassen til diagrammet
-    assert!(!app.project().information_graph().is_class_on_diagram(class_id));
+    assert!(!app
+        .project()
+        .information_graph()
+        .is_class_on_diagram(class_id));
     let _ = app.update(Message::EnterPressed);
-    assert!(app.project().information_graph().is_class_on_diagram(class_id));
+    assert!(app
+        .project()
+        .information_graph()
+        .is_class_on_diagram(class_id));
 }
-
-
-
-
-

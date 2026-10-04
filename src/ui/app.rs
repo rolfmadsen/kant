@@ -20,8 +20,8 @@ use crate::ui::concept_editor::ConceptEditorState;
 use crate::ui::concept_model_view;
 use crate::ui::concept_table;
 use crate::ui::diagram_canvas::{CanvasEdge, CanvasNode};
-use crate::ui::information_model_view;
 use crate::ui::focus::{FocusCycle, FocusTarget};
+use crate::ui::information_model_view;
 use crate::ui::theme::{
     card_container_style, focused_button_style, modal_backdrop_style, modal_card_style,
     modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
@@ -1490,14 +1490,12 @@ impl App {
             }
             Key::Named(Named::Space) => Some(Message::CanvasSpacePressed(true)),
             Key::Character(c)
-                if (c == "s" || c == "S")
-                    && (modifiers.control() || modifiers.command()) =>
+                if (c == "s" || c == "S") && (modifiers.control() || modifiers.command()) =>
             {
                 Some(Message::SaveProject)
             }
             Key::Character(c)
-                if (c == "b" || c == "B")
-                    && (modifiers.control() || modifiers.command()) =>
+                if (c == "b" || c == "B") && (modifiers.control() || modifiers.command()) =>
             {
                 Some(Message::ToggleLeftSidebar)
             }
@@ -1511,8 +1509,7 @@ impl App {
                 Some(Message::SelectTab(Tab::InformationModel))
             }
             Key::Character(c)
-                if (c == "+" || c == "=")
-                    && (modifiers.control() || modifiers.command()) =>
+                if (c == "+" || c == "=") && (modifiers.control() || modifiers.command()) =>
             {
                 Some(Message::CanvasZoomIn)
             }
@@ -1615,7 +1612,10 @@ impl App {
     }
 
     pub fn toolbar_focused_button(&self) -> Option<usize> {
-        if self.active_tab == Tab::ConceptList && !self.has_active_modal() && self.editor_state.is_none() {
+        if self.active_tab == Tab::ConceptList
+            && !self.has_active_modal()
+            && self.editor_state.is_none()
+        {
             self.toolbar_focus.focused_button()
         } else {
             None
@@ -4322,8 +4322,12 @@ impl App {
                         }
                     } else if self.metadata_modal.is_some() {
                         match focused {
-                            Some(META_BTN_CANCEL) => return self.update(Message::CloseMetadataModal),
-                            Some(META_BTN_SAVE) | None => return self.update(Message::SaveMetadataModal),
+                            Some(META_BTN_CANCEL) => {
+                                return self.update(Message::CloseMetadataModal)
+                            }
+                            Some(META_BTN_SAVE) | None => {
+                                return self.update(Message::SaveMetadataModal)
+                            }
                             _ => {}
                         }
                     } else if self.publish_modal.is_some() {
@@ -4334,17 +4338,31 @@ impl App {
                         }
                     } else if self.git_clone_modal.is_some() {
                         match focused {
-                            Some(GIT_CLONE_BTN_BROWSE) => return self.update(Message::BrowseGitCloneTargetDir),
-                            Some(GIT_CLONE_BTN_CANCEL) => return self.update(Message::CloseGitCloneModal),
-                            Some(GIT_CLONE_BTN_CLONE) | None => return self.update(Message::ExecuteGitClone),
+                            Some(GIT_CLONE_BTN_BROWSE) => {
+                                return self.update(Message::BrowseGitCloneTargetDir)
+                            }
+                            Some(GIT_CLONE_BTN_CANCEL) => {
+                                return self.update(Message::CloseGitCloneModal)
+                            }
+                            Some(GIT_CLONE_BTN_CLONE) | None => {
+                                return self.update(Message::ExecuteGitClone)
+                            }
                             _ => {}
                         }
                     } else if self.git_connection_modal.is_some() {
                         match focused {
-                            Some(GIT_CONN_BTN_BROWSE) => return self.update(Message::BrowseGitTargetDir),
-                            Some(GIT_CONN_BTN_REMOVE) => return self.update(Message::RemoveGitRemote),
-                            Some(GIT_CONN_BTN_CANCEL) => return self.update(Message::CloseGitConnectionModal),
-                            Some(GIT_CONN_BTN_SAVE) | None => return self.update(Message::SaveGitConnection),
+                            Some(GIT_CONN_BTN_BROWSE) => {
+                                return self.update(Message::BrowseGitTargetDir)
+                            }
+                            Some(GIT_CONN_BTN_REMOVE) => {
+                                return self.update(Message::RemoveGitRemote)
+                            }
+                            Some(GIT_CONN_BTN_CANCEL) => {
+                                return self.update(Message::CloseGitConnectionModal)
+                            }
+                            Some(GIT_CONN_BTN_SAVE) | None => {
+                                return self.update(Message::SaveGitConnection)
+                            }
                             _ => {}
                         }
                     } else if self.conflict_resolver_modal.is_some() {
@@ -4430,7 +4448,9 @@ impl App {
                     if let Some(cid) = self.selected_info_class_id {
                         match btn {
                             INFO_INSPECTOR_BTN_CANVAS_ACTION => {
-                                if let Some(node) = self.project.information_graph().find_node_by_class(cid) {
+                                if let Some(node) =
+                                    self.project.information_graph().find_node_by_class(cid)
+                                {
                                     let node_id = node.id();
                                     return self.update(Message::RemoveClassFromDiagram(node_id));
                                 } else {
@@ -4449,10 +4469,18 @@ impl App {
                 if let Some(btn) = self.toolbar_focused_button() {
                     match btn {
                         TOOLBAR_BTN_NEW_CONCEPT => return self.update(Message::StartNewConcept),
-                        TOOLBAR_BTN_IMPORT_EXCEL => return self.update(Message::ImportConceptsExcelDialog),
-                        TOOLBAR_BTN_EXPORT_EXCEL => return self.update(Message::ExportConceptListXlsxDialog),
-                        TOOLBAR_BTN_TEMPLATE => return self.update(Message::ExportFdaTemplateXlsxDialog),
-                        TOOLBAR_BTN_GUIDE => return self.update(Message::OpenExcelSchemaGuideModal),
+                        TOOLBAR_BTN_IMPORT_EXCEL => {
+                            return self.update(Message::ImportConceptsExcelDialog)
+                        }
+                        TOOLBAR_BTN_EXPORT_EXCEL => {
+                            return self.update(Message::ExportConceptListXlsxDialog)
+                        }
+                        TOOLBAR_BTN_TEMPLATE => {
+                            return self.update(Message::ExportFdaTemplateXlsxDialog)
+                        }
+                        TOOLBAR_BTN_GUIDE => {
+                            return self.update(Message::OpenExcelSchemaGuideModal)
+                        }
                         _ => {}
                     }
                 }
@@ -4475,8 +4503,7 @@ impl App {
                     }
                     Tab::InformationModel => {
                         if let Some(node_id) = self.selected_info_graph_node_id {
-                            if let Some(node) =
-                                self.project.information_graph().find_node(node_id)
+                            if let Some(node) = self.project.information_graph().find_node(node_id)
                             {
                                 let cid = node.class_id();
                                 if self
@@ -6905,10 +6932,7 @@ impl App {
         Task::none()
     }
 
-    pub fn handle_event_for_subscription(
-        event: Event,
-        status: event::Status,
-    ) -> Option<Message> {
+    pub fn handle_event_for_subscription(event: Event, status: event::Status) -> Option<Message> {
         if let Event::Window(iced::window::Event::Unfocused) = event {
             return Some(Message::CanvasSpacePressed(false));
         }
@@ -7463,7 +7487,10 @@ impl App {
                 let actions = row![
                     Space::new().width(Length::Fill),
                     button(text("Annuller").size(12))
-                        .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                        .style(focused_button_style(
+                            secondary_button_style,
+                            is_cancel_focused
+                        ))
                         .on_press(Message::CloseMetadataModal)
                         .padding([6, 14]),
                     button(text("💾 Gem Omslag").size(12))
@@ -7770,7 +7797,10 @@ impl App {
                 let actions = row![
                     Space::new().width(Length::Fill),
                     button(text("Annuller").size(12))
-                        .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                        .style(focused_button_style(
+                            secondary_button_style,
+                            is_cancel_focused
+                        ))
                         .on_press(Message::CloseCollabModal)
                         .padding([6, 14]),
                     join_btn,
@@ -7932,11 +7962,17 @@ impl App {
             let actions_row = row![
                 Space::new().width(Length::Fill),
                 button(text("Annuller").size(12))
-                    .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                    .style(focused_button_style(
+                        secondary_button_style,
+                        is_cancel_focused
+                    ))
                     .on_press(Message::CloseFileDialog)
                     .padding([6, 14]),
                 button(text(confirm_label).size(12))
-                    .style(focused_button_style(primary_button_style, is_confirm_focused))
+                    .style(focused_button_style(
+                        primary_button_style,
+                        is_confirm_focused
+                    ))
                     .on_press(Message::ConfirmFileDialog)
                     .padding([6, 16]),
             ]
@@ -8231,11 +8267,17 @@ impl App {
                 let actions = row![
                     Space::new().width(Length::Fill),
                     button(text("Annuller").size(12))
-                        .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                        .style(focused_button_style(
+                            secondary_button_style,
+                            is_cancel_focused
+                        ))
                         .on_press(Message::QuickCreateCancel)
                         .padding([6, 14]),
                     button(text("Opret Begreb").size(12))
-                        .style(focused_button_style(primary_button_style, is_submit_focused))
+                        .style(focused_button_style(
+                            primary_button_style,
+                            is_submit_focused
+                        ))
                         .on_press(Message::QuickCreateSubmit)
                         .padding([6, 16]),
                 ]
@@ -9138,11 +9180,17 @@ impl App {
             row![
                 Space::new().width(Length::Fill),
                 button(text("Annuller"))
-                    .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                    .style(focused_button_style(
+                        secondary_button_style,
+                        is_cancel_focused
+                    ))
                     .on_press(Message::ClosePublishModal),
                 Space::new().width(8),
                 button(text(primary_button_label))
-                    .style(focused_button_style(primary_button_style, is_confirm_focused))
+                    .style(focused_button_style(
+                        primary_button_style,
+                        is_confirm_focused
+                    ))
                     .on_press(Message::ConfirmPublish),
             ]
             .align_y(Alignment::Center)
@@ -9338,7 +9386,10 @@ impl App {
         let footer = row![
             Space::new().width(Length::Fill),
             button(text("Luk"))
-                .style(focused_button_style(secondary_button_style, is_close_focused))
+                .style(focused_button_style(
+                    secondary_button_style,
+                    is_close_focused
+                ))
                 .on_press(Message::CloseModelHistoryModal),
         ]
         .align_y(Alignment::Center);
@@ -9493,7 +9544,10 @@ impl App {
         let footer = row![
             Space::new().width(Length::Fill),
             button(text("Annuller"))
-                .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                .style(focused_button_style(
+                    secondary_button_style,
+                    is_cancel_focused
+                ))
                 .on_press(Message::CloseConflictResolverModal),
             Space::new().width(8),
             button(text("Anvend valgte versioner"))
@@ -9574,7 +9628,10 @@ impl App {
                     .padding([8, 12])
                     .width(Length::Fill),
                 button(text("📂 Gennemse...").size(12))
-                    .style(focused_button_style(secondary_button_style, is_browse_focused))
+                    .style(focused_button_style(
+                        secondary_button_style,
+                        is_browse_focused
+                    ))
                     .on_press(Message::BrowseGitTargetDir)
                     .padding([8, 12]),
             ]
@@ -9714,7 +9771,10 @@ impl App {
         actions = actions.push(Space::new().width(Length::Fill));
         actions = actions.push(
             button(text("Annuller").size(12))
-                .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                .style(focused_button_style(
+                    secondary_button_style,
+                    is_cancel_focused,
+                ))
                 .on_press(Message::CloseGitConnectionModal)
                 .padding([6, 14]),
         );
@@ -9797,7 +9857,10 @@ impl App {
                     .padding([8, 12])
                     .width(Length::Fill),
                 button(text("📂 Gennemse...").size(12))
-                    .style(focused_button_style(secondary_button_style, is_browse_focused))
+                    .style(focused_button_style(
+                        secondary_button_style,
+                        is_browse_focused
+                    ))
                     .on_press(Message::BrowseGitCloneTargetDir)
                     .padding([8, 12]),
             ]
@@ -9857,7 +9920,10 @@ impl App {
         let actions = row![
             Space::new().width(Length::Fill),
             button(text("Annuller").size(12))
-                .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                .style(focused_button_style(
+                    secondary_button_style,
+                    is_cancel_focused
+                ))
                 .on_press(Message::CloseGitCloneModal)
                 .padding([6, 14]),
             button(text("Klon og åbn model").size(12))
@@ -9993,7 +10059,10 @@ impl App {
                 .padding([6, 14]),
             Space::new().width(Length::Fill),
             button(text("Luk").size(12))
-                .style(focused_button_style(secondary_button_style, is_close_focused))
+                .style(focused_button_style(
+                    secondary_button_style,
+                    is_close_focused
+                ))
                 .on_press(Message::CloseDiagnosticsModal)
                 .padding([6, 16]),
         ]
@@ -10114,7 +10183,10 @@ impl App {
                 ]
                 .align_y(Alignment::Center),
             )
-            .style(focused_button_style(secondary_button_style, is_export_focused))
+            .style(focused_button_style(
+                secondary_button_style,
+                is_export_focused
+            ))
             .on_press(Message::ExportFdaTemplateXlsxDialog)
             .padding([6, 14]),
             Space::new().width(Length::Fill),
@@ -10318,11 +10390,17 @@ impl App {
         let actions_row = row![
             Space::new().width(Length::Fill),
             button(text("Annuller").size(12))
-                .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                .style(focused_button_style(
+                    secondary_button_style,
+                    is_cancel_focused
+                ))
                 .on_press(Message::DismissExcelImportModal)
                 .padding([6, 14]),
             button(row![text("Bekræft og Gennemfør Import").size(12),].align_y(Alignment::Center),)
-                .style(focused_button_style(primary_button_style, is_confirm_focused))
+                .style(focused_button_style(
+                    primary_button_style,
+                    is_confirm_focused
+                ))
                 .on_press(Message::ConfirmExcelImport)
                 .padding([6, 16]),
         ]

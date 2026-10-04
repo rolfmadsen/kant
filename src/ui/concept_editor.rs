@@ -196,7 +196,11 @@ impl ConceptEditorState {
         let targets = self.focus_targets();
         self.focus = FocusCycle::with_targets(targets, None);
         if let Some(b) = btn {
-            if let Some(pos) = self.focus_targets().iter().position(|t| matches!(t, FocusTarget::Button(tb) if *tb == b)) {
+            if let Some(pos) = self
+                .focus_targets()
+                .iter()
+                .position(|t| matches!(t, FocusTarget::Button(tb) if *tb == b))
+            {
                 self.focus.set_current(Some(pos));
             }
         }
@@ -262,14 +266,23 @@ impl ConceptEditorState {
         }
         self.current_target_index = self.focus.current().unwrap_or(0);
         self.focused_button = self.focus.focused_button();
-        self.focus.current_target().cloned().unwrap_or(FocusTarget::Button(BTN_SAVE))
+        self.focus
+            .current_target()
+            .cloned()
+            .unwrap_or(FocusTarget::Button(BTN_SAVE))
     }
 
     pub fn sync_focus_to_field(&mut self, field: ConceptFormField) {
         let expected_input = match field {
             ConceptFormField::PreferredTerm => "preferred_term_input",
             ConceptFormField::ModelUri => "editor_model_uri",
-            ConceptFormField::Definition => if self.is_inline { "inline_concept_definition" } else { "editor_definition" },
+            ConceptFormField::Definition => {
+                if self.is_inline {
+                    "inline_concept_definition"
+                } else {
+                    "editor_definition"
+                }
+            }
             ConceptFormField::LegalSource => "editor_legal_source",
             ConceptFormField::Source => "editor_source",
             ConceptFormField::AcceptedTerm => "editor_accepted_term",
@@ -660,7 +673,10 @@ impl ConceptEditorState {
             })
             .size(13),
         )
-        .style(focused_button_style(secondary_button_style, is_supp_focused))
+        .style(focused_button_style(
+            secondary_button_style,
+            is_supp_focused,
+        ))
         .on_press(Message::ToggleShowAllFields)
         .padding([7, 14]);
 
@@ -831,7 +847,10 @@ impl ConceptEditorState {
         let action_bar = row![
             Space::new().width(Length::Fill),
             button(text("Annuller").size(13))
-                .style(focused_button_style(secondary_button_style, is_cancel_focused))
+                .style(focused_button_style(
+                    secondary_button_style,
+                    is_cancel_focused
+                ))
                 .on_press(Message::CancelConceptEdit)
                 .padding([8, 16]),
             button(
