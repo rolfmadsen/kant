@@ -9249,9 +9249,15 @@ fn test_task_069_enter_quick_edit_on_canvas_node_and_edge() {
 
 #[test]
 fn test_task_069_escape_hierarchy_all_nine_modals_closing() {
+    use kant::features::git::GitService;
     use kant::ui::app::{App, Message};
+    use uuid::Uuid;
 
-    let mut app = App::new();
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_069_{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    GitService::init_repository(&temp_dir).expect("init repo");
+
+    let mut app = App::new_with_path(Some(temp_dir.clone()));
 
     // 1. Diagnostics Modal
     let _ = app.update(Message::OpenDiagnosticsModal);
@@ -9312,6 +9318,8 @@ fn test_task_069_escape_hierarchy_all_nine_modals_closing() {
     assert!(app.is_excel_schema_guide_open(), "Excel schema guide modal skal være åben");
     let _ = app.update(Message::EscapePressed);
     assert!(!app.is_excel_schema_guide_open(), "Excel schema guide modal skal lukkes på Esc");
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
 }
 
 #[test]
@@ -9356,6 +9364,7 @@ fn test_task_069_escape_hierarchy_layer_by_layer() {
 
 #[test]
 fn test_task_069_tab_direct_shortcuts_ctrl_1_2_3() {
+    use iced::keyboard::{key::Named, Key, Modifiers};
     use kant::ui::app::{App, Message, Tab};
 
     let mut app = App::new();
@@ -9372,6 +9381,28 @@ fn test_task_069_tab_direct_shortcuts_ctrl_1_2_3() {
     // Ctrl+1: Begrebsliste
     let _ = app.update(Message::SelectTab(Tab::ConceptList));
     assert_eq!(app.active_tab(), Tab::ConceptList);
+
+    // Test map_key_press genveje
+    assert!(matches!(
+        App::map_key_press(&Key::Named(Named::Enter), Modifiers::empty()),
+        Some(Message::EnterPressed)
+    ));
+    assert!(matches!(
+        App::map_key_press(&Key::Named(Named::Escape), Modifiers::empty()),
+        Some(Message::EscapePressed)
+    ));
+    assert!(matches!(
+        App::map_key_press(&Key::Character("1".into()), Modifiers::CTRL),
+        Some(Message::SelectTab(Tab::ConceptList))
+    ));
+    assert!(matches!(
+        App::map_key_press(&Key::Character("2".into()), Modifiers::CTRL),
+        Some(Message::SelectTab(Tab::ConceptModel))
+    ));
+    assert!(matches!(
+        App::map_key_press(&Key::Character("3".into()), Modifiers::CTRL),
+        Some(Message::SelectTab(Tab::InformationModel))
+    ));
 }
 
 

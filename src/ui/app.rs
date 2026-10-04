@@ -1422,6 +1422,58 @@ impl App {
         self.editor_state.as_ref()
     }
 
+    pub fn map_key_press(key: &Key, modifiers: keyboard::Modifiers) -> Option<Message> {
+        match key.as_ref() {
+            Key::Named(Named::Tab) => {
+                if modifiers.shift() {
+                    Some(Message::FocusPrevious)
+                } else {
+                    Some(Message::FocusNext)
+                }
+            }
+            Key::Named(Named::Escape) => Some(Message::EscapePressed),
+            Key::Named(Named::Enter) => Some(Message::EnterPressed),
+            Key::Named(Named::Delete) | Key::Named(Named::Backspace) => {
+                Some(Message::GraphDeleteSelected)
+            }
+            Key::Named(Named::Space) => Some(Message::CanvasSpacePressed(true)),
+            Key::Character(c)
+                if (c == "s" || c == "S")
+                    && (modifiers.control() || modifiers.command()) =>
+            {
+                Some(Message::SaveProject)
+            }
+            Key::Character(c)
+                if (c == "b" || c == "B")
+                    && (modifiers.control() || modifiers.command()) =>
+            {
+                Some(Message::ToggleLeftSidebar)
+            }
+            Key::Character("1") if modifiers.control() || modifiers.command() => {
+                Some(Message::SelectTab(Tab::ConceptList))
+            }
+            Key::Character("2") if modifiers.control() || modifiers.command() => {
+                Some(Message::SelectTab(Tab::ConceptModel))
+            }
+            Key::Character("3") if modifiers.control() || modifiers.command() => {
+                Some(Message::SelectTab(Tab::InformationModel))
+            }
+            Key::Character(c)
+                if (c == "+" || c == "=")
+                    && (modifiers.control() || modifiers.command()) =>
+            {
+                Some(Message::CanvasZoomIn)
+            }
+            Key::Character(c) if c == "-" && (modifiers.control() || modifiers.command()) => {
+                Some(Message::CanvasZoomOut)
+            }
+            Key::Character(c) if c == "0" && (modifiers.control() || modifiers.command()) => {
+                Some(Message::CanvasResetView)
+            }
+            _ => None,
+        }
+    }
+
     pub fn collab_state(&self) -> CollabState {
         self.collab_state
     }
@@ -3704,39 +3756,137 @@ impl App {
                 return operation::focus_previous();
             }
             Message::EscapePressed => {
+                // 1. Aktiv menu overlay
                 if self.active_menu.is_some() {
                     self.active_menu = None;
-                } else if self.start_session_modal.is_some() {
-                    self.start_session_modal = None;
-                } else if self.join_session_modal.is_some() {
-                    self.join_session_modal = None;
-                } else if self.guest_ended_notice.is_some() {
-                    self.guest_ended_notice = None;
+                    return Task::none();
+                }
+
+                // 2. Modale dialoger (alle 9 modaler inkl. diagnostik samt overlay-dialoger)
+                if self.diagnostics_modal.is_some() {
+                    self.diagnostics_modal = None;
+                    return Task::none();
+                } else if self.publish_modal.is_some() {
+                    self.publish_modal = None;
+                    return Task::none();
+                } else if self.history_modal.is_some() {
+                    self.history_modal = None;
+                    return Task::none();
+                } else if self.conflict_resolver_modal.is_some() {
+                    self.conflict_resolver_modal = None;
+                    return Task::none();
+                } else if self.git_connection_modal.is_some() {
+                    self.git_connection_modal = None;
+                    return Task::none();
+                } else if self.git_clone_modal.is_some() {
+                    self.git_clone_modal = None;
+                    return Task::none();
                 } else if self.metadata_modal.is_some() {
                     self.metadata_modal = None;
-                } else if self.quick_create.is_some() {
-                    self.quick_create = None;
-                } else if self.relation_dialog.is_some() {
-                    self.relation_dialog = None;
+                    return Task::none();
+                } else if self.start_session_modal.is_some() {
+                    self.start_session_modal = None;
+                    return Task::none();
+                } else if self.join_session_modal.is_some() {
+                    self.join_session_modal = None;
+                    return Task::none();
+                } else if self.guest_ended_notice.is_some() {
+                    self.guest_ended_notice = None;
+                    return Task::none();
+                } else if self.excel_schema_guide_open {
+                    self.excel_schema_guide_open = false;
+                    return Task::none();
+                } else if self.excel_import_preview.is_some() {
+                    self.excel_import_preview = None;
+                    return Task::none();
                 } else if self.file_dialog_mode.is_some() {
                     self.file_dialog_mode = None;
-                } else if self.is_inline_graph_editing {
+                    return Task::none();
+                } else if self.relation_dialog.is_some() {
+                    self.relation_dialog = None;
+                    return Task::none();
+                } else if self.info_relation_dialog.is_some() {
+                    self.info_relation_dialog = None;
+                    return Task::none();
+                } else if self.quick_create.is_some() {
+                    self.quick_create = None;
+                    return Task::none();
+                }
+
+                // 3. Inline redigering på canvas eller i begrebslisten
+                if self.is_inline_graph_editing {
                     self.is_inline_graph_editing = false;
                     self.editor_state = None;
+                    return Task::none();
                 } else if self.editor_state.is_some() {
                     self.editor_state = None;
-                } else if self.selected_edge.is_some() {
-                    self.selected_edge = None;
-                } else if self.selected_info_edge.is_some() {
-                    self.selected_info_edge = None;
-                } else if self.selected_graph_node_id.is_some() {
-                    self.selected_graph_node_id = None;
-                } else if self.selected_info_graph_node_id.is_some() {
-                    self.selected_info_graph_node_id = None;
+                    return Task::none();
                 }
+
+                // 4. Canvas afmarkering (noder, multiselection og kanter)
+                let had_selection = self.selected_edge.is_some()
+                    || self.selected_graph_node_id.is_some()
+                    || !self.selected_graph_node_ids.is_empty()
+                    || self.selected_info_edge.is_some()
+                    || self.selected_info_graph_node_id.is_some()
+                    || !self.selected_info_graph_node_ids.is_empty()
+                    || self.selected_info_class_id.is_some()
+                    || self.selected_info_enum_id.is_some();
+
+                if had_selection {
+                    self.selected_edge = None;
+                    self.selected_graph_node_id = None;
+                    self.selected_graph_node_ids.clear();
+                    self.selected_info_edge = None;
+                    self.selected_info_graph_node_id = None;
+                    self.selected_info_graph_node_ids.clear();
+                    self.selected_info_class_id = None;
+                    self.selected_info_enum_id = None;
+                    return Task::none();
+                }
+
+                // 5. Landing på de 3 primære faneblade
+                let tab_id = match self.active_tab {
+                    Tab::ConceptList => "tab_concept_list",
+                    Tab::ConceptModel => "tab_concept_model",
+                    Tab::InformationModel => "tab_information_model",
+                };
+                return operation::focus(tab_id);
             }
             Message::EnterPressed => {
-                // Task 069 placeholder for RED test
+                match self.active_tab {
+                    Tab::ConceptModel => {
+                        if let Some(node_id) = self.selected_graph_node_id {
+                            if let Some(node) = self.project.concept_graph().find_node(node_id) {
+                                if let Some(concept) = self.project.get_concept(node.concept_id()) {
+                                    self.editor_state =
+                                        Some(ConceptEditorState::from_concept(concept));
+                                    self.is_inline_graph_editing = true;
+                                    return operation::focus("preferred_term_input");
+                                }
+                            }
+                        } else if self.selected_edge.is_some() {
+                            return operation::focus("edge_label_input");
+                        }
+                    }
+                    Tab::InformationModel => {
+                        if let Some(node_id) = self.selected_info_graph_node_id {
+                            if let Some(node) =
+                                self.project.information_graph().find_node(node_id)
+                            {
+                                self.selected_info_class_id = Some(node.class_id());
+                                return operation::focus("info_class_name_input");
+                            }
+                        } else if self.selected_info_edge.is_some() {
+                            return operation::focus("info_edge_label_input");
+                        }
+                    }
+                    Tab::ConceptList => {
+                        if self.editor_state.is_some() {
+                            return operation::focus("preferred_term_input");
+                        }
+                    }
+                }
                 return Task::none();
             }
 
@@ -6108,49 +6258,7 @@ impl App {
             }
             match event {
                 Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
-                    match key.as_ref() {
-                        Key::Named(Named::Tab) => {
-                            if modifiers.shift() {
-                                Some(Message::FocusPrevious)
-                            } else {
-                                Some(Message::FocusNext)
-                            }
-                        }
-                        Key::Named(Named::Escape) => Some(Message::EscapePressed),
-                        Key::Named(Named::Delete) | Key::Named(Named::Backspace) => {
-                            Some(Message::GraphDeleteSelected)
-                        }
-                        Key::Named(Named::Space) => Some(Message::CanvasSpacePressed(true)),
-                        Key::Character(c)
-                            if (c == "s" || c == "S")
-                                && (modifiers.control() || modifiers.command()) =>
-                        {
-                            Some(Message::SaveProject)
-                        }
-                        Key::Character(c)
-                            if (c == "b" || c == "B")
-                                && (modifiers.control() || modifiers.command()) =>
-                        {
-                            Some(Message::ToggleLeftSidebar)
-                        }
-                        Key::Character(c)
-                            if (c == "+" || c == "=")
-                                && (modifiers.control() || modifiers.command()) =>
-                        {
-                            Some(Message::CanvasZoomIn)
-                        }
-                        Key::Character(c)
-                            if c == "-" && (modifiers.control() || modifiers.command()) =>
-                        {
-                            Some(Message::CanvasZoomOut)
-                        }
-                        Key::Character(c)
-                            if c == "0" && (modifiers.control() || modifiers.command()) =>
-                        {
-                            Some(Message::CanvasResetView)
-                        }
-                        _ => None,
-                    }
+                    App::map_key_press(&key, modifiers)
                 }
                 Event::Keyboard(keyboard::Event::KeyReleased { key, .. }) => {
                     if let Key::Named(Named::Space) = key.as_ref() {
@@ -6239,10 +6347,18 @@ impl App {
 
         let tab_item = |tab: Tab, label: &'static str| {
             let is_active = self.active_tab == tab;
-            button(text(label).size(12))
-                .style(segmented_tab_button(is_active))
-                .on_press(Message::SelectTab(tab))
-                .padding([5, 12])
+            let tab_id = match tab {
+                Tab::ConceptList => "tab_concept_list",
+                Tab::ConceptModel => "tab_concept_model",
+                Tab::InformationModel => "tab_information_model",
+            };
+            container(
+                button(text(label).size(12))
+                    .style(segmented_tab_button(is_active))
+                    .on_press(Message::SelectTab(tab))
+                    .padding([5, 12]),
+            )
+            .id(tab_id)
         };
 
         let tab_pill_bar = container(
