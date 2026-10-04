@@ -34,7 +34,7 @@ Sikre 100% tastaturnavigation til samtlige interaktive kontroller i applikatione
      - Klassetype (`Lokal` / `Indlånt`) samt eventuelt kildemodelfelt.
      - Lærredshandlinger (`Tilføj/Fjern fra diagram`, `🗑️ Slet klasse`).
      - Tilknyttede begreber: Fjern-knap (`✕`) for hvert begreb.
-     - `+ Knyt begreb` picker omkranses af 1.5px orange fokusring og knytter begreb via <kbd>Enter</kbd> / <kbd>Mellemrum</kbd>.
+     - `+ Knyt begreb` comboboks: Fokuseres med Tab (orange fokusring). <kbd>Enter</kbd> aktiverer den som en fuld comboboks, folder listen ud og sætter fokus i et søgefelt. Piletasterne (<kbd>ArrowDown</kbd>/<kbd>ArrowUp</kbd>) navigerer i de filtrerede begreber, og <kbd>Enter</kbd> vælger og tilknytter begrebet. <kbd>Esc</kbd> eller <kbd>Tab</kbd> lukker comboboksen.
      - Attributter: `+ Tilføj attribut` knap samt hvert attributs tekstfelt og slet-knap.
    - **Enumeration**:
      - Enumerationsnavn & Valgfri definition (`info_enum_name_input`, `info_enum_def_input`).
