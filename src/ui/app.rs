@@ -1538,6 +1538,11 @@ impl App {
         &self.selected_info_graph_node_ids
     }
 
+    pub fn set_selected_info_graph_node(&mut self, node_id: Option<NodeId>) {
+        self.selected_info_graph_node_id = node_id;
+        self.selected_info_graph_node_ids = node_id.into_iter().collect();
+    }
+
     pub fn selected_info_edge(&self) -> Option<(NodeId, NodeId)> {
         self.selected_info_edge
     }
@@ -2297,6 +2302,7 @@ impl App {
                 if let Some(nid) = self.selected_info_graph_node_id {
                     if self.project.information_graph().find_node(nid).is_none() {
                         self.selected_info_graph_node_id = None;
+                        self.selected_info_graph_node_ids.remove(&nid);
                     }
                 }
             }
@@ -2334,6 +2340,7 @@ impl App {
                 if let Some(nid) = self.selected_info_graph_node_id {
                     if self.project.information_graph().find_node(nid).is_none() {
                         self.selected_info_graph_node_id = None;
+                        self.selected_info_graph_node_ids.remove(&nid);
                     }
                 }
             }
@@ -2376,10 +2383,12 @@ impl App {
                 {
                     let node_id = node.id();
                     self.project.information_graph_mut().remove_node(node_id);
+                    self.selected_info_graph_node_ids.remove(&node_id);
                 }
                 if let Some(nid) = self.selected_info_graph_node_id {
                     if self.project.information_graph().find_node(nid).is_none() {
                         self.selected_info_graph_node_id = None;
+                        self.selected_info_graph_node_ids.remove(&nid);
                     }
                 }
             }
@@ -3680,7 +3689,9 @@ impl App {
                                 self.relation_dialog = None;
                                 self.quick_create = None;
                                 self.selected_info_class_id = None;
+                                self.selected_info_enum_id = None;
                                 self.selected_info_graph_node_id = None;
+                                self.selected_info_graph_node_ids.clear();
                                 self.selected_info_edge = None;
                                 self.search_query.clear();
                                 self.info_class_search.clear();
@@ -3845,7 +3856,9 @@ impl App {
                 self.relation_dialog = None;
                 self.quick_create = None;
                 self.selected_info_class_id = None;
+                self.selected_info_enum_id = None;
                 self.selected_info_graph_node_id = None;
+                self.selected_info_graph_node_ids.clear();
                 self.selected_info_edge = None;
                 self.info_class_search.clear();
                 return operation::focus("meta_name");
@@ -5578,19 +5591,21 @@ impl App {
                 self.concept_picker_index = 0;
                 self.selected_info_class_id = id;
                 if id.is_some() {
+                    self.selected_info_enum_id = None;
                     self.selected_info_edge = None;
                 }
                 if let Some(cid) = id {
                     let targets = self.build_info_inspector_targets();
                     self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
-                    if let Some(node) = self.project.information_graph().find_node_by_class(cid) {
-                        self.selected_info_graph_node_id = Some(node.id());
-                    } else {
-                        self.selected_info_graph_node_id = None;
-                    }
+                    let node_id = self
+                        .project
+                        .information_graph()
+                        .find_node_by_class(cid)
+                        .map(|n| n.id());
+                    self.set_selected_info_graph_node(node_id);
                 } else {
                     self.info_inspector_focus.reset();
-                    self.selected_info_graph_node_id = None;
+                    self.set_selected_info_graph_node(None);
                 }
             }
             Message::CreateInformationClass => {
@@ -5598,7 +5613,8 @@ impl App {
                 let id = self.project.information_model_mut().add_class(class);
                 let node_id = self.project.information_graph_mut().add_node(id, 0);
                 self.selected_info_class_id = Some(id);
-                self.selected_info_graph_node_id = Some(node_id);
+                self.selected_info_enum_id = None;
+                self.set_selected_info_graph_node(Some(node_id));
                 self.selected_info_edge = None;
                 let targets = self.build_info_inspector_targets();
                 self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
@@ -5624,7 +5640,8 @@ impl App {
                     .information_graph_mut()
                     .add_node_at(id, nx, ny, 0);
                 self.selected_info_class_id = Some(id);
-                self.selected_info_graph_node_id = Some(node_id);
+                self.selected_info_enum_id = None;
+                self.set_selected_info_graph_node(Some(node_id));
                 self.selected_info_edge = None;
                 let targets = self.build_info_inspector_targets();
                 self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
@@ -5671,7 +5688,8 @@ impl App {
                         .information_graph_mut()
                         .add_node(id, attr_count);
                     self.selected_info_class_id = Some(id);
-                    self.selected_info_graph_node_id = Some(node_id);
+                    self.selected_info_enum_id = None;
+                    self.set_selected_info_graph_node(Some(node_id));
                     if let Some(cls) = self.project.information_model().get_class(id).cloned() {
                         self.broadcast_mutation(
                             &crate::features::collab::protocol::ModelMutation::InformationClassAdded(
@@ -5848,6 +5866,7 @@ impl App {
                 if let Some(nid) = self.selected_info_graph_node_id {
                     if self.project.information_graph().find_node(nid).is_none() {
                         self.selected_info_graph_node_id = None;
+                        self.selected_info_graph_node_ids.remove(&nid);
                     }
                 }
                 self.broadcast_mutation(
@@ -6080,6 +6099,8 @@ impl App {
                     .add_enumeration(e.clone());
                 self.selected_info_enum_id = Some(enum_id);
                 self.selected_info_class_id = None;
+                self.set_selected_info_graph_node(None);
+                self.selected_info_edge = None;
                 let targets = self.build_info_inspector_targets();
                 self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
                 self.broadcast_mutation(
@@ -6118,7 +6139,8 @@ impl App {
                 self.reroute_info_graph_edges();
                 self.selected_info_enum_id = Some(enum_id);
                 self.selected_info_class_id = None;
-                self.selected_info_graph_node_id = Some(node_id);
+                self.set_selected_info_graph_node(Some(node_id));
+                self.selected_info_edge = None;
                 let targets = self.build_info_inspector_targets();
                 self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
                 self.broadcast_mutation(
@@ -6138,10 +6160,19 @@ impl App {
                 self.selected_info_enum_id = id;
                 if id.is_some() {
                     self.selected_info_class_id = None;
+                    self.selected_info_edge = None;
                     let targets = self.build_info_inspector_targets();
                     self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
+                    let node_id = id.and_then(|eid| {
+                        self.project
+                            .information_graph()
+                            .find_node_by_class(eid)
+                            .map(|n| n.id())
+                    });
+                    self.set_selected_info_graph_node(node_id);
                 } else {
                     self.info_inspector_focus.reset();
+                    self.set_selected_info_graph_node(None);
                 }
             }
             Message::UpdateInformationEnumerationName(enum_id, name) => {
@@ -6252,6 +6283,7 @@ impl App {
                 if let Some(nid) = self.selected_info_graph_node_id {
                     if self.project.information_graph().find_node(nid).is_none() {
                         self.selected_info_graph_node_id = None;
+                        self.selected_info_graph_node_ids.remove(&nid);
                     }
                 }
                 self.broadcast_mutation(
@@ -6273,7 +6305,9 @@ impl App {
                 self.project.sync_information_graph();
                 self.reroute_info_graph_edges();
                 self.selected_info_enum_id = Some(enum_id);
-                self.selected_info_graph_node_id = Some(node_id);
+                self.selected_info_class_id = None;
+                self.set_selected_info_graph_node(Some(node_id));
+                self.selected_info_edge = None;
                 self.broadcast_mutation(
                     &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
                         enum_id,
@@ -6304,7 +6338,9 @@ impl App {
                     self.project.sync_information_graph();
                     self.reroute_info_graph_edges();
                     self.selected_info_enum_id = Some(enum_id);
-                    self.selected_info_graph_node_id = Some(node_id);
+                    self.selected_info_class_id = None;
+                    self.set_selected_info_graph_node(Some(node_id));
+                    self.selected_info_edge = None;
                     self.broadcast_mutation(
                         &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
                             enum_id,
@@ -6331,6 +6367,7 @@ impl App {
                     if self.selected_info_graph_node_id == Some(node_id) {
                         self.selected_info_graph_node_id = None;
                     }
+                    self.selected_info_graph_node_ids.remove(&node_id);
                 }
                 self.broadcast_mutation(
                     &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeRemoved(
@@ -6392,7 +6429,9 @@ impl App {
                     );
                 }
                 self.selected_info_class_id = Some(class_id);
-                self.selected_info_graph_node_id = Some(node_id);
+                self.selected_info_enum_id = None;
+                self.set_selected_info_graph_node(Some(node_id));
+                self.selected_info_edge = None;
                 self.broadcast_mutation(
                     &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
                         class_id,
@@ -6423,7 +6462,9 @@ impl App {
                     self.project.sync_information_graph();
                     self.reroute_info_graph_edges();
                     self.selected_info_class_id = Some(class_id);
-                    self.selected_info_graph_node_id = Some(node_id);
+                    self.selected_info_enum_id = None;
+                    self.set_selected_info_graph_node(Some(node_id));
+                    self.selected_info_edge = None;
                     self.broadcast_mutation(
                         &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
                             class_id,
@@ -6449,6 +6490,7 @@ impl App {
                 if self.selected_info_graph_node_id == Some(node_id) {
                     self.selected_info_graph_node_id = None;
                 }
+                self.selected_info_graph_node_ids.remove(&node_id);
                 if let Some(cid) = class_id {
                     self.broadcast_mutation(
                         &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeRemoved(

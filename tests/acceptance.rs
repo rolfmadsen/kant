@@ -10970,4 +10970,3 @@ fn test_task_074_palette_selection_clears_canvas_node_selection() {
         "Node A må IKKE længere være markeret når Enumeration D vælges i paletten!"
     );
 }
-
