@@ -521,13 +521,12 @@ pub const TOOLBAR_BTN_TEMPLATE: usize = 3;
 pub const TOOLBAR_BTN_GUIDE: usize = 4;
 pub const TOOLBAR_ROW_BTN_START: usize = 100;
 
-pub const START_SESSION_BTN_CLOSE_CROSS: usize = 10;
+pub const START_SESSION_BTN_PRESET: usize = 3;
 pub const START_SESSION_BTN_REMEMBER: usize = 11;
 pub const START_SESSION_BTN_COPY: usize = 0;
 pub const START_SESSION_BTN_CANCEL: usize = 1;
 pub const START_SESSION_BTN_START: usize = 2;
 
-pub const HISTORY_BTN_CLOSE_CROSS: usize = 10;
 pub const HISTORY_BTN_COMMIT_NOW: usize = 11;
 pub const HISTORY_BTN_CLOSE: usize = 0;
 pub const HISTORY_COMMIT_CARD_START: usize = 20;
@@ -538,8 +537,12 @@ pub const INFO_INSPECTOR_BTN_ABSTRACT_CHECKBOX: usize = 2;
 pub const INFO_INSPECTOR_BTN_TYPE_LOCAL: usize = 3;
 pub const INFO_INSPECTOR_BTN_TYPE_BORROWED: usize = 4;
 pub const INFO_INSPECTOR_BTN_ADD_ATTRIBUTE: usize = 5;
+pub const INFO_INSPECTOR_BTN_DELETE_ENUM: usize = 6;
+pub const INFO_INSPECTOR_BTN_ADD_ENUM_VAL: usize = 7;
+pub const INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER: usize = 8;
 pub const INFO_INSPECTOR_CONCEPT_REMOVE_START: usize = 100;
 pub const INFO_INSPECTOR_ATTR_DELETE_START: usize = 200;
+pub const INFO_INSPECTOR_ENUM_VAL_REMOVE_START: usize = 300;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SaveStatus {
@@ -1642,7 +1645,7 @@ impl App {
 
     pub fn info_inspector_focused_button(&self) -> Option<usize> {
         if self.active_tab == Tab::InformationModel
-            && self.selected_info_class_id.is_some()
+            && (self.selected_info_class_id.is_some() || self.selected_info_enum_id.is_some())
             && !self.has_active_modal()
             && self.editor_state.is_none()
         {
@@ -1668,37 +1671,66 @@ impl App {
         targets
     }
 
-    fn build_info_inspector_targets(&self, class_id: Uuid) -> Vec<FocusTarget> {
-        let mut targets = vec![
-            FocusTarget::Input("info_class_name_input"),
-            FocusTarget::Input("info_class_desc_input"),
-            FocusTarget::Button(INFO_INSPECTOR_BTN_ABSTRACT_CHECKBOX),
-            FocusTarget::Button(INFO_INSPECTOR_BTN_TYPE_LOCAL),
-            FocusTarget::Button(INFO_INSPECTOR_BTN_TYPE_BORROWED),
-        ];
-        if let Some(class) = self.project.information_model().get_class(class_id) {
-            if !class.is_local() {
-                targets.push(FocusTarget::Input("info_class_origin_model_input"));
+    fn build_info_inspector_targets(&self) -> Vec<FocusTarget> {
+        if let Some(class_id) = self.selected_info_class_id {
+            let mut targets = vec![
+                FocusTarget::Input("info_class_name_input"),
+                FocusTarget::Input("info_class_desc_input"),
+                FocusTarget::Button(INFO_INSPECTOR_BTN_ABSTRACT_CHECKBOX),
+                FocusTarget::Button(INFO_INSPECTOR_BTN_TYPE_LOCAL),
+                FocusTarget::Button(INFO_INSPECTOR_BTN_TYPE_BORROWED),
+            ];
+            if let Some(class) = self.project.information_model().get_class(class_id) {
+                if !class.is_local() {
+                    targets.push(FocusTarget::Input("info_class_origin_model_input"));
+                }
+                targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION));
+                targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS));
+                for (k, _) in class.concept_ids().iter().enumerate() {
+                    targets.push(FocusTarget::Button(INFO_INSPECTOR_CONCEPT_REMOVE_START + k));
+                }
+                let has_available = self
+                    .project
+                    .concepts()
+                    .iter()
+                    .any(|c| !class.concept_ids().contains(&c.id()));
+                if has_available {
+                    targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER));
+                }
+                targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_ADD_ATTRIBUTE));
+                for (j, _) in class.attributes().iter().enumerate() {
+                    targets.push(FocusTarget::Button(INFO_INSPECTOR_ATTR_DELETE_START + j));
+                }
+            } else {
+                targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION));
+                targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS));
+                targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_ADD_ATTRIBUTE));
             }
-            targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION));
-            targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS));
-            for (k, _) in class.concept_ids().iter().enumerate() {
-                targets.push(FocusTarget::Button(INFO_INSPECTOR_CONCEPT_REMOVE_START + k));
+            targets
+        } else if let Some(enum_id) = self.selected_info_enum_id {
+            let mut targets = vec![
+                FocusTarget::Input("info_enum_name_input"),
+                FocusTarget::Input("info_enum_def_input"),
+                FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION),
+                FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_ENUM),
+                FocusTarget::Input("new_enum_val_input"),
+                FocusTarget::Button(INFO_INSPECTOR_BTN_ADD_ENUM_VAL),
+            ];
+            if let Some(e) = self.project.information_model().get_enumeration(enum_id) {
+                for (v, _) in e.values().iter().enumerate() {
+                    targets.push(FocusTarget::Button(
+                        INFO_INSPECTOR_ENUM_VAL_REMOVE_START + v,
+                    ));
+                }
             }
-            targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_ADD_ATTRIBUTE));
-            for (j, _) in class.attributes().iter().enumerate() {
-                targets.push(FocusTarget::Button(INFO_INSPECTOR_ATTR_DELETE_START + j));
-            }
+            targets
         } else {
-            targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION));
-            targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS));
-            targets.push(FocusTarget::Button(INFO_INSPECTOR_BTN_ADD_ATTRIBUTE));
+            Vec::new()
         }
-        targets
     }
 
     fn build_start_session_targets(modal: &StartSessionModalState) -> Vec<FocusTarget> {
-        let mut targets = vec![FocusTarget::Button(START_SESSION_BTN_CLOSE_CROSS)];
+        let mut targets = vec![FocusTarget::Button(START_SESSION_BTN_PRESET)];
         if modal.preset == RelayServerPreset::Custom
             || modal.preset == RelayServerPreset::InternalOrg
         {
@@ -1714,10 +1746,7 @@ impl App {
     fn build_history_modal_targets(
         commits: &[crate::features::git::GitCommitInfo],
     ) -> Vec<FocusTarget> {
-        let mut targets = vec![
-            FocusTarget::Button(HISTORY_BTN_CLOSE),
-            FocusTarget::Button(HISTORY_BTN_CLOSE_CROSS),
-        ];
+        let mut targets = vec![FocusTarget::Button(HISTORY_BTN_CLOSE)];
         if commits.is_empty() {
             targets.push(FocusTarget::Button(HISTORY_BTN_COMMIT_NOW));
         } else {
@@ -1766,30 +1795,33 @@ impl App {
             return None;
         }
 
-        if self.active_tab == Tab::InformationModel {
-            if let Some(cid) = self.selected_info_class_id {
-                let targets = self.build_info_inspector_targets(cid);
-                if self.info_inspector_focus.count() == 0 {
-                    self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
-                } else {
-                    self.info_inspector_focus.update_targets(targets);
-                }
+        if self.active_tab == Tab::InformationModel
+            && (self.selected_info_class_id.is_some() || self.selected_info_enum_id.is_some())
+        {
+            let targets = self.build_info_inspector_targets();
+            if targets.is_empty() {
+                return None;
+            }
+            if self.info_inspector_focus.count() == 0 {
+                self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
+            } else {
+                self.info_inspector_focus.update_targets(targets);
+            }
 
-                if reverse {
-                    self.info_inspector_focus.previous();
-                } else {
-                    self.info_inspector_focus.next();
-                }
+            if reverse {
+                self.info_inspector_focus.previous();
+            } else {
+                self.info_inspector_focus.next();
+            }
 
-                match self.info_inspector_focus.current_target() {
-                    Some(FocusTarget::Input(id)) => {
-                        return Some(operation::focus(*id));
-                    }
-                    Some(FocusTarget::Button(_)) => {
-                        return Some(operation::focus(iced::widget::Id::unique()));
-                    }
-                    None => return Some(Task::none()),
+            match self.info_inspector_focus.current_target() {
+                Some(FocusTarget::Input(id)) => {
+                    return Some(operation::focus(*id));
                 }
+                Some(FocusTarget::Button(_)) => {
+                    return Some(operation::focus(iced::widget::Id::unique()));
+                }
+                None => return Some(Task::none()),
             }
         }
 
@@ -4387,8 +4419,18 @@ impl App {
                     let focused = self.modal_focus.focused_button();
                     if self.start_session_modal.is_some() {
                         match focused {
-                            Some(START_SESSION_BTN_CLOSE_CROSS)
-                            | Some(START_SESSION_BTN_CANCEL) => {
+                            Some(START_SESSION_BTN_PRESET) => {
+                                if let Some(modal) = &self.start_session_modal {
+                                    let current_idx = RelayServerPreset::ALL
+                                        .iter()
+                                        .position(|&p| p == modal.preset)
+                                        .unwrap_or(0);
+                                    let next_preset = RelayServerPreset::ALL
+                                        [(current_idx + 1) % RelayServerPreset::ALL.len()];
+                                    return self.update(Message::CollabPresetSelected(next_preset));
+                                }
+                            }
+                            Some(START_SESSION_BTN_CANCEL) => {
                                 return self.update(Message::CloseCollabModal);
                             }
                             Some(START_SESSION_BTN_REMEMBER) => {
@@ -4481,7 +4523,7 @@ impl App {
                         return self.update(Message::CloseExcelSchemaGuideModal);
                     } else if self.history_modal.is_some() {
                         match focused {
-                            Some(HISTORY_BTN_CLOSE_CROSS) | Some(HISTORY_BTN_CLOSE) | None => {
+                            Some(HISTORY_BTN_CLOSE) | None => {
                                 return self.update(Message::CloseModelHistoryModal);
                             }
                             Some(HISTORY_BTN_COMMIT_NOW) => {
@@ -4577,6 +4619,25 @@ impl App {
                             INFO_INSPECTOR_BTN_DELETE_CLASS => {
                                 return self.update(Message::DeleteInformationClass(cid));
                             }
+                            INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER => {
+                                if let Some(cls) = self.project.information_model().get_class(cid) {
+                                    let available: Vec<_> = self
+                                        .project
+                                        .concepts()
+                                        .iter()
+                                        .filter(|c| !cls.concept_ids().contains(&c.id()))
+                                        .collect();
+                                    if let Some(first) = available.first() {
+                                        let opt = ConceptOption {
+                                            id: first.id(),
+                                            term: first.preferred_term().to_string(),
+                                        };
+                                        return self.update(Message::AddConceptToInformationClass(
+                                            cid, opt,
+                                        ));
+                                    }
+                                }
+                            }
                             _ if btn >= INFO_INSPECTOR_ATTR_DELETE_START => {
                                 let attr_idx = btn - INFO_INSPECTOR_ATTR_DELETE_START;
                                 if let Some(cls) = self.project.information_model().get_class(cid) {
@@ -4597,6 +4658,37 @@ impl App {
                                                 cid, concept_id,
                                             ),
                                         );
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    } else if let Some(eid) = self.selected_info_enum_id {
+                        match btn {
+                            INFO_INSPECTOR_BTN_CANVAS_ACTION => {
+                                if self.project.information_graph().is_class_on_diagram(eid) {
+                                    return self.update(Message::RemoveEnumerationFromDiagram(eid));
+                                } else {
+                                    return self.update(Message::AddEnumerationToDiagram(eid));
+                                }
+                            }
+                            INFO_INSPECTOR_BTN_DELETE_ENUM => {
+                                return self.update(Message::DeleteInformationEnumeration(eid));
+                            }
+                            INFO_INSPECTOR_BTN_ADD_ENUM_VAL => {
+                                let val = self.new_enum_value_input.trim().to_string();
+                                if !val.is_empty() {
+                                    return self.update(Message::AddValueToEnumeration(eid, val));
+                                }
+                            }
+                            _ if btn >= INFO_INSPECTOR_ENUM_VAL_REMOVE_START => {
+                                let val_idx = btn - INFO_INSPECTOR_ENUM_VAL_REMOVE_START;
+                                if let Some(e) =
+                                    self.project.information_model().get_enumeration(eid)
+                                {
+                                    if let Some(val) = e.values().get(val_idx).cloned() {
+                                        return self
+                                            .update(Message::RemoveValueFromEnumeration(eid, val));
                                     }
                                 }
                             }
@@ -5420,12 +5512,7 @@ impl App {
                     self.selected_info_edge = None;
                 }
                 if let Some(cid) = id {
-                    let targets = vec![
-                        FocusTarget::Input("info_class_name_input"),
-                        FocusTarget::Input("info_class_desc_input"),
-                        FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION),
-                        FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS),
-                    ];
+                    let targets = self.build_info_inspector_targets();
                     self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
                     if let Some(node) = self.project.information_graph().find_node_by_class(cid) {
                         self.selected_info_graph_node_id = Some(node.id());
@@ -5444,12 +5531,7 @@ impl App {
                 self.selected_info_class_id = Some(id);
                 self.selected_info_graph_node_id = Some(node_id);
                 self.selected_info_edge = None;
-                let targets = vec![
-                    FocusTarget::Input("info_class_name_input"),
-                    FocusTarget::Input("info_class_desc_input"),
-                    FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION),
-                    FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS),
-                ];
+                let targets = self.build_info_inspector_targets();
                 self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
                 if let Some(cls) = self.project.information_model().get_class(id).cloned() {
                     self.broadcast_mutation(
@@ -5475,12 +5557,7 @@ impl App {
                 self.selected_info_class_id = Some(id);
                 self.selected_info_graph_node_id = Some(node_id);
                 self.selected_info_edge = None;
-                let targets = vec![
-                    FocusTarget::Input("info_class_name_input"),
-                    FocusTarget::Input("info_class_desc_input"),
-                    FocusTarget::Button(INFO_INSPECTOR_BTN_CANVAS_ACTION),
-                    FocusTarget::Button(INFO_INSPECTOR_BTN_DELETE_CLASS),
-                ];
+                let targets = self.build_info_inspector_targets();
                 self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
                 if let Some(cls) = self.project.information_model().get_class(id).cloned() {
                     self.broadcast_mutation(
@@ -5621,6 +5698,10 @@ impl App {
                     );
                     self.trigger_autosave();
                 }
+                if self.selected_info_class_id == Some(class_id) {
+                    let targets = self.build_info_inspector_targets();
+                    self.info_inspector_focus.update_targets(targets);
+                }
             }
             Message::RemoveConceptFromInformationClass(class_id, concept_id) => {
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
@@ -5632,6 +5713,10 @@ impl App {
                         ),
                     );
                     self.trigger_autosave();
+                }
+                if self.selected_info_class_id == Some(class_id) {
+                    let targets = self.build_info_inspector_targets();
+                    self.info_inspector_focus.update_targets(targets);
                 }
             }
             Message::DeleteInformationClass(class_id) => {
@@ -5677,6 +5762,10 @@ impl App {
                         ),
                     );
                     self.trigger_autosave();
+                }
+                if self.selected_info_class_id == Some(class_id) {
+                    let targets = self.build_info_inspector_targets();
+                    self.info_inspector_focus.update_targets(targets);
                 }
             }
             Message::UpdateAttributeName(class_id, attr_id, name) => {
@@ -5851,6 +5940,10 @@ impl App {
                     );
                     self.trigger_autosave();
                 }
+                if self.selected_info_class_id == Some(class_id) {
+                    let targets = self.build_info_inspector_targets();
+                    self.info_inspector_focus.update_targets(targets);
+                }
             }
             Message::InformationClassSearchChanged(q) => {
                 self.info_class_search = q;
@@ -5867,12 +5960,15 @@ impl App {
                     .add_enumeration(e.clone());
                 self.selected_info_enum_id = Some(enum_id);
                 self.selected_info_class_id = None;
+                let targets = self.build_info_inspector_targets();
+                self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
                 self.broadcast_mutation(
                     &crate::features::collab::protocol::ModelMutation::InformationEnumerationAdded(
                         e,
                     ),
                 );
                 self.trigger_autosave();
+                return operation::focus("info_enum_name_input");
             }
             Message::CreateInformationEnumerationAtCenter => {
                 let center_world = self.info_canvas_viewport.to_world(Point::new(500.0, 350.0));
@@ -5903,6 +5999,8 @@ impl App {
                 self.selected_info_enum_id = Some(enum_id);
                 self.selected_info_class_id = None;
                 self.selected_info_graph_node_id = Some(node_id);
+                let targets = self.build_info_inspector_targets();
+                self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
                 self.broadcast_mutation(
                     &crate::features::collab::protocol::ModelMutation::InformationEnumerationAdded(
                         e,
@@ -5914,11 +6012,16 @@ impl App {
                     ),
                 );
                 self.trigger_autosave();
+                return operation::focus("info_enum_name_input");
             }
             Message::SelectInformationEnumeration(id) => {
                 self.selected_info_enum_id = id;
                 if id.is_some() {
                     self.selected_info_class_id = None;
+                    let targets = self.build_info_inspector_targets();
+                    self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
+                } else {
+                    self.info_inspector_focus.reset();
                 }
             }
             Message::UpdateInformationEnumerationName(enum_id, name) => {
@@ -5988,6 +6091,10 @@ impl App {
                             &crate::features::collab::protocol::ModelMutation::InformationEnumerationUpdated(e),
                         );
                         self.trigger_autosave();
+                        if self.selected_info_enum_id == Some(enum_id) {
+                            let targets = self.build_info_inspector_targets();
+                            self.info_inspector_focus.update_targets(targets);
+                        }
                     }
                 }
             }
@@ -6010,12 +6117,17 @@ impl App {
                         &crate::features::collab::protocol::ModelMutation::InformationEnumerationUpdated(e),
                     );
                     self.trigger_autosave();
+                    if self.selected_info_enum_id == Some(enum_id) {
+                        let targets = self.build_info_inspector_targets();
+                        self.info_inspector_focus.update_targets(targets);
+                    }
                 }
             }
             Message::DeleteInformationEnumeration(enum_id) => {
                 self.project.remove_information_enumeration(enum_id);
                 if self.selected_info_enum_id == Some(enum_id) {
                     self.selected_info_enum_id = None;
+                    self.info_inspector_focus.reset();
                 }
                 if let Some(nid) = self.selected_info_graph_node_id {
                     if self.project.information_graph().find_node(nid).is_none() {
@@ -6309,6 +6421,12 @@ impl App {
                     self.selected_info_class_id = None;
                     self.selected_info_enum_id = None;
                 }
+                if self.selected_info_class_id.is_some() || self.selected_info_enum_id.is_some() {
+                    let targets = self.build_info_inspector_targets();
+                    self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
+                } else {
+                    self.info_inspector_focus.reset();
+                }
             }
             Message::SelectInfoGraphNodes(ids) => {
                 self.selected_info_graph_node_ids = ids;
@@ -6334,6 +6452,12 @@ impl App {
                 } else {
                     self.selected_info_class_id = None;
                     self.selected_info_enum_id = None;
+                }
+                if self.selected_info_class_id.is_some() || self.selected_info_enum_id.is_some() {
+                    let targets = self.build_info_inspector_targets();
+                    self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
+                } else {
+                    self.info_inspector_focus.reset();
                 }
             }
             Message::InfoEdgeSelected(edge) => {
@@ -7700,14 +7824,13 @@ impl App {
 
         let maybe_start_session_modal: Option<Element<Message>> =
             self.start_session_modal.as_ref().map(|modal_state| {
-                let is_close_cross_focused = self.modal_focus.is_button_focused(START_SESSION_BTN_CLOSE_CROSS);
                 let title_row = row![
                     text("🌐 Start Live Session (Vært)")
                         .size(17)
                         .color(ThemeColors::SLATE_900),
                     Space::new().width(Length::Fill),
                     button(text("✕").size(13))
-                        .style(focused_button_style(secondary_button_style, is_close_cross_focused))
+                        .style(secondary_button_style)
                         .on_press(Message::CloseCollabModal)
                         .padding([3, 7]),
                 ]
@@ -7717,6 +7840,7 @@ impl App {
                     .size(12)
                     .color(ThemeColors::TEXT_MUTED);
 
+                let is_preset_focused = self.modal_focus.is_button_focused(START_SESSION_BTN_PRESET);
                 let preset_pick = pick_list(
                     &RelayServerPreset::ALL[..],
                     Some(modal_state.preset),
@@ -7725,9 +7849,23 @@ impl App {
                 .padding(7)
                 .width(Length::Fill);
 
+                let preset_container = container(preset_pick)
+                    .style(move |_| container::Style {
+                        border: iced::Border {
+                            color: if is_preset_focused {
+                                ThemeColors::FOCUS_RING
+                            } else {
+                                iced::Color::TRANSPARENT
+                            },
+                            width: if is_preset_focused { 1.5 } else { 0.0 },
+                            radius: 6.0.into(),
+                        },
+                        ..Default::default()
+                    });
+
                 let preset_field = column![
                     text("Relay Server Preset").size(12).color(ThemeColors::SLATE_700),
-                    preset_pick,
+                    preset_container,
                 ]
                 .spacing(4);
 
@@ -9437,15 +9575,11 @@ impl App {
             "📜 Modelhistorik (Tidslinje)"
         };
 
-        let is_close_cross_focused = self.modal_focus.is_button_focused(HISTORY_BTN_CLOSE_CROSS);
         let title_row = row![
             text(title_text).size(17).color(ThemeColors::SLATE_900),
             Space::new().width(Length::Fill),
             button(text("✕").size(13))
-                .style(focused_button_style(
-                    secondary_button_style,
-                    is_close_cross_focused
-                ))
+                .style(secondary_button_style)
                 .on_press(Message::CloseModelHistoryModal)
                 .padding([3, 7]),
         ]

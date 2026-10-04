@@ -10157,22 +10157,22 @@ fn test_task_071_start_session_custom_url_in_tab_cycle() {
         Some(kant::ui::app::START_SESSION_BTN_START)
     );
 
-    // Tab 5 -> Luk-kryds
+    // Tab 5 -> Preset dropdown knap
     let _ = app.update(Message::FocusNext);
     assert_eq!(
         app.modal_focused_button_index(),
-        Some(kant::ui::app::START_SESSION_BTN_CLOSE_CROSS)
+        Some(kant::ui::app::START_SESSION_BTN_PRESET)
     );
 
     // Tab 6 -> Looper tilbage til custom url tekstfeltet (None)
     let _ = app.update(Message::FocusNext);
     assert_eq!(app.modal_focused_button_index(), None);
 
-    // Shift+Tab looper tilbage til Luk-kryds
+    // Shift+Tab looper tilbage til Preset dropdown
     let _ = app.update(Message::FocusPrevious);
     assert_eq!(
         app.modal_focused_button_index(),
-        Some(kant::ui::app::START_SESSION_BTN_CLOSE_CROSS)
+        Some(kant::ui::app::START_SESSION_BTN_PRESET)
     );
 }
 
@@ -10429,17 +10429,21 @@ fn test_task_072_concept_table_rows_tab_cycle_and_activation() {
 }
 
 #[test]
-fn test_task_072_start_session_modal_checkbox_and_close_cross() {
-    use kant::ui::app::{App, Message, START_SESSION_BTN_CLOSE_CROSS, START_SESSION_BTN_REMEMBER};
+fn test_task_072_start_session_modal_preset_cycle_and_remember() {
+    use kant::ui::app::{
+        App, Message, RelayServerPreset, START_SESSION_BTN_PRESET, START_SESSION_BTN_REMEMBER,
+    };
 
     let mut app = App::new();
     let _ = app.update(Message::OpenStartSessionModal);
     assert!(app.start_session_modal().is_some());
 
     let initial_remember = app.start_session_modal().unwrap().remember_choice;
+    let initial_preset = app.start_session_modal().unwrap().preset;
+    assert_eq!(initial_preset, RelayServerPreset::Koyeb);
 
     // Shift+Tab fra startfokus (Start Session knap) baglæns gennem Annuller, Kopiér, til Remember checkbox
-    // Cyklussen indeholder: Luk kryds, [Custom URL hvis aktiv], Remember checkbox, Kopiér, Annuller, Start Session
+    // Cyklussen indeholder: Preset dropdown, [Custom URL hvis aktiv], Remember checkbox, Kopiér, Annuller, Start Session
     let _ = app.update(Message::FocusPrevious); // Annuller
     let _ = app.update(Message::FocusPrevious); // Kopiér
     let _ = app.update(Message::FocusPrevious); // Remember checkbox
@@ -10457,26 +10461,34 @@ fn test_task_072_start_session_modal_checkbox_and_close_cross() {
         "Enter på checkbox skal toggle remember_choice"
     );
 
-    // Shift+Tab til START_SESSION_BTN_CLOSE_CROSS
+    // Shift+Tab til START_SESSION_BTN_PRESET
     let _ = app.update(Message::FocusPrevious);
     assert_eq!(
         app.modal_focused_button_index(),
-        Some(START_SESSION_BTN_CLOSE_CROSS),
-        "Luk-kryds skal være fokuserbart"
+        Some(START_SESSION_BTN_PRESET),
+        "Preset dropdown skal være fokuserbar"
     );
 
-    // Enter på Luk-kryds lukker modalen
+    // Enter på Preset dropdown cykler preset til næste preset
     let _ = app.update(Message::EnterPressed);
+    assert_eq!(
+        app.start_session_modal().unwrap().preset,
+        RelayServerPreset::InternalOrg,
+        "Enter på preset dropdown skal cykle til næste preset"
+    );
+
+    // Esc lukker modalen jf. reglen om at modalvinduer lukkes med Esc i stedet for Tab til kryds
+    let _ = app.update(Message::EscapePressed);
     assert!(
         app.start_session_modal().is_none(),
-        "Enter på luk-kryds skal lukke modalen"
+        "Escape skal lukke start session modalen"
     );
 }
 
 #[test]
-fn test_task_072_history_modal_close_cross_and_timeline_cards() {
+fn test_task_072_history_modal_esc_and_close_button() {
     use kant::features::git::GitService;
-    use kant::ui::app::{App, Message, HISTORY_BTN_CLOSE_CROSS};
+    use kant::ui::app::{App, Message, HISTORY_BTN_CLOSE};
     use uuid::Uuid;
 
     let temp_dir = std::env::temp_dir().join(format!("kant_test_072_{}", Uuid::new_v4()));
@@ -10487,20 +10499,18 @@ fn test_task_072_history_modal_close_cross_and_timeline_cards() {
     let _ = app.update(Message::OpenModelHistoryModal);
     assert!(app.history_modal().is_some());
 
-    // Startfokus er på Luk-knappen i bunden (indeks 1 eller primær luk)
-    // Cyklussen indeholder luk-kryds (HISTORY_BTN_CLOSE_CROSS), eventuelle commits, og Luk-knap
-    let _ = app.update(Message::FocusNext);
+    // Startfokus er på Luk-knappen i bunden
     assert_eq!(
         app.modal_focused_button_index(),
-        Some(HISTORY_BTN_CLOSE_CROSS),
-        "Luk-kryds i toppen skal kunne fokuseres"
+        Some(HISTORY_BTN_CLOSE),
+        "Startfokus skal være på Luk-knappen i bunden"
     );
 
-    // Enter på luk-kryds lukker modalen
-    let _ = app.update(Message::EnterPressed);
+    // Esc lukker modalen
+    let _ = app.update(Message::EscapePressed);
     assert!(
         app.history_modal().is_none(),
-        "Enter på luk-kryds skal lukke modalen"
+        "Escape skal lukke historik-modalen"
     );
 
     let _ = std::fs::remove_dir_all(&temp_dir);
@@ -10608,4 +10618,122 @@ fn test_task_072_information_model_inspector_full_properties_cycle() {
         1,
         "Enter på + Tilføj attribut skal oprette en ny attribut"
     );
+}
+
+#[test]
+fn test_task_072_information_model_concept_picker_and_enum_cycle() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::InformationClass;
+    use kant::ui::app::{
+        App, Message, Tab, INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER, INFO_INSPECTOR_BTN_ADD_ENUM_VAL,
+        INFO_INSPECTOR_BTN_CANVAS_ACTION, INFO_INSPECTOR_BTN_DELETE_ENUM,
+        INFO_INSPECTOR_ENUM_VAL_REMOVE_START,
+    };
+
+    let mut app = App::new();
+
+    // 1. Test "+ Knyt begreb" på en Klasse
+    let class = InformationClass::new("Kunde");
+    let class_id = class.id();
+    app.project_mut().information_model_mut().add_class(class);
+
+    // Opret et begreb i projektet som kan tilknyttes
+    let concept_id = app
+        .project_mut()
+        .add_concept(Concept::new(
+            "Kunde",
+            "Person eller organisation",
+            BelongsToDomain::Yes,
+        ))
+        .unwrap();
+
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    let _ = app.update(Message::SelectInformationClass(Some(class_id)));
+    assert_eq!(app.selected_info_class_id(), Some(class_id));
+
+    // Find INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER via Tab
+    let mut found_concept_picker = false;
+    for _ in 0..15 {
+        let _ = app.update(Message::FocusNext);
+        if app.info_inspector_focused_button() == Some(INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER) {
+            found_concept_picker = true;
+            break;
+        }
+    }
+    assert!(
+        found_concept_picker,
+        "Skal finde + Knyt begreb picker i fokuscyklus"
+    );
+
+    // Enter på + Knyt begreb skal knytte det første tilgængelige begreb
+    let _ = app.update(Message::EnterPressed);
+    assert!(
+        app.project()
+            .information_model()
+            .get_class(class_id)
+            .unwrap()
+            .concept_ids()
+            .contains(&concept_id),
+        "Enter på + Knyt begreb skal tilknytte begrebet til klassen"
+    );
+
+    // 2. Test Enumeration tastaturnavigation
+    let _ = app.update(Message::CreateInformationEnumeration);
+    let enum_id = app.selected_info_enum_id().expect("enum oprettet");
+
+    // Fokus starter på tekstfeltet (info_enum_name_input)
+    // Tab 1 -> info_enum_def_input (tekstfelt, button is None)
+    let _ = app.update(Message::FocusNext);
+    // Tab 2 -> INFO_INSPECTOR_BTN_CANVAS_ACTION
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_BTN_CANVAS_ACTION)
+    );
+
+    // Tab 3 -> INFO_INSPECTOR_BTN_DELETE_ENUM
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_BTN_DELETE_ENUM)
+    );
+
+    // Tab 4 -> new_enum_val_input (tekstfelt, button is None)
+    let _ = app.update(Message::FocusNext);
+
+    // Tab 5 -> INFO_INSPECTOR_BTN_ADD_ENUM_VAL
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_BTN_ADD_ENUM_VAL)
+    );
+
+    // Indtast en gyldig lowerCamelCase værdi og tilføj via Enter på knappen
+    let _ = app.update(Message::NewEnumValueInputChanged("aktivStatus".to_string()));
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(
+        app.project()
+            .information_model()
+            .get_enumeration(enum_id)
+            .unwrap()
+            .values(),
+        &["aktivStatus"]
+    );
+
+    // Tab 1 mere -> slet-knap for den nye værdi
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_ENUM_VAL_REMOVE_START)
+    );
+
+    // Enter på slet-knap sletter værdien
+    let _ = app.update(Message::EnterPressed);
+    assert!(app
+        .project()
+        .information_model()
+        .get_enumeration(enum_id)
+        .unwrap()
+        .values()
+        .is_empty());
 }

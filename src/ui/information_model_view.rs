@@ -1131,6 +1131,8 @@ pub fn view<'a>(
             })
             .collect();
 
+        let is_add_concept_picker_focused =
+            inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER);
         let add_concept_picker = pick_list(available_concepts, None::<ConceptOption>, move |opt| {
             Message::AddConceptToInformationClass(class_id, opt)
         })
@@ -1138,6 +1140,25 @@ pub fn view<'a>(
         .text_size(11.5)
         .padding([3, 6])
         .width(Length::Fill);
+
+        let add_concept_container = container(add_concept_picker)
+            .style(move |_| container::Style {
+                border: iced::Border {
+                    color: if is_add_concept_picker_focused {
+                        ThemeColors::FOCUS_RING
+                    } else {
+                        iced::Color::TRANSPARENT
+                    },
+                    width: if is_add_concept_picker_focused {
+                        1.5
+                    } else {
+                        0.0
+                    },
+                    radius: 6.0.into(),
+                },
+                ..Default::default()
+            })
+            .width(Length::Fill);
 
         // Attributter sektion
         let mut attr_list = column![].spacing(6);
@@ -1441,7 +1462,7 @@ pub fn view<'a>(
             column![
                 crate::ui::inspector_panel::section_header("Tilknyttede Begreber"),
                 concept_badges,
-                add_concept_picker,
+                add_concept_container,
             ]
             .spacing(4),
             // Tilknyttede Relationer
@@ -1507,29 +1528,43 @@ pub fn view<'a>(
         }
 
         let def_input = text_input("Valgfri definition...", e.definition().unwrap_or(""))
+            .id("info_enum_def_input")
             .style(modern_input_style)
             .size(12.0)
             .on_input(move |s| Message::UpdateInformationEnumerationDefinition(enum_id, s))
             .padding([4, 6]);
 
         // Handlinger for lærred
+        let is_canvas_focused =
+            inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_CANVAS_ACTION);
         let canvas_action_btn = if is_on_canvas {
             button(text("Fjern fra diagram").size(11))
-                .style(secondary_button_style)
+                .style(focused_button_style(
+                    secondary_button_style,
+                    is_canvas_focused,
+                ))
                 .on_press(Message::RemoveEnumerationFromDiagram(enum_id))
                 .padding([4, 8])
         } else {
             button(text("+ Tilføj til diagram").size(11))
-                .style(primary_button_style)
+                .style(focused_button_style(
+                    primary_button_style,
+                    is_canvas_focused,
+                ))
                 .on_press(Message::AddEnumerationToDiagram(enum_id))
                 .padding([4, 8])
         };
 
+        let is_delete_enum_focused =
+            inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_DELETE_ENUM);
         let actions_row = row![
             canvas_action_btn,
             Space::new().width(Length::Fill),
             button(text("🗑️ Slet enumeration").size(11))
-                .style(danger_button_style)
+                .style(focused_button_style(
+                    danger_button_style,
+                    is_delete_enum_focused,
+                ))
                 .on_press(Message::DeleteInformationEnumeration(enum_id))
                 .padding([3, 7]),
         ]
@@ -1537,7 +1572,9 @@ pub fn view<'a>(
 
         // Værdier (FDA Tabel B: lowerCamelCase)
         let mut values_list = column![].spacing(4);
-        for val in e.values() {
+        for (v_idx, val) in e.values().iter().enumerate() {
+            let is_remove_val_focused = inspector_focused_button
+                == Some(crate::ui::app::INFO_INSPECTOR_ENUM_VAL_REMOVE_START + v_idx);
             let val_str = val.clone();
             let val_row = container(
                 row![
@@ -1546,7 +1583,10 @@ pub fn view<'a>(
                         .color(ThemeColors::SLATE_800)
                         .width(Length::Fill),
                     button(text("✕").size(9))
-                        .style(danger_button_style)
+                        .style(focused_button_style(
+                            danger_button_style,
+                            is_remove_val_focused,
+                        ))
                         .on_press(Message::RemoveValueFromEnumeration(enum_id, val_str))
                         .padding([2, 5]),
                 ]
@@ -1564,6 +1604,8 @@ pub fn view<'a>(
         let is_val_valid =
             !new_val_trimmed.is_empty() && NamingLinter::is_lower_camel_case(new_val_trimmed);
 
+        let is_add_val_focused =
+            inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_ADD_ENUM_VAL);
         let mut add_val_col = column![row![
             text_input("nyVærdi (lowerCamelCase)...", new_enum_value_input)
                 .id("new_enum_val_input")
@@ -1577,11 +1619,14 @@ pub fn view<'a>(
                 .padding([3, 6])
                 .width(Length::Fill),
             button(text("+ Tilføj").size(11))
-                .style(if is_val_valid {
-                    primary_button_style
-                } else {
-                    secondary_button_style
-                })
+                .style(focused_button_style(
+                    if is_val_valid {
+                        primary_button_style
+                    } else {
+                        secondary_button_style
+                    },
+                    is_add_val_focused,
+                ))
                 .on_press(Message::AddValueToEnumeration(
                     enum_id,
                     new_enum_value_input.to_string()
