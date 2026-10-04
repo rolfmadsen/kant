@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 070: Fokuserbare Knapper i Begrebseditoren og Modaler (Tastaturnavigation & Tab-cyklus)"
 description: "Implementering af tastaturfokuserbare knapper i begrebseditoren og samtlige modalvinduer, så Tab og Shift+Tab navigerer til knapper med tydelig visuel fokusring og Enter/Mellemrum aktivering"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-04T13:41:00Z" }
 tags: [ui, keyboard, focus, accessibility, a11y, buttons, modals, concept-editor]
 ---
 
 # Task 070: Fokuserbare Knapper i Begrebseditoren og Modaler (Tastaturnavigation & Tab-cyklus)
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-10-04`
 
@@ -21,7 +21,7 @@ At gøre applikationens formularer og dialoger fuldt tilgængelige med tastature
 4. Sikre hurtig-bekræftelse med <kbd>Enter</kbd> i modaler uden tekstfelter (f.eks. *Start Live Session (Vært)*), så man kan starte eller bekræfte direkte uden mus.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Fokuserbare knapper i Begrebseditoren (`ConceptEditor`)**:
+- [x] **AC1 - Fokuserbare knapper i Begrebseditoren (`ConceptEditor`)**:
   - <kbd>Tab</kbd> navigerer gennem felterne og lander på:
     1. Domæne-knapperne (*Lokalt begreb (Ja)* / *Indlånt begreb (Nej)*).
     2. *Annuller*-knappen (`CancelConceptEdit`).
@@ -29,19 +29,19 @@ At gøre applikationens formularer og dialoger fuldt tilgængelige med tastature
   - <kbd>Shift+Tab</kbd> navigerer baglæns i samme rækkefølge.
   - Knapperne viser en markant fokusring, når de har fokus.
   - <kbd>Enter</kbd> eller <kbd>Mellemrum</kbd> udløser knappens handling.
-- [ ] **AC2 - Fokuserbare knapper og Tab-cyklus i Modaler uden tekstfelter**:
+- [x] **AC2 - Fokuserbare knapper og Tab-cyklus i Modaler uden tekstfelter**:
   - I modaler uden tekstfelter (f.eks. `StartSessionModalState`, `ConflictResolverModalState`, `ExcelImportPreviewState`, `DiagnosticsModalState`, `ExcelSchemaGuideModal`):
     - Modalen har fra åbning eller ved første <kbd>Tab</kbd> fokus på den primære handlingsknap (*Start Session*, *Løs og fortsæt*, *Gennemfør import*, *Kopiér rapport*).
     - <kbd>Tab</kbd> cykler rundt mellem modalens knapper (f.eks. [Kopiér] -> [Annuller] -> [Start Session]).
     - <kbd>Enter</kbd> bekræfter den fokuserede knap (eller modalens primære handling).
     - <kbd>Esc</kbd> lukker modalen jf. Task 069.
-- [ ] **AC3 - Tab-cyklus til knapper i Modaler med tekstfelter**:
+- [x] **AC3 - Tab-cyklus til knapper i Modaler med tekstfelter**:
   - I modaler med tekstfelter (`MetadataModalState`, `JoinSessionModalState`, `GitCloneModalState`, `GitConnectionModalState`, `PublishModalState`, `FileDialogModal`, `RelationDialogState`, `QuickCreateState`):
     - Når sidste tekstfelt forlades med <kbd>Tab</kbd>, overgår fokus til modalens handlingsknapper (*Annuller* og *Gem/Klon/Forbind/Send*).
     - Efter sidste knap looper fokus tilbage til første inputfelt.
-- [ ] **AC4 - Visuel Fokusring & FDA Temaintegretion**:
+- [x] **AC4 - Visuel Fokusring & FDA Temaintegretion**:
   - Knapper med fokus styles med en tydelig 2px kontrastrig fokusring/ramme i overensstemmelse med `ThemeColors::PRIMARY` eller `ThemeColors::FDA_BORROWED_BLUE`.
-- [ ] **AC5 - Verifikation & Regression Gauntlet**:
+- [x] **AC5 - Verifikation & Regression Gauntlet**:
   - Samtlige nye tastaturflows er dækket af automatiserede accepttests i `tests/acceptance.rs`.
   - Hele testsuiten (`cargo test --workspace`) og `cargo clippy --workspace -- -D warnings` passerer grønt.
 
