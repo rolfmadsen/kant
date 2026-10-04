@@ -9835,5 +9835,269 @@ fn test_task_070_file_dialog_modal_tab_cycle_and_cancel() {
     assert!(!app.is_file_dialog_open(), "Enter på Annuller skal lukke fil-dialogen");
 }
 
+#[test]
+fn test_task_071_toolbar_tab_cycle_and_activation() {
+    use kant::ui::app::{
+        App, Message, Tab, TOOLBAR_BTN_EXPORT_EXCEL, TOOLBAR_BTN_GUIDE, TOOLBAR_BTN_IMPORT_EXCEL,
+        TOOLBAR_BTN_NEW_CONCEPT, TOOLBAR_BTN_TEMPLATE,
+    };
+
+    let mut app = App::new();
+    assert_eq!(app.active_tab(), Tab::ConceptList);
+
+    // Initialt er ingen værktøjsknap fokuseret (tekstfelt har fokus eller ingen knap)
+    assert_eq!(app.toolbar_focused_button(), None);
+
+    // Tab 1 -> + Nyt Begreb
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_BTN_NEW_CONCEPT));
+
+    // Tab 2 -> Importér Excel
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_BTN_IMPORT_EXCEL));
+
+    // Tab 3 -> Eksportér Excel
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_BTN_EXPORT_EXCEL));
+
+    // Tab 4 -> Hent skabelon
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_BTN_TEMPLATE));
+
+    // Tab 5 -> Skemaguide
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_BTN_GUIDE));
+
+    // Tab 6 -> Looper tilbage til søgefeltet (None)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.toolbar_focused_button(), None);
+
+    // Shift+Tab fra søgefeltet looper baglæns til Skemaguide
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_BTN_GUIDE));
+
+    // Enter på Skemaguide åbner modalen
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.is_excel_schema_guide_open(), "Enter på fokuseret Skemaguide-knap skal åbne guiden");
+    let _ = app.update(Message::CloseExcelSchemaGuideModal);
+    assert!(!app.is_excel_schema_guide_open());
+
+    // Tab til + Nyt Begreb og tryk Enter -> åbner concept_editor
+    let _ = app.update(Message::FocusNext); // søgefelt (None)
+    let _ = app.update(Message::FocusNext); // + Nyt Begreb
+    assert_eq!(app.toolbar_focused_button(), Some(TOOLBAR_BTN_NEW_CONCEPT));
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.concept_editor().is_some(), "Enter på + Nyt Begreb skal åbne ConceptEditor");
+}
+
+#[test]
+fn test_task_071_new_project_initializes_modal_focus_on_meta_name() {
+    use kant::ui::app::{App, Message, META_BTN_CANCEL, META_BTN_SAVE};
+
+    let mut app = App::new();
+    let _ = app.update(Message::NewProject);
+    assert!(app.metadata_modal().is_some(), "Nyt projekt skal åbne metadata modalen");
+
+    // Start-tilstand: meta_name har fokus, ingen knap fokuseret
+    assert_eq!(app.modal_focused_button_index(), None, "Startfokus skal være i meta_name tekstfelt");
+
+    // Shift+Tab looper direkte baglæns til META_BTN_SAVE
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(META_BTN_SAVE),
+        "Shift+Tab fra meta_name skal loope til Gem-knap"
+    );
+
+    // Shift+Tab til META_BTN_CANCEL
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(META_BTN_CANCEL),
+        "Shift+Tab fra Gem skal gå til Annuller-knap"
+    );
+
+    // Enter på Annuller lukker modalen
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.metadata_modal().is_none(), "Enter på Annuller skal lukke modalen");
+}
+
+#[test]
+fn test_task_071_history_modal_focuses_close_button_and_enter_closes() {
+    use kant::features::git::GitService;
+    use kant::ui::app::{App, Message};
+    use uuid::Uuid;
+
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_071_{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    GitService::init_repository(&temp_dir).expect("init repo");
+    let mut app = App::new_with_path(Some(temp_dir.clone()));
+
+    let _ = app.update(Message::OpenModelHistoryModal);
+    assert!(app.history_modal().is_some(), "History modal skal være åben");
+    assert_eq!(
+        app.modal_focused_button_index(),
+        Some(0),
+        "Luk-knappen i history_modal skal have startfokus"
+    );
+
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.history_modal().is_none(), "Enter på Luk-knappen skal lukke history modal");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_task_071_start_session_custom_url_in_tab_cycle() {
+    use kant::features::collab::RelayServerPreset;
+    use kant::ui::app::{App, Message};
+
+    let mut app = App::new();
+    let _ = app.update(Message::OpenStartSessionModal);
+    assert!(app.start_session_modal().is_some());
+
+    // Skift til Custom preset, så custom URL inputfeltet bliver aktivt
+    let _ = app.update(Message::CollabPresetSelected(RelayServerPreset::Custom));
+
+    // Fokus starter på tekstfeltet (custom url) -> modal_focused_button_index == None
+    // Tab 1 -> Kopiér (knap 0)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), Some(0));
+
+    // Tab 2 -> Annuller (knap 1)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), Some(1));
+
+    // Tab 3 -> Start Session (knap 2)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), Some(2));
+
+    // Tab 4 -> Looper tilbage til custom url tekstfeltet (None)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.modal_focused_button_index(), None);
+
+    // Shift+Tab looper tilbage til Start Session
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(app.modal_focused_button_index(), Some(2));
+}
+
+#[test]
+fn test_task_071_inline_graph_editing_inspector_tab_cycle_and_cancel() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::app::{App, Message, Tab};
+    use kant::ui::concept_editor::{BTN_CANCEL, BTN_SAVE};
+
+    let mut app = App::new();
+    let cid = app
+        .project_mut()
+        .add_concept(Concept::new("Bil", "Et køretøj", BelongsToDomain::Yes))
+        .unwrap();
+    let _ = app.update(Message::AddConceptToDiagram(cid));
+    let nid = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(cid)
+        .unwrap()
+        .id();
+
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.update(Message::GraphNodeSelected(Some(nid)));
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.is_node_editing(), "Skal være i inline redigering");
+
+    // 1. Startfokus er i preferred_term_input (None fokuseret knap)
+    assert_eq!(app.editor_focused_button(), None);
+
+    // 2. Tab 1 -> inline_concept_definition (tekstfelt, stadig None)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.editor_focused_button(), None);
+
+    // 3. Tab 2 -> Annuller knappen (BTN_CANCEL)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.editor_focused_button(), Some(BTN_CANCEL));
+
+    // 4. Tab 3 -> Gem Begreb knappen (BTN_SAVE)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.editor_focused_button(), Some(BTN_SAVE));
+
+    // 5. Tab 4 -> Loops tilbage til preferred_term_input (None)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.editor_focused_button(), None);
+
+    // 6. Shift+Tab -> Gem Begreb knappen
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(app.editor_focused_button(), Some(BTN_SAVE));
+
+    // 7. Shift+Tab -> Annuller knappen
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(app.editor_focused_button(), Some(BTN_CANCEL));
+
+    // 8. Enter på Annuller lukker inline redigeringen
+    let _ = app.update(Message::EnterPressed);
+    assert!(!app.is_node_editing(), "Enter på Annuller skal lukke inline redigering");
+}
+
+#[test]
+fn test_task_071_information_model_inspector_tab_cycle_and_actions() {
+    use kant::features::information_model::InformationClass;
+    use kant::ui::app::{
+        App, Message, Tab, INFO_INSPECTOR_BTN_CANVAS_ACTION, INFO_INSPECTOR_BTN_DELETE_CLASS,
+    };
+
+    let mut app = App::new();
+    let class = InformationClass::new("Kunde");
+    let class_id = class.id();
+    app.project_mut().information_model_mut().add_class(class);
+
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    let _ = app.update(Message::SelectInformationClass(Some(class_id)));
+    assert_eq!(app.selected_info_class_id(), Some(class_id));
+
+    // Startfokus er på info_class_name_input (tekstfelt, knap == None)
+    assert_eq!(app.info_inspector_focused_button(), None);
+
+    // Tab 1 -> info_class_desc_input (tekstfelt, knap == None)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.info_inspector_focused_button(), None);
+
+    // Tab 2 -> INFO_INSPECTOR_BTN_CANVAS_ACTION (Tilføj til diagram)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_BTN_CANVAS_ACTION)
+    );
+
+    // Tab 3 -> INFO_INSPECTOR_BTN_DELETE_CLASS (Slet klasse)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_BTN_DELETE_CLASS)
+    );
+
+    // Tab 4 -> Loops tilbage til info_class_name_input (None)
+    let _ = app.update(Message::FocusNext);
+    assert_eq!(app.info_inspector_focused_button(), None);
+
+    // Shift+Tab -> INFO_INSPECTOR_BTN_DELETE_CLASS
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_BTN_DELETE_CLASS)
+    );
+
+    // Shift+Tab -> INFO_INSPECTOR_BTN_CANVAS_ACTION
+    let _ = app.update(Message::FocusPrevious);
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        Some(INFO_INSPECTOR_BTN_CANVAS_ACTION)
+    );
+
+    // Enter på Tilføj til diagram tilføjer klassen til diagrammet
+    assert!(!app.project().information_graph().is_class_on_diagram(class_id));
+    let _ = app.update(Message::EnterPressed);
+    assert!(app.project().information_graph().is_class_on_diagram(class_id));
+}
+
+
+
 
 
