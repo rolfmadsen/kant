@@ -965,6 +965,7 @@ pub enum Message {
     UpdateClassNodesPositions(Vec<(NodeId, f32, f32)>),
     SelectInfoGraphNode(Option<NodeId>),
     SelectInfoGraphNodes(std::collections::HashSet<NodeId>),
+    InfoNodeDoubleClicked(NodeId),
     AddClassRelation(NodeId, NodeId, RelationKind, Option<String>),
     DeleteClassRelation(NodeId, NodeId),
     InfoCanvasViewportChanged(crate::ui::graph_canvas::CanvasViewport),
@@ -6575,6 +6576,9 @@ impl App {
                 } else {
                     self.info_inspector_focus.reset();
                 }
+            }
+            Message::InfoNodeDoubleClicked(_id) => {
+                return Task::none();
             }
             Message::InfoEdgeSelected(edge) => {
                 self.selected_info_edge = edge;

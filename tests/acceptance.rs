@@ -10779,3 +10779,107 @@ fn test_task_072_information_model_concept_picker_and_enum_cycle() {
         .values()
         .is_empty());
 }
+
+#[test]
+fn test_task_073_canvas_node_double_click_focuses_name_for_concept_class_and_enum() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::{InformationClass, InformationEnumeration};
+    use kant::ui::app::{App, Message, Tab};
+
+    let mut app = App::new();
+
+    // 1. Informationsmodel: Dobbeltklik på Klasse
+    let class = InformationClass::new("Kunde");
+    let class_id = class.id();
+    app.project_mut().information_model_mut().add_class(class);
+    let class_node_id = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(class_id, 0);
+
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    // Dobbeltklik på klassenoden
+    let _ = app.update(Message::InfoNodeDoubleClicked(class_node_id));
+    assert_eq!(
+        app.selected_info_graph_node_id(),
+        Some(class_node_id),
+        "Klassenoden skal vælges ved dobbeltklik"
+    );
+    assert_eq!(
+        app.selected_info_class_id(),
+        Some(class_id),
+        "Klassens id skal sættes som selected_info_class_id"
+    );
+    assert_eq!(
+        app.selected_info_enum_id(),
+        None,
+        "Enumeration skal være None når en klasse vælges"
+    );
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        None,
+        "Fokus skal ligge i tekstfeltet (info_class_name_input, ikke en knap)"
+    );
+
+    // 2. Informationsmodel: Dobbeltklik på Enumeration
+    let enumeration = InformationEnumeration::new("OrdreStatus", vec!["oprettet".to_string()]);
+    let enum_id = enumeration.id();
+    app.project_mut()
+        .information_model_mut()
+        .add_enumeration(enumeration);
+    let enum_node_id = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(enum_id, 0);
+
+    let _ = app.update(Message::InfoNodeDoubleClicked(enum_node_id));
+    assert_eq!(
+        app.selected_info_graph_node_id(),
+        Some(enum_node_id),
+        "Enumerationsnoden skal vælges ved dobbeltklik"
+    );
+    assert_eq!(
+        app.selected_info_enum_id(),
+        Some(enum_id),
+        "Enumerationens id skal sættes som selected_info_enum_id"
+    );
+    assert_eq!(
+        app.selected_info_class_id(),
+        None,
+        "Klasse skal være None når en enumeration vælges"
+    );
+    assert_eq!(
+        app.info_inspector_focused_button(),
+        None,
+        "Fokus skal ligge i tekstfeltet (info_enum_name_input, ikke en knap)"
+    );
+
+    // 3. Begrebsmodel: Dobbeltklik på Begreb
+    let concept = Concept::new("Kunde", "En part der køber", BelongsToDomain::Yes);
+    let concept_id = app.project_mut().add_concept(concept).unwrap();
+    let _ = app.update(Message::AddConceptToDiagram(concept_id));
+    let concept_node_id = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(concept_id)
+        .unwrap()
+        .id();
+
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.update(Message::GraphNodeDoubleClicked(concept_node_id));
+    assert_eq!(
+        app.selected_graph_node_id(),
+        Some(concept_node_id),
+        "Begrebsnoden skal vælges ved dobbeltklik"
+    );
+    assert!(
+        app.is_node_editing(),
+        "Dobbeltklik på begrebsnode skal åbne inline editor/egenskaber svarende til Enter"
+    );
+    assert_eq!(
+        app.selected_edge(),
+        None,
+        "Eventuel relation skal fravælges ved dobbeltklik på node"
+    );
+}
+
