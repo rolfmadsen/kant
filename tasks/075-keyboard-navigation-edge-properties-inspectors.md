@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 075: Tastaturnavigation (Tab) for Relations-egenskaber i Begrebsdiagram og Informationsmodel"
 description: "Fuldendt tastaturstyring (Tab/Enter) for kantelementer i Begrebsdiagram og Informationsmodel samt slet-knapper under klassens Tilknyttede Relationer."
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-04T22:47:00Z" }
 tags: [ui, keyboard, focus, accessibility, a11y, edge, inspector, concept-model, information-model]
 ---
 
 # Task 075: Tastaturnavigation (Tab) for Relations-egenskaber i Begrebsdiagram og Informationsmodel
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-10-04`
 
@@ -34,11 +34,11 @@ Sikre 100% tastaturnavigation til samtlige interaktive kontroller for relationer
    - Et enkelt tryk på <kbd>Enter</kbd> med en kant markeret på lærredet placerer direkte tastaturfokus i associationsnavnet (svarende til index 0 i cyklussen).
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Begrebsdiagram Kant Tab-cyklus**: Tab cykler cirkulært mellem navnefelt, vend, relationstypeknapper, retnings-checkbox og slet-knap, og wrapper tilbage til navnefeltet uden at lække fokus.
-- [ ] **AC2 - Begrebsdiagram Kant Enter-aktivering**: Enter på en fokuseret kant-knap udfører handlingen (omvending, typeændring, sletning).
-- [ ] **AC3 - Informationsmodel Kant Tab-cyklus & Multipliciteter**: Tab cykler gennem alle kant-kontroller (inklusive multiplicitets-pick_lists hvis synlige), og Enter cykler multiplicitets-presets.
-- [ ] **AC4 - Informationsmodel Klasse Tilknyttede Relationer**: Slet-knapper for klassens relationer kan fokuseres med Tab og aktiveres med Enter.
-- [ ] **AC5 - Regression Gauntlet**: Samtlige nye flows verificeres med tests i `tests/acceptance.rs`, og `cargo test --workspace` samt `cargo clippy --workspace -- -D warnings` forbliver 100% grønne.
+- [x] **AC1 - Begrebsdiagram Kant Tab-cyklus**: Tab cykler cirkulært mellem navnefelt, vend, relationstypeknapper, retnings-checkbox og slet-knap, og wrapper tilbage til navnefeltet uden at lække fokus.
+- [x] **AC2 - Begrebsdiagram Kant Enter-aktivering**: Enter på en fokuseret kant-knap udfører handlingen (omvending, typeændring, sletning).
+- [x] **AC3 - Informationsmodel Kant Tab-cyklus & Multipliciteter**: Tab cykler gennem alle kant-kontroller (inklusive multiplicitets-pick_lists hvis synlige), og Enter cykler multiplicitets-presets.
+- [x] **AC4 - Informationsmodel Klasse Tilknyttede Relationer**: Slet-knapper for klassens relationer kan fokuseres med Tab og aktiveres med Enter.
+- [x] **AC5 - Regression Gauntlet**: Samtlige nye flows verificeres med tests i `tests/acceptance.rs`, og `cargo test --workspace` samt `cargo clippy --workspace -- -D warnings` forbliver 100% grønne.
 
 ## 🚫 Must NOT
 - Må IKKE fjerne eller ændre kant-markeringen ved Tab-navigation.
@@ -48,6 +48,7 @@ Sikre 100% tastaturnavigation til samtlige interaktive kontroller for relationer
 
 ## 📝 Revisions
 - 2026-10-04: Oprettet opgavepakke efter brugerinitiativ om fuldendt Tab-cyklus for relationer på Begrebsdiagram og Informationsmodel samt tilknyttede relationer under klasse-inspektoren.
+- 2026-10-04: Implementeret `concept_inspector_focus` for Begrebsdiagram kantelementer samt udvidet `info_inspector_focus` til relationer og `INFO_INSPECTOR_REL_DELETE_START` for klasserelationer. Tilføjet komplet fokusring-styling og Enter-tastaturhandlere (inkl. cykling af multipliciteter). Verificeret via 3 accepttests i `tests/acceptance.rs` og 100% grøn test-gauntlet over hele workspacet. Opgaven markeret som DONE.
 
 ## 🧪 Verifikation
 - `cargo test --test acceptance test_task_075_`
