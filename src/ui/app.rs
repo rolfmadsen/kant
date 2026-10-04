@@ -935,6 +935,14 @@ pub enum Message {
     DeleteAttribute(Uuid, Uuid),
     InformationClassSearchChanged(String),
 
+    // Concept Picker Combobox (Task 072)
+    OpenConceptPicker,
+    CloseConceptPicker,
+    ConceptPickerSearchChanged(String),
+    ConceptPickerNext,
+    ConceptPickerPrevious,
+    ConceptPickerSubmit,
+
     // Enumeration styring (Task 063)
     CreateInformationEnumeration,
     CreateInformationEnumerationAtCenter,
@@ -1050,6 +1058,9 @@ pub struct App {
     pub modal_focus: FocusCycle,
     pub toolbar_focus: FocusCycle,
     pub info_inspector_focus: FocusCycle,
+    pub is_concept_picker_open: bool,
+    pub concept_picker_search: String,
+    pub concept_picker_index: usize,
 }
 
 impl Default for App {
@@ -1188,6 +1199,9 @@ impl App {
                             Some(0),
                         ),
                         info_inspector_focus: FocusCycle::default(),
+                        is_concept_picker_open: false,
+                        concept_picker_search: String::new(),
+                        concept_picker_index: 0,
                     };
                 }
             }
@@ -1270,6 +1284,9 @@ impl App {
                 Some(0),
             ),
             info_inspector_focus: FocusCycle::default(),
+            is_concept_picker_open: false,
+            concept_picker_search: String::new(),
+            concept_picker_index: 0,
         }
     }
 
@@ -1311,6 +1328,47 @@ impl App {
 
     pub fn is_excel_import_preview_open(&self) -> bool {
         self.excel_import_preview.is_some()
+    }
+
+    pub fn is_concept_picker_open(&self) -> bool {
+        self.is_concept_picker_open
+    }
+
+    pub fn concept_picker_search(&self) -> &str {
+        &self.concept_picker_search
+    }
+
+    pub fn concept_picker_index(&self) -> usize {
+        self.concept_picker_index
+    }
+
+    pub fn available_concepts_for_class(&self, class_id: Uuid) -> Vec<ConceptOption> {
+        if let Some(cls) = self.project.information_model().get_class(class_id) {
+            self.project
+                .concepts()
+                .iter()
+                .filter(|c| !cls.concept_ids().contains(&c.id()))
+                .map(|c| ConceptOption {
+                    id: c.id(),
+                    term: c.preferred_term().to_string(),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn filtered_available_concepts_for_class(&self, class_id: Uuid) -> Vec<ConceptOption> {
+        let available = self.available_concepts_for_class(class_id);
+        if self.concept_picker_search.trim().is_empty() {
+            available
+        } else {
+            let q = self.concept_picker_search.to_lowercase();
+            available
+                .into_iter()
+                .filter(|opt| opt.term.to_lowercase().contains(&q))
+                .collect()
+        }
     }
 
     pub fn set_active_file_path(&mut self, path: Option<PathBuf>) {
@@ -1510,6 +1568,8 @@ impl App {
                 Some(Message::GraphDeleteSelected)
             }
             Key::Named(Named::Space) => Some(Message::CanvasSpacePressed(true)),
+            Key::Named(Named::ArrowDown) => Some(Message::ConceptPickerNext),
+            Key::Named(Named::ArrowUp) => Some(Message::ConceptPickerPrevious),
             Key::Character(c)
                 if (c == "s" || c == "S") && (modifiers.control() || modifiers.command()) =>
             {
@@ -1793,6 +1853,12 @@ impl App {
     pub fn advance_info_inspector_focus(&mut self, reverse: bool) -> Option<Task<Message>> {
         if self.has_active_modal() || self.editor_state.is_some() {
             return None;
+        }
+
+        if self.is_concept_picker_open {
+            self.is_concept_picker_open = false;
+            self.concept_picker_search.clear();
+            self.concept_picker_index = 0;
         }
 
         if self.active_tab == Tab::InformationModel
@@ -4362,13 +4428,21 @@ impl App {
                 }
             }
             Message::EscapePressed => {
-                // 1. Aktiv menu overlay
+                // 1. Concept Picker combobox lukning
+                if self.is_concept_picker_open {
+                    self.is_concept_picker_open = false;
+                    self.concept_picker_search.clear();
+                    self.concept_picker_index = 0;
+                    return Task::none();
+                }
+
+                // 2. Aktiv menu overlay
                 if self.active_menu.is_some() {
                     self.active_menu = None;
                     return Task::none();
                 }
 
-                // 2. Modale dialoger (alle 9 modaler inkl. diagnostik samt overlay-dialoger)
+                // 3. Modale dialoger (alle 9 modaler inkl. diagnostik samt overlay-dialoger)
                 if self.close_active_modal() {
                     return Task::none();
                 }
@@ -4414,6 +4488,10 @@ impl App {
                 return operation::focus(tab_id);
             }
             Message::EnterPressed => {
+                if self.is_concept_picker_open {
+                    return self.update(Message::ConceptPickerSubmit);
+                }
+
                 // 1. Åbne modaler
                 if self.has_active_modal() {
                     let focused = self.modal_focus.focused_button();
@@ -4620,23 +4698,7 @@ impl App {
                                 return self.update(Message::DeleteInformationClass(cid));
                             }
                             INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER => {
-                                if let Some(cls) = self.project.information_model().get_class(cid) {
-                                    let available: Vec<_> = self
-                                        .project
-                                        .concepts()
-                                        .iter()
-                                        .filter(|c| !cls.concept_ids().contains(&c.id()))
-                                        .collect();
-                                    if let Some(first) = available.first() {
-                                        let opt = ConceptOption {
-                                            id: first.id(),
-                                            term: first.preferred_term().to_string(),
-                                        };
-                                        return self.update(Message::AddConceptToInformationClass(
-                                            cid, opt,
-                                        ));
-                                    }
-                                }
+                                return self.update(Message::OpenConceptPicker);
                             }
                             _ if btn >= INFO_INSPECTOR_ATTR_DELETE_START => {
                                 let attr_idx = btn - INFO_INSPECTOR_ATTR_DELETE_START;
@@ -5507,6 +5569,9 @@ impl App {
 
             // Informationsmodel (Task 010 & 011)
             Message::SelectInformationClass(id) => {
+                self.is_concept_picker_open = false;
+                self.concept_picker_search.clear();
+                self.concept_picker_index = 0;
                 self.selected_info_class_id = id;
                 if id.is_some() {
                     self.selected_info_edge = None;
@@ -5687,7 +5752,58 @@ impl App {
                     self.trigger_autosave();
                 }
             }
+            Message::OpenConceptPicker => {
+                if self.selected_info_class_id.is_some() {
+                    self.is_concept_picker_open = true;
+                    self.concept_picker_search.clear();
+                    self.concept_picker_index = 0;
+                    return operation::focus("info_concept_picker_input");
+                }
+            }
+            Message::CloseConceptPicker => {
+                self.is_concept_picker_open = false;
+                self.concept_picker_search.clear();
+                self.concept_picker_index = 0;
+            }
+            Message::ConceptPickerSearchChanged(q) => {
+                self.concept_picker_search = q;
+                self.concept_picker_index = 0;
+            }
+            Message::ConceptPickerNext => {
+                if let Some(cid) = self.selected_info_class_id {
+                    let count = self.filtered_available_concepts_for_class(cid).len();
+                    if count > 0 {
+                        self.concept_picker_index = (self.concept_picker_index + 1) % count;
+                    }
+                }
+            }
+            Message::ConceptPickerPrevious => {
+                if let Some(cid) = self.selected_info_class_id {
+                    let count = self.filtered_available_concepts_for_class(cid).len();
+                    if count > 0 {
+                        self.concept_picker_index = if self.concept_picker_index == 0 {
+                            count - 1
+                        } else {
+                            self.concept_picker_index - 1
+                        };
+                    }
+                }
+            }
+            Message::ConceptPickerSubmit => {
+                if let Some(cid) = self.selected_info_class_id {
+                    let filtered = self.filtered_available_concepts_for_class(cid);
+                    if let Some(opt) = filtered.get(self.concept_picker_index).cloned() {
+                        self.is_concept_picker_open = false;
+                        self.concept_picker_search.clear();
+                        self.concept_picker_index = 0;
+                        return self.update(Message::AddConceptToInformationClass(cid, opt));
+                    }
+                }
+            }
             Message::AddConceptToInformationClass(class_id, opt) => {
+                self.is_concept_picker_open = false;
+                self.concept_picker_search.clear();
+                self.concept_picker_index = 0;
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
                     class.add_concept_id(opt.id);
                     let cls = class.clone();
@@ -7228,6 +7344,7 @@ impl App {
         // tekstfelt har sat status == event::Status::Captured.
         // Dette sikrer at tastaturnavigation (Tab/Shift+Tab) og lukning af dialoger (Esc)
         // fungerer pålideligt uanset om et inputfelt aktuelt har fokus.
+        // Ligeledes opfanges piletasterne ArrowDown og ArrowUp til comboboksen.
         if let Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) = &event {
             match key.as_ref() {
                 Key::Named(Named::Tab) => {
@@ -7239,6 +7356,12 @@ impl App {
                 }
                 Key::Named(Named::Escape) => {
                     return Some(Message::EscapePressed);
+                }
+                Key::Named(Named::ArrowDown) => {
+                    return Some(Message::ConceptPickerNext);
+                }
+                Key::Named(Named::ArrowUp) => {
+                    return Some(Message::ConceptPickerPrevious);
                 }
                 _ => {}
             }
@@ -9015,6 +9138,9 @@ impl App {
                 self.show_left_sidebar,
                 self.palette_drag.as_ref().is_some_and(|d| d.is_dragging),
                 self.info_inspector_focused_button(),
+                self.is_concept_picker_open,
+                &self.concept_picker_search,
+                self.concept_picker_index,
             ),
         };
 

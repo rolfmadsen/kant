@@ -54,6 +54,9 @@ pub fn view<'a>(
     show_left_sidebar: bool,
     is_palette_dragging: bool,
     inspector_focused_button: Option<usize>,
+    is_concept_picker_open: bool,
+    concept_picker_search: &'a str,
+    concept_picker_index: usize,
 ) -> Element<'a, Message> {
     let existing_class_names: std::collections::HashSet<String> = info_model
         .classes()
@@ -1133,32 +1136,156 @@ pub fn view<'a>(
 
         let is_add_concept_picker_focused =
             inspector_focused_button == Some(crate::ui::app::INFO_INSPECTOR_BTN_ADD_CONCEPT_PICKER);
-        let add_concept_picker = pick_list(available_concepts, None::<ConceptOption>, move |opt| {
-            Message::AddConceptToInformationClass(class_id, opt)
-        })
-        .placeholder("+ Knyt begreb...")
-        .text_size(11.5)
-        .padding([3, 6])
-        .width(Length::Fill);
 
-        let add_concept_container = container(add_concept_picker)
-            .style(move |_| container::Style {
-                border: iced::Border {
+        let add_concept_widget: Element<'a, Message> = if !is_concept_picker_open {
+            let trigger_btn = button(
+                row![
+                    text("+ Knyt begreb...")
+                        .size(11.5)
+                        .color(ThemeColors::SLATE_700),
+                    Space::new().width(Length::Fill),
+                    text("▾").size(11.0).color(ThemeColors::SLATE_400),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .style(move |theme, status| {
+                let mut s = secondary_button_style(theme, status);
+                s.background = Some(iced::Background::Color(ThemeColors::SURFACE_CARD));
+                s.border = iced::Border {
                     color: if is_add_concept_picker_focused {
                         ThemeColors::FOCUS_RING
                     } else {
-                        iced::Color::TRANSPARENT
+                        ThemeColors::SURFACE_BORDER
                     },
                     width: if is_add_concept_picker_focused {
-                        1.5
+                        2.0
                     } else {
-                        0.0
+                        1.0
                     },
+                    radius: 6.0.into(),
+                };
+                s
+            })
+            .on_press(Message::OpenConceptPicker)
+            .padding([4, 8])
+            .width(Length::Fill);
+
+            trigger_btn.into()
+        } else {
+            let search_input = text_input("Søg begreb...", concept_picker_search)
+                .id("info_concept_picker_input")
+                .style(modern_input_style)
+                .size(11.5)
+                .on_input(Message::ConceptPickerSearchChanged)
+                .on_submit(Message::ConceptPickerSubmit)
+                .padding([4, 6])
+                .width(Length::Fill);
+
+            let close_btn = button(text("✕").size(10.0))
+                .style(secondary_button_style)
+                .on_press(Message::CloseConceptPicker)
+                .padding([3, 6]);
+
+            let top_search_row = row![search_input, close_btn]
+                .spacing(4)
+                .align_y(Alignment::Center);
+
+            let q = concept_picker_search.trim().to_lowercase();
+            let filtered_concepts: Vec<&ConceptOption> = available_concepts
+                .iter()
+                .filter(|opt| q.is_empty() || opt.term.to_lowercase().contains(&q))
+                .collect();
+
+            let mut list_col = column![].spacing(2);
+
+            if filtered_concepts.is_empty() {
+                list_col = list_col.push(
+                    container(
+                        text("Ingen matchende begreber")
+                            .size(11.0)
+                            .color(ThemeColors::TEXT_MUTED),
+                    )
+                    .padding([6, 8]),
+                );
+            } else {
+                for (idx, opt) in filtered_concepts.iter().enumerate() {
+                    let is_active = idx == concept_picker_index;
+                    let opt_clone = (*opt).clone();
+                    let prefix = if is_active { "▸ " } else { "   " };
+                    let item_label = format!("{}{}", prefix, opt.term);
+
+                    let item_btn = button(text(item_label).size(11.5).color(if is_active {
+                        ThemeColors::PRIMARY
+                    } else {
+                        ThemeColors::SLATE_800
+                    }))
+                    .style(move |_, status| {
+                        let bg = if is_active {
+                            ThemeColors::FDA_SAND
+                        } else if status == iced::widget::button::Status::Hovered {
+                            ThemeColors::SLATE_100
+                        } else {
+                            iced::Color::TRANSPARENT
+                        };
+                        iced::widget::button::Style {
+                            background: Some(iced::Background::Color(bg)),
+                            border: iced::Border {
+                                color: if is_active {
+                                    ThemeColors::FDA_SAND_BORDER
+                                } else {
+                                    iced::Color::TRANSPARENT
+                                },
+                                width: 1.0,
+                                radius: 4.0.into(),
+                            },
+                            ..Default::default()
+                        }
+                    })
+                    .on_press(Message::AddConceptToInformationClass(class_id, opt_clone))
+                    .padding([3, 6])
+                    .width(Length::Fill);
+
+                    list_col = list_col.push(item_btn);
+                }
+            }
+
+            let scrollable_list = scrollable(list_col)
+                .height(Length::Shrink)
+                .style(iced::widget::scrollable::default);
+
+            let combobox_box = container(
+                column![
+                    top_search_row,
+                    container(scrollable_list)
+                        .style(|_| container::Style {
+                            background: Some(iced::Background::Color(ThemeColors::SURFACE_CARD)),
+                            border: iced::Border {
+                                color: ThemeColors::SURFACE_BORDER,
+                                width: 1.0,
+                                radius: 4.0.into(),
+                            },
+                            ..Default::default()
+                        })
+                        .max_height(160.0)
+                        .padding(2)
+                        .width(Length::Fill),
+                ]
+                .spacing(4),
+            )
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(ThemeColors::SLATE_50)),
+                border: iced::Border {
+                    color: ThemeColors::FOCUS_RING,
+                    width: 1.5,
                     radius: 6.0.into(),
                 },
                 ..Default::default()
             })
+            .padding(4)
             .width(Length::Fill);
+
+            combobox_box.into()
+        };
 
         // Attributter sektion
         let mut attr_list = column![].spacing(6);
@@ -1462,7 +1589,7 @@ pub fn view<'a>(
             column![
                 crate::ui::inspector_panel::section_header("Tilknyttede Begreber"),
                 concept_badges,
-                add_concept_container,
+                add_concept_widget,
             ]
             .spacing(4),
             // Tilknyttede Relationer

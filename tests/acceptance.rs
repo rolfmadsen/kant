@@ -10637,12 +10637,21 @@ fn test_task_072_information_model_concept_picker_and_enum_cycle() {
     let class_id = class.id();
     app.project_mut().information_model_mut().add_class(class);
 
-    // Opret et begreb i projektet som kan tilknyttes
-    let concept_id = app
+    // Opret to begreber i projektet som kan tilknyttes
+    let concept_id1 = app
         .project_mut()
         .add_concept(Concept::new(
             "Kunde",
             "Person eller organisation",
+            BelongsToDomain::Yes,
+        ))
+        .unwrap();
+
+    let concept_id2 = app
+        .project_mut()
+        .add_concept(Concept::new(
+            "Leverandør",
+            "Virksomhed der leverer varer",
             BelongsToDomain::Yes,
         ))
         .unwrap();
@@ -10665,7 +10674,40 @@ fn test_task_072_information_model_concept_picker_and_enum_cycle() {
         "Skal finde + Knyt begreb picker i fokuscyklus"
     );
 
-    // Enter på + Knyt begreb skal knytte det første tilgængelige begreb
+    // Enter på + Knyt begreb skal åbne comboboksen
+    let _ = app.update(Message::EnterPressed);
+    assert!(
+        app.is_concept_picker_open(),
+        "Enter på + Knyt begreb skal åbne comboboksen"
+    );
+    assert_eq!(app.concept_picker_index(), 0);
+
+    // Test piletast ned navigerer til næste begreb i listen ("Leverandør")
+    let _ = app.update(Message::ConceptPickerNext);
+    assert_eq!(app.concept_picker_index(), 1);
+
+    // Enter vælger og tilknytter "Leverandør" og lukker comboboksen
+    let _ = app.update(Message::EnterPressed);
+    assert!(
+        !app.is_concept_picker_open(),
+        "Enter skal lukke comboboksen efter valg"
+    );
+    assert!(
+        app.project()
+            .information_model()
+            .get_class(class_id)
+            .unwrap()
+            .concept_ids()
+            .contains(&concept_id2),
+        "Valgt begreb (Leverandør) skal være tilknyttet klassen"
+    );
+
+    // Åbn comboboks igen og test søgefiltrering
+    let _ = app.update(Message::OpenConceptPicker);
+    assert!(app.is_concept_picker_open());
+    let _ = app.update(Message::ConceptPickerSearchChanged("Kun".to_string()));
+    assert_eq!(app.concept_picker_search(), "Kun");
+    // Enter tilknytter det filtrerede begreb ("Kunde")
     let _ = app.update(Message::EnterPressed);
     assert!(
         app.project()
@@ -10673,8 +10715,8 @@ fn test_task_072_information_model_concept_picker_and_enum_cycle() {
             .get_class(class_id)
             .unwrap()
             .concept_ids()
-            .contains(&concept_id),
-        "Enter på + Knyt begreb skal tilknytte begrebet til klassen"
+            .contains(&concept_id1),
+        "Filtreret begreb (Kunde) skal være tilknyttet klassen"
     );
 
     // 2. Test Enumeration tastaturnavigation
