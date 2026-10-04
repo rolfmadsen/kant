@@ -3903,9 +3903,26 @@ impl App {
                             if let Some(node) =
                                 self.project.information_graph().find_node(node_id)
                             {
-                                self.selected_info_class_id = Some(node.class_id());
-                                return operation::focus("info_class_name_input");
+                                let cid = node.class_id();
+                                if self
+                                    .project
+                                    .information_model()
+                                    .get_enumeration(cid)
+                                    .is_some()
+                                {
+                                    self.selected_info_enum_id = Some(cid);
+                                    self.selected_info_class_id = None;
+                                    return operation::focus("info_enum_name_input");
+                                } else {
+                                    self.selected_info_class_id = Some(cid);
+                                    self.selected_info_enum_id = None;
+                                    return operation::focus("info_class_name_input");
+                                }
                             }
+                        } else if self.selected_info_enum_id.is_some() {
+                            return operation::focus("info_enum_name_input");
+                        } else if self.selected_info_class_id.is_some() {
+                            return operation::focus("info_class_name_input");
                         } else if self.selected_info_edge.is_some() {
                             return operation::focus("info_edge_label_input");
                         }

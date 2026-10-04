@@ -9238,13 +9238,25 @@ fn test_task_069_enter_quick_edit_on_canvas_node_and_edge() {
     let _ = app.update(Message::EnterPressed);
     assert_eq!(app.selected_edge(), Some((nid1, nid2)), "Relationen forbliver valgt og klar til input");
 
-    // 3. Enter i Informationsmodel
+    // 3. Enter i Informationsmodel (Klasse)
     let _ = app.update(Message::SelectTab(Tab::InformationModel));
     let _ = app.update(Message::CreateInformationClass);
     let info_node = app.selected_info_graph_node_id();
     assert!(info_node.is_some(), "Informationsklasse node skal være oprettet og valgt");
     let _ = app.update(Message::EnterPressed);
     assert_eq!(app.selected_info_graph_node_id(), info_node, "Info node forbliver valgt ved Enter");
+
+    // 4. Enter på enumeration node i Informationsmodel
+    let enum_id = app.project_mut().information_model_mut().add_enumeration(
+        kant::features::information_model::InformationEnumeration::new("Status", Vec::new())
+    );
+    let enum_node_id = app.project_mut().information_graph_mut().add_node(enum_id, 0);
+    let _ = app.update(Message::SelectInfoGraphNode(Some(enum_node_id)));
+    assert_eq!(app.selected_info_enum_id(), Some(enum_id));
+    assert_eq!(app.selected_info_class_id(), None);
+    let _ = app.update(Message::EnterPressed);
+    assert_eq!(app.selected_info_enum_id(), Some(enum_id), "Enumeration skal forblive valgt");
+    assert_eq!(app.selected_info_class_id(), None, "Må ikke overskrive selected_info_class_id med enumeration id");
 }
 
 #[test]

@@ -972,9 +972,9 @@ pub fn view<'a>(
         .spacing(12);
 
         crate::ui::inspector_panel::panel_container(multi_col.into())
-    } else if let Some(class_id) = selected_class_id {
-        if let Some(class) = info_model.get_class(class_id) {
-            let is_on_canvas = class_graph.is_class_on_diagram(class_id);
+    } else if let Some(class) = selected_class_id.and_then(|id| info_model.get_class(id)) {
+        let class_id = class.id();
+        let is_on_canvas = class_graph.is_class_on_diagram(class_id);
 
             // Klassenavn & beskrivelse
             let mut name_col = column![text_input("Klassenavn...", class.name())
@@ -1405,17 +1405,12 @@ pub fn view<'a>(
             .spacing(10);
 
             crate::ui::inspector_panel::panel_container(inspector_content.into())
-        } else {
-            crate::ui::inspector_panel::panel_container(
-                text("Klasse ikke fundet")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED)
-                    .into(),
-            )
-        }
-    } else if let Some(enum_id) = selected_enum_id {
-        if let Some(e) = info_model.get_enumeration(enum_id) {
-            let is_on_canvas = class_graph.is_class_on_diagram(enum_id);
+    } else if let Some(e) = selected_enum_id
+        .or(selected_class_id)
+        .and_then(|id| info_model.get_enumeration(id))
+    {
+        let enum_id = e.id();
+        let is_on_canvas = class_graph.is_class_on_diagram(enum_id);
 
             let header = crate::ui::inspector_panel::panel_header(
                 crate::ui::inspector_panel::PROPERTIES_TITLE,
@@ -1559,14 +1554,20 @@ pub fn view<'a>(
             .spacing(10);
 
             crate::ui::inspector_panel::panel_container(inspector_content.into())
-        } else {
-            crate::ui::inspector_panel::panel_container(
-                text("Enumeration ikke fundet")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED)
-                    .into(),
-            )
-        }
+    } else if selected_class_id.is_some() {
+        crate::ui::inspector_panel::panel_container(
+            text("Klasse ikke fundet")
+                .size(12)
+                .color(ThemeColors::TEXT_MUTED)
+                .into(),
+        )
+    } else if selected_enum_id.is_some() {
+        crate::ui::inspector_panel::panel_container(
+            text("Enumeration ikke fundet")
+                .size(12)
+                .color(ThemeColors::TEXT_MUTED)
+                .into(),
+        )
     } else {
         crate::ui::inspector_panel::guidance_panel(
             "Informationsmodel",
