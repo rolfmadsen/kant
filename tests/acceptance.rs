@@ -9071,3 +9071,110 @@ fn test_task_067_canvas_drag_latency_optimization_drop_commit_autosave_and_telem
 
     let _ = std::fs::remove_file(file_path);
 }
+
+#[test]
+fn test_task_068_in_app_header_logo_and_os_icons() {
+    use kant::ui::app::load_window_icon;
+    use std::path::Path;
+
+    // 1. Verificer at det nye logo assets/kant_logo.svg eksisterer og har forventet indhold
+    let logo_path = Path::new("assets/kant_logo.svg");
+    assert!(logo_path.exists(), "assets/kant_logo.svg skal eksistere");
+    let logo_svg = std::fs::read_to_string(logo_path).expect("skal kunne læse kant_logo.svg");
+    assert!(
+        logo_svg.contains("<svg") && logo_svg.contains("rx=\"6\""),
+        "kant_logo.svg skal være et gyldigt SVG badge"
+    );
+
+    // 2. Verificer at assets/icons/kant.svg er synkroniseret med assets/kant_logo.svg
+    let icon_svg_path = Path::new("assets/icons/kant.svg");
+    assert!(icon_svg_path.exists(), "assets/icons/kant.svg skal eksistere");
+    let icon_svg = std::fs::read_to_string(icon_svg_path).expect("skal kunne læse assets/icons/kant.svg");
+    assert_eq!(
+        icon_svg.trim(),
+        logo_svg.trim(),
+        "assets/icons/kant.svg skal matche assets/kant_logo.svg"
+    );
+
+    // 3. Verificer kant-32.rgba: skal være 32x32x4 = 4096 bytes og genereret fra nyt logo
+    let rgba_path = Path::new("assets/icons/kant-32.rgba");
+    assert!(rgba_path.exists(), "assets/icons/kant-32.rgba skal eksistere");
+    let rgba_bytes = std::fs::read(rgba_path).expect("skal kunne læse kant-32.rgba");
+    assert_eq!(
+        rgba_bytes.len(),
+        32 * 32 * 4,
+        "kant-32.rgba skal have præcis 4096 bytes"
+    );
+
+    // 4. Verificer runtime vinduesikon
+    let window_icon = load_window_icon();
+    assert!(
+        window_icon.is_some(),
+        "load_window_icon() skal returnere et gyldigt vinduesikon"
+    );
+
+    // 5. Verificer kant.ico: skal være gyldig ICO header og indeholde flere billeder
+    let ico_path = Path::new("assets/icons/kant.ico");
+    assert!(ico_path.exists(), "assets/icons/kant.ico skal eksistere");
+    let ico_bytes = std::fs::read(ico_path).expect("skal kunne læse kant.ico");
+    assert!(
+        ico_bytes.len() >= 6,
+        "kant.ico skal have gyldig header"
+    );
+    assert_eq!(&ico_bytes[0..4], &[0x00, 0x00, 0x01, 0x00]);
+    let image_count = u16::from_le_bytes([ico_bytes[4], ico_bytes[5]]);
+    assert!(
+        image_count >= 1,
+        "kant.ico skal indeholde mindst 1 billede"
+    );
+}
+
+#[test]
+fn test_task_068_palette_ergonomics_and_header_rendering() {
+    use kant::ui::app::{App, Message, Tab};
+
+    let mut app = App::new();
+    assert!(
+        app.is_left_sidebar_visible(),
+        "Venstrepalet skal som udgangspunkt være synlig"
+    );
+
+    // 1. Rendering med palet synlig
+    {
+        let _ = app.view();
+    }
+
+    // 2. Toggle skjul palet via Message::ToggleLeftSidebar (f.eks. ved klik på kollaps eller Ctrl+B)
+    let _ = app.update(Message::ToggleLeftSidebar);
+    assert!(
+        !app.is_left_sidebar_visible(),
+        "Venstrepalet skal nu være skjult"
+    );
+
+    // 3. Rendering med palet skjult på tværs af faner
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    {
+        let _ = app.view();
+    }
+
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    {
+        let _ = app.view();
+    }
+
+    let _ = app.update(Message::SelectTab(Tab::ConceptList));
+    {
+        let _ = app.view();
+    }
+
+    // 4. Toggle tilbage til synlig palet
+    let _ = app.update(Message::ToggleLeftSidebar);
+    assert!(
+        app.is_left_sidebar_visible(),
+        "Venstrepalet skal være synlig igen"
+    );
+    {
+        let _ = app.view();
+    }
+}
+
