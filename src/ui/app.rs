@@ -1076,6 +1076,9 @@ pub struct App {
     collab_seq: std::sync::atomic::AtomicU64,
     collab_last_seen_seq: u64,
     git_sync_status: RepoSyncStatus,
+    git_status_refresh: GitStatusRefresh,
+    git_status_generation: u64,
+    git_status_refresh_requested: bool,
     publish_modal: Option<PublishModalState>,
     history_modal: Option<ModelHistoryModalState>,
     conflict_resolver_modal: Option<ConflictResolverModalState>,
@@ -1098,6 +1101,10 @@ impl Default for App {
     fn default() -> Self {
         Self::new_auto_open()
     }
+}
+
+fn perform_git_status_refresh(dir: &std::path::Path) -> Result<RepoSyncStatus, String> {
+    GitService::get_sync_status(dir).map_err(|e| e.to_string())
 }
 
 impl App {
@@ -1209,6 +1216,9 @@ impl App {
                         collab_seq: std::sync::atomic::AtomicU64::new(0),
                         collab_last_seen_seq: 0,
                         git_sync_status: git_sync_status.clone(),
+                        git_status_refresh: GitStatusRefresh::Idle,
+                        git_status_generation: 0,
+                        git_status_refresh_requested: false,
                         publish_modal: None,
                         history_modal: None,
                         conflict_resolver_modal: None,
@@ -1294,6 +1304,9 @@ impl App {
             collab_seq: std::sync::atomic::AtomicU64::new(0),
             collab_last_seen_seq: 0,
             git_sync_status,
+            git_status_refresh: GitStatusRefresh::Idle,
+            git_status_generation: 0,
+            git_status_refresh_requested: false,
             publish_modal: None,
             history_modal: None,
             conflict_resolver_modal: None,
@@ -1404,16 +1417,72 @@ impl App {
         }
     }
 
+    pub fn boot(path: Option<PathBuf>) -> (Self, Task<Message>) {
+        let mut app = match path {
+            Some(p) => Self::new_with_path(Some(p)),
+            None => Self::new_auto_open(),
+        };
+        let task = app.request_git_status_refresh();
+        (app, task)
+    }
+
     pub fn set_active_file_path(&mut self, path: Option<PathBuf>) {
         self.current_file_path = path;
+        self.git_status_generation += 1;
+        self.git_status_refresh = GitStatusRefresh::Idle;
     }
 
     pub fn git_status_refresh_state(&self) -> GitStatusRefresh {
-        GitStatusRefresh::Idle
+        self.git_status_refresh
     }
 
     pub fn git_status_generation(&self) -> u64 {
-        0
+        self.git_status_generation
+    }
+
+    pub fn request_git_status_refresh(&mut self) -> Task<Message> {
+        let dir = match self.repo_dir() {
+            Some(d) => d,
+            None => {
+                self.git_sync_status = RepoSyncStatus::Uninitialized;
+                self.git_status_refresh = GitStatusRefresh::Idle;
+                return Task::none();
+            }
+        };
+
+        match self.git_status_refresh {
+            GitStatusRefresh::Idle => {
+                let generation = self.git_status_generation;
+                self.git_status_refresh = GitStatusRefresh::InFlight { generation };
+                let dir_clone = dir.clone();
+                Task::perform(
+                    async move {
+                        let start = std::time::Instant::now();
+                        let result = if tokio::runtime::Handle::try_current().is_ok() {
+                            tokio::task::spawn_blocking(move || {
+                                perform_git_status_refresh(&dir_clone)
+                            })
+                            .await
+                            .unwrap_or_else(|e| Err(e.to_string()))
+                        } else {
+                            perform_git_status_refresh(&dir_clone)
+                        };
+                        let elapsed = start.elapsed();
+                        (generation, result, elapsed)
+                    },
+                    |(generation, result, elapsed)| Message::GitSyncStatusRefreshed {
+                        generation,
+                        result,
+                        elapsed,
+                    },
+                )
+            }
+            GitStatusRefresh::InFlight { generation } => {
+                self.git_status_refresh = GitStatusRefresh::InFlightDirty { generation };
+                Task::none()
+            }
+            GitStatusRefresh::InFlightDirty { .. } => Task::none(),
+        }
     }
 
     pub fn git_status_badge_text(&self) -> String {
@@ -2754,27 +2823,10 @@ impl App {
                         path: path.display().to_string(),
                         timestamp: current_timestamp(),
                     };
-                    let git_start = std::time::Instant::now();
-                    let mut git_checked = false;
-                    if let Some(dir) = self.repo_dir() {
-                        if !matches!(self.git_sync_status, RepoSyncStatus::PendingChanges) {
-                            if let Ok(st) = GitService::get_sync_status(&dir) {
-                                self.git_sync_status = st;
-                                git_checked = true;
-                            }
-                        }
-                    }
-                    let git_duration = if git_checked {
-                        git_start.elapsed()
-                    } else {
-                        std::time::Duration::ZERO
-                    };
+                    self.git_status_refresh_requested = true;
                     crate::features::diagnostics::log_info(
                         "autosave",
-                        &format!(
-                            "Autosave gennemført (disk: {:?}, git: {:?})",
-                            save_duration, git_duration
-                        ),
+                        &format!("Autosave gennemført (disk: {:?})", save_duration),
                     );
                 }
                 Err(err) => {
@@ -2818,6 +2870,17 @@ impl App {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        let task = self.update_inner(message);
+        if self.git_status_refresh_requested {
+            self.git_status_refresh_requested = false;
+            let refresh_task = self.request_git_status_refresh();
+            Task::batch(vec![task, refresh_task])
+        } else {
+            task
+        }
+    }
+
+    fn update_inner(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::CollabNetworkEventReceived(event) => {
                 match event {
@@ -3050,15 +3113,73 @@ impl App {
                 return iced::clipboard::write(report);
             }
             Message::RefreshGitStatus => {
-                if let Some(dir) = self.repo_dir() {
-                    if let Ok(st) = GitService::get_sync_status(&dir) {
-                        self.git_sync_status = st;
-                    }
-                } else {
-                    self.git_sync_status = RepoSyncStatus::Uninitialized;
-                }
+                return self.request_git_status_refresh();
             }
-            Message::GitSyncStatusRefreshed { .. } => {}
+            Message::GitSyncStatusRefreshed {
+                generation,
+                result,
+                elapsed,
+            } => {
+                if generation != self.git_status_generation {
+                    crate::features::diagnostics::log_info(
+                        "git",
+                        &format!(
+                            "Kasserede forældet Git-status svar fra generation {} (aktuel generation: {})",
+                            generation, self.git_status_generation
+                        ),
+                    );
+                    if let GitStatusRefresh::InFlight { generation: g }
+                    | GitStatusRefresh::InFlightDirty { generation: g } = self.git_status_refresh
+                    {
+                        if g == generation {
+                            self.git_status_refresh = GitStatusRefresh::Idle;
+                        }
+                    }
+                    return Task::none();
+                }
+
+                if elapsed > std::time::Duration::from_millis(500) {
+                    crate::features::diagnostics::log_warn(
+                        "git",
+                        &format!(
+                            "Git-status tog lang tid: {:?} (generation: {})",
+                            elapsed, generation
+                        ),
+                    );
+                }
+
+                match &result {
+                    Ok(status) => {
+                        crate::features::diagnostics::log_info(
+                            "git",
+                            &format!(
+                                "Git-status opdateret: {:?} (varighed: {:?}, generation: {})",
+                                status, elapsed, generation
+                            ),
+                        );
+                        self.git_sync_status = status.clone();
+                    }
+                    Err(err) => {
+                        crate::features::diagnostics::log_warn(
+                            "git",
+                            &format!(
+                                "Fejl ved hentning af Git-status: {} (generation: {})",
+                                err, generation
+                            ),
+                        );
+                    }
+                }
+
+                let was_dirty = matches!(
+                    self.git_status_refresh,
+                    GitStatusRefresh::InFlightDirty { .. }
+                );
+                self.git_status_refresh = GitStatusRefresh::Idle;
+                if was_dirty {
+                    return self.request_git_status_refresh();
+                }
+                return Task::none();
+            }
             Message::OpenPublishModal => {
                 let dir = match self.repo_dir() {
                     Some(d) => d,
@@ -3265,9 +3386,7 @@ impl App {
             Message::InitGitRepository => {
                 if let Some(dir) = self.repo_dir() {
                     let _ = GitService::init_repository(&dir);
-                    if let Ok(st) = GitService::get_sync_status(&dir) {
-                        self.git_sync_status = st;
-                    }
+                    return self.request_git_status_refresh();
                 } else {
                     self.save_status = SaveStatus::Error(
                         "Gem venligst modellen i en dedikeret modelmappe før versionsstyring aktiveres".into(),
@@ -3295,9 +3414,7 @@ impl App {
                             eprintln!("Fejl ved hentning af seneste model: {}", e);
                         }
                     }
-                    if let Ok(st) = GitService::get_sync_status(&dir) {
-                        self.git_sync_status = st;
-                    }
+                    return self.request_git_status_refresh();
                 }
             }
             Message::OpenModelHistoryModal => {
@@ -3404,9 +3521,7 @@ impl App {
                             "Løst modelfletningskonflikter",
                         );
                         let _ = GitService::push_model(&dir, "origin");
-                        if let Ok(st) = GitService::get_sync_status(&dir) {
-                            self.git_sync_status = st;
-                        }
+                        return self.request_git_status_refresh();
                     }
                 }
             }
@@ -3994,6 +4109,8 @@ impl App {
                 self.search_query.clear();
                 self.current_file_path = None;
                 self.save_status = SaveStatus::Unsaved;
+                self.git_status_generation += 1;
+                self.git_status_refresh = GitStatusRefresh::Idle;
                 self.git_sync_status = RepoSyncStatus::Uninitialized;
                 self.selected_graph_node_id = None;
                 self.selected_edge = None;
@@ -4240,13 +4357,10 @@ impl App {
                         if !self.project.concepts().is_empty() {
                             self.active_tab = Tab::ConceptList;
                         }
-                        if let Some(dir) = self.repo_dir() {
-                            if let Ok(st) = GitService::get_sync_status(&dir) {
-                                self.git_sync_status = st;
-                            }
-                        } else {
-                            self.git_sync_status = RepoSyncStatus::Uninitialized;
-                        }
+                        self.git_status_generation += 1;
+                        self.git_sync_status = RepoSyncStatus::Uninitialized;
+                        self.git_status_refresh = GitStatusRefresh::Idle;
+                        return self.request_git_status_refresh();
                     }
                     Err(err) => {
                         self.save_status = SaveStatus::Error(format!(
@@ -4261,6 +4375,8 @@ impl App {
                 let effective = ProjectStorage::effective_model_path(&path);
                 self.current_file_path = Some(effective.clone());
                 self.recent_store.record_opened(&effective);
+                self.git_status_generation += 1;
+                self.git_status_refresh = GitStatusRefresh::Idle;
                 self.trigger_autosave();
                 self.file_dialog_mode = None;
             }

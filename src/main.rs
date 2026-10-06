@@ -19,10 +19,7 @@ fn main() -> iced::Result {
         .map(std::path::PathBuf::from);
     let app_creator = move || {
         kant::features::diagnostics::record_startup_milestone("app_creator_invoked");
-        match initial_path {
-            Some(ref p) => App::new_with_path(Some(p.clone())),
-            None => App::new_auto_open(),
-        }
+        App::boot(initial_path.clone())
     };
 
     kant::features::diagnostics::record_startup_milestone("iced_application_init");

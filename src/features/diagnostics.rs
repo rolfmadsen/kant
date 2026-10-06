@@ -94,6 +94,21 @@ impl SystemDiagnostics {
                 ));
             }
         }
+
+        report.push_str("-----------------------------------------------------\n");
+        if self.recent_logs.is_empty() {
+            report.push_str("  Seneste loghændelser (In-memory buffer, 0 linjer):\n");
+            report.push_str("  (Ingen logbeskeder registreret endnu)\n");
+        } else {
+            report.push_str(&format!(
+                "  Seneste loghændelser (In-memory buffer, {} linjer):\n",
+                self.recent_logs.len()
+            ));
+            for entry in &self.recent_logs {
+                report.push_str(entry);
+                report.push('\n');
+            }
+        }
         report.push_str("=====================================================\n");
         report
     }
@@ -118,6 +133,7 @@ pub fn get_system_diagnostics() -> SystemDiagnostics {
     });
     let log_path = get_log_file_path().map(|p| p.to_string_lossy().to_string());
     let startup_milestones = get_startup_milestones();
+    let recent_logs = get_recent_logs();
 
     SystemDiagnostics {
         os,
@@ -127,7 +143,7 @@ pub fn get_system_diagnostics() -> SystemDiagnostics {
         wgpu_backend,
         log_path,
         startup_milestones,
-        recent_logs: Vec::new(),
+        recent_logs,
     }
 }
 

@@ -5575,6 +5575,11 @@ fn test_task_047_git_ui_topbar_status_and_publish_dialog() {
 
     // 3. Tjek indledende status
     let _ = app.update(Message::RefreshGitStatus);
+    let _ = app.update(Message::GitSyncStatusRefreshed {
+        generation: app.git_status_generation(),
+        result: Ok(RepoSyncStatus::Synced),
+        elapsed: std::time::Duration::from_millis(10),
+    });
     assert!(
         matches!(
             app.git_sync_status(),
@@ -5887,7 +5892,7 @@ fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
 #[test]
 fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
     use kant::features::concepts::{BelongsToDomain, Concept};
-    use kant::features::git::service::GitService;
+    use kant::features::git::service::{GitService, RepoSyncStatus};
     use kant::ui::app::{EdgeApp, Message};
     use uuid::Uuid;
 
@@ -6013,6 +6018,11 @@ fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
     );
     app.project_mut().add_concept(concept).unwrap();
     app.trigger_autosave();
+    let _ = app.update(Message::GitSyncStatusRefreshed {
+        generation: app.git_status_generation(),
+        result: Ok(RepoSyncStatus::PendingChanges),
+        elapsed: std::time::Duration::from_millis(10),
+    });
     assert_eq!(
         app.git_status_badge_text(),
         "Lokale ændringer • Commit og send",
@@ -11554,4 +11564,55 @@ fn test_task_076_report_contains_full_log_buffer() {
         pos1 < pos2 && pos2 < pos3,
         "Loghændelser i rapporten skal fremtræde i streng kronologisk rækkefølge (første før sidste)"
     );
+}
+
+#[test]
+fn test_task_076_boot_returns_initial_refresh_task() {
+    use kant::features::git::service::{GitService, RepoSyncStatus};
+    use kant::features::model::storage::ProjectStorage;
+    use kant::features::model::{ModelMetadata, ModelProject, ModelStatus};
+    use kant::ui::app::{App, GitStatusRefresh, Message};
+
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_076_ac6_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    GitService::init_repository(&temp_dir).expect("init repo");
+    let meta = ModelMetadata::new(
+        "Boot Test Model",
+        "Beskrivelse",
+        "https://example.com/boot",
+        "TestOrg",
+        "Test",
+        "1.0.0",
+        ModelStatus::Draft,
+    );
+    let project = ModelProject::new(meta);
+    let model_file = temp_dir.join("model.kant");
+    ProjectStorage::save(&project, &model_file).expect("save model");
+    let _ = GitService::publish_model(&temp_dir, &project, "Initial commit").expect("publish");
+
+    // AC6: Boot skal returnere (App, Task<Message>) uden at blokere første frame
+    let (mut app, _task) = App::boot(Some(model_file));
+
+    // Status skal være Uninitialized med det samme, og tjekket skal være InFlight
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::Uninitialized,
+        "App skal starte i Uninitialized uden synkrone git-kald ved første frame"
+    );
+    assert_eq!(
+        app.git_status_refresh_state(),
+        GitStatusRefresh::InFlight { generation: 0 },
+        "Boot skal have sat tilstanden til InFlight for det initiale baggrundstjek"
+    );
+
+    // Når det initiale statustjek fuldføres asynkront
+    let _ = app.update(Message::GitSyncStatusRefreshed {
+        generation: 0,
+        result: Ok(RepoSyncStatus::Synced),
+        elapsed: std::time::Duration::from_millis(45),
+    });
+    assert_eq!(*app.git_sync_status(), RepoSyncStatus::Synced);
+    assert_eq!(app.git_status_refresh_state(), GitStatusRefresh::Idle);
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
 }
