@@ -60,6 +60,7 @@ pub struct SystemDiagnostics {
     pub wgpu_backend: String,
     pub log_path: Option<String>,
     pub startup_milestones: Vec<StartupMilestone>,
+    pub recent_logs: Vec<String>,
 }
 
 impl SystemDiagnostics {
@@ -126,6 +127,7 @@ pub fn get_system_diagnostics() -> SystemDiagnostics {
         wgpu_backend,
         log_path,
         startup_milestones,
+        recent_logs: Vec::new(),
     }
 }
 

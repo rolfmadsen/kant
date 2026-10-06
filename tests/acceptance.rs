@@ -11059,7 +11059,11 @@ fn test_task_075_concept_diagram_edge_tab_cycle_and_activation() {
     );
     let _ = app.update(Message::EnterPressed);
     assert_eq!(
-        app.project().concept_graph().find_edge(n2, n1).unwrap().kind(),
+        app.project()
+            .concept_graph()
+            .find_edge(n2, n1)
+            .unwrap()
+            .kind(),
         RelationKind::Generalization,
         "Enter på KIND_GEN skal ændre relationstype til Generalisering"
     );
@@ -11074,7 +11078,11 @@ fn test_task_075_concept_diagram_edge_tab_cycle_and_activation() {
 
     // Enter på Delete
     let _ = app.update(Message::EnterPressed);
-    assert_eq!(app.selected_edge(), None, "Kant skal være slettet og fravælges");
+    assert_eq!(
+        app.selected_edge(),
+        None,
+        "Kant skal være slettet og fravælges"
+    );
 }
 
 #[test]
@@ -11092,20 +11100,17 @@ fn test_task_075_information_model_edge_tab_cycle_and_multiplicities() {
     let b_id = class_b.id();
     app.project_mut().information_model_mut().add_class(class_a);
     app.project_mut().information_model_mut().add_class(class_b);
-    let node_a = app
-        .project_mut()
-        .information_graph_mut()
-        .add_node(a_id, 0);
-    let node_b = app
-        .project_mut()
-        .information_graph_mut()
-        .add_node(b_id, 0);
+    let node_a = app.project_mut().information_graph_mut().add_node(a_id, 0);
+    let node_b = app.project_mut().information_graph_mut().add_node(b_id, 0);
 
     let rel = ClassRelation::new(a_id, b_id, RelationKind::Association, None);
     app.project_mut().information_model_mut().add_relation(rel);
-    app.project_mut()
-        .information_graph_mut()
-        .add_relation(node_a, node_b, RelationKind::Association, None);
+    app.project_mut().information_graph_mut().add_relation(
+        node_a,
+        node_b,
+        RelationKind::Association,
+        None,
+    );
 
     let _ = app.update(Message::SelectTab(Tab::InformationModel));
     let _ = app.update(Message::InfoEdgeSelected(Some((node_a, node_b))));
@@ -11186,20 +11191,17 @@ fn test_task_075_information_model_class_relations_delete_cycle() {
     let b_id = class_b.id();
     app.project_mut().information_model_mut().add_class(class_a);
     app.project_mut().information_model_mut().add_class(class_b);
-    let node_a = app
-        .project_mut()
-        .information_graph_mut()
-        .add_node(a_id, 0);
-    let node_b = app
-        .project_mut()
-        .information_graph_mut()
-        .add_node(b_id, 0);
+    let node_a = app.project_mut().information_graph_mut().add_node(a_id, 0);
+    let node_b = app.project_mut().information_graph_mut().add_node(b_id, 0);
 
     let rel = ClassRelation::new(a_id, b_id, RelationKind::Association, None);
     app.project_mut().information_model_mut().add_relation(rel);
-    app.project_mut()
-        .information_graph_mut()
-        .add_relation(node_a, node_b, RelationKind::Association, None);
+    app.project_mut().information_graph_mut().add_relation(
+        node_a,
+        node_b,
+        RelationKind::Association,
+        None,
+    );
 
     let _ = app.update(Message::SelectTab(Tab::InformationModel));
     let _ = app.update(Message::SelectInformationClass(Some(a_id)));
@@ -11224,5 +11226,332 @@ fn test_task_075_information_model_class_relations_delete_cycle() {
     assert!(
         app.project().information_model().relations().is_empty(),
         "Enter på relationens slet-knap skal slette relationen fra modellen"
+    );
+}
+
+// =======================================================================
+// Task 076: Asynkron Git Synkroniseringsstatus & Diagnostik Log-udklipsholder
+// =======================================================================
+
+#[test]
+fn test_task_076_autosave_does_not_touch_git_status_synchronously() {
+    use kant::features::git::service::{GitService, RepoSyncStatus};
+    use kant::features::model::storage::ProjectStorage;
+    use kant::features::model::{ModelMetadata, ModelProject, ModelStatus};
+    use kant::ui::app::{App, GitStatusRefresh, Message, Tab};
+
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_076_ac1_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    GitService::init_repository(&temp_dir).expect("init repo");
+    let meta = ModelMetadata::new(
+        "Autosave Sync Test",
+        "Beskrivelse",
+        "https://example.com/autosave",
+        "TestOrg",
+        "Test",
+        "1.0.0",
+        ModelStatus::Draft,
+    );
+    let project = ModelProject::new(meta);
+    let model_file = temp_dir.join("model.kant");
+    ProjectStorage::save(&project, &model_file).expect("save model");
+    let _ = GitService::publish_model(&temp_dir, &project, "Første commit").expect("publish");
+
+    let mut app = App::new_with_path(Some(model_file));
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::Uninitialized,
+        "App skal starte i Uninitialized status"
+    );
+
+    // Kør trigger_autosave()
+    app.trigger_autosave();
+
+    // AC1: trigger_autosave() må IKKE ændre git_sync_status synkront på UI-tråden
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::Uninitialized,
+        "trigger_autosave må IKKE ændre git_sync_status synkront på UI-tråden (forhindrer 2s UI-frys)"
+    );
+
+    // Efter et efterfølgende update() skal tilstandsmaskinen være gået i InFlight
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    assert_eq!(
+        app.git_status_refresh_state(),
+        GitStatusRefresh::InFlight { generation: 0 },
+        "Efter update() skal tilstandsmaskinen have registreret tjekket som InFlight"
+    );
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_task_076_coalescing_state_machine() {
+    use kant::features::git::service::{GitService, RepoSyncStatus};
+    use kant::features::model::storage::ProjectStorage;
+    use kant::features::model::{ModelMetadata, ModelProject, ModelStatus};
+    use kant::ui::app::{App, GitStatusRefresh, Message, Tab};
+
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_076_ac2_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    GitService::init_repository(&temp_dir).expect("init repo");
+    let meta = ModelMetadata::new(
+        "Coalescing Test",
+        "Beskrivelse",
+        "https://example.com/coalesce",
+        "TestOrg",
+        "Test",
+        "1.0.0",
+        ModelStatus::Draft,
+    );
+    let project = ModelProject::new(meta);
+    let model_file = temp_dir.join("model.kant");
+    ProjectStorage::save(&project, &model_file).expect("save model");
+
+    let mut app = App::new_with_path(Some(model_file));
+    assert_eq!(app.git_status_refresh_state(), GitStatusRefresh::Idle);
+
+    // 1. Første autosave starter tjek: Idle -> InFlight { generation: 0 }
+    app.trigger_autosave();
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    assert_eq!(
+        app.git_status_refresh_state(),
+        GitStatusRefresh::InFlight { generation: 0 },
+        "Første autosave skal sætte tilstanden til InFlight"
+    );
+
+    // 2. Andet autosave mens InFlight: InFlight -> InFlightDirty { generation: 0 }
+    app.trigger_autosave();
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    assert_eq!(
+        app.git_status_refresh_state(),
+        GitStatusRefresh::InFlightDirty { generation: 0 },
+        "Yderligere autosave under InFlight skal markere tilstanden InFlightDirty"
+    );
+
+    // 3. Tredje autosave koalesceres i InFlightDirty uden ekstra tasks
+    app.trigger_autosave();
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    assert_eq!(
+        app.git_status_refresh_state(),
+        GitStatusRefresh::InFlightDirty { generation: 0 },
+        "Flere på hinanden følgende saves forbliver i InFlightDirty (koalescering)"
+    );
+
+    // 4. Når svar på første tjek ankommer under InFlightDirty:
+    // Tilstanden skal straks genstarte et nyt tjek: InFlightDirty -> InFlight { generation: 0 }
+    let _ = app.update(Message::GitSyncStatusRefreshed {
+        generation: 0,
+        result: Ok(RepoSyncStatus::Synced),
+        elapsed: std::time::Duration::from_millis(50),
+    });
+    assert_eq!(*app.git_sync_status(), RepoSyncStatus::Synced);
+    assert_eq!(
+        app.git_status_refresh_state(),
+        GitStatusRefresh::InFlight { generation: 0 },
+        "Svar modtaget under InFlightDirty skal overgå til InFlight for det opfølgende tjek"
+    );
+
+    // 5. Når det opfølgende svar ankommer og ingen nye saves er sket: InFlight -> Idle
+    let _ = app.update(Message::GitSyncStatusRefreshed {
+        generation: 0,
+        result: Ok(RepoSyncStatus::Synced),
+        elapsed: std::time::Duration::from_millis(40),
+    });
+    assert_eq!(
+        app.git_status_refresh_state(),
+        GitStatusRefresh::Idle,
+        "Når opfølgende tjek er fuldført uden dirty flag, skal tilstanden vende tilbage til Idle"
+    );
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_task_076_stale_git_status_result_is_discarded() {
+    use kant::features::git::service::RepoSyncStatus;
+    use kant::ui::app::{App, Message};
+
+    let mut app = App::new();
+    assert_eq!(*app.git_sync_status(), RepoSyncStatus::Uninitialized);
+    let initial_gen = app.git_status_generation();
+
+    // 1. Et svar med matchende generation skal anvendes
+    let _ = app.update(Message::GitSyncStatusRefreshed {
+        generation: initial_gen,
+        result: Ok(RepoSyncStatus::Synced),
+        elapsed: std::time::Duration::from_millis(30),
+    });
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::Synced,
+        "Svar med aktuel generation skal opdatere git_sync_status"
+    );
+
+    // 2. Handling der skifter model/repo skal bumpe generationen og sætte status til Uninitialized
+    let _ = app.update(Message::NewProject);
+    let bumped_gen = app.git_status_generation();
+    assert!(
+        bumped_gen > initial_gen,
+        "NewProject skal have inkrementeret git_status_generation"
+    );
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::Uninitialized,
+        "NewProject skal have nulstillet git_sync_status til Uninitialized"
+    );
+
+    // 3. Et forsinket/forældet svar fra den gamle generation (f.eks. fra forrige repo) ankommer nu
+    let _ = app.update(Message::GitSyncStatusRefreshed {
+        generation: initial_gen,
+        result: Ok(RepoSyncStatus::PendingChanges),
+        elapsed: std::time::Duration::from_millis(150),
+    });
+
+    // AC3: Forældet resultat skal kasseres fuldstændigt
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::Uninitialized,
+        "Forældet svar med generation {} må IKKE overskrive status i generation {}",
+        initial_gen,
+        bumped_gen
+    );
+}
+
+#[test]
+fn test_task_076_truthful_git_status_transitions() {
+    use kant::features::git::service::{GitService, RepoSyncStatus};
+    use kant::features::model::storage::ProjectStorage;
+    use kant::features::model::{ModelMetadata, ModelProject, ModelStatus};
+    use kant::ui::app::{App, Message};
+
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_076_ac4_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    GitService::init_repository(&temp_dir).expect("init repo");
+    let meta = ModelMetadata::new(
+        "Køretøj Model",
+        "Test for git transitions",
+        "https://example.com/vehicle",
+        "TestOrg",
+        "Transport",
+        "1.0.0",
+        ModelStatus::Draft,
+    );
+    let project = ModelProject::new(meta);
+    let model_file = temp_dir.join("model.kant");
+    ProjectStorage::save(&project, &model_file).expect("save model");
+    let _ = GitService::publish_model(&temp_dir, &project, "Initial commit").expect("publish");
+
+    let mut app = App::new_with_path(Some(model_file));
+
+    // Antag et initielt statustjek færdiggøres og finder 1 unpublished commit
+    let _ = app.update(Message::GitSyncStatusRefreshed {
+        generation: app.git_status_generation(),
+        result: Ok(RepoSyncStatus::UnpublishedCommits(1)),
+        elapsed: std::time::Duration::from_millis(20),
+    });
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::UnpublishedCommits(1),
+        "Initial status efter opstarts-refresh skal være UnpublishedCommits(1)"
+    );
+
+    // Autosave UDEN modelændringer (deterministisk serialisering)
+    app.trigger_autosave();
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::UnpublishedCommits(1),
+        "Autosave alene må IKKE overskrive UnpublishedCommits med PendingChanges eller Synced"
+    );
+
+    // Når statustjekket afvikles på uændret repo, forbliver det UnpublishedCommits(1)
+    let _ = app.update(Message::GitSyncStatusRefreshed {
+        generation: app.git_status_generation(),
+        result: Ok(RepoSyncStatus::UnpublishedCommits(1)),
+        elapsed: std::time::Duration::from_millis(20),
+    });
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::UnpublishedCommits(1)
+    );
+
+    // Nu ændres modellen reelt
+    app.project_mut()
+        .metadata_mut()
+        .set_name("Ændret Køretøj Model");
+    app.trigger_autosave();
+
+    // Når statustjekket efter gemningen fuldføres med ændringer på disk
+    let _ = app.update(Message::GitSyncStatusRefreshed {
+        generation: app.git_status_generation(),
+        result: Ok(RepoSyncStatus::PendingChanges),
+        elapsed: std::time::Duration::from_millis(25),
+    });
+    assert_eq!(*app.git_sync_status(), RepoSyncStatus::PendingChanges);
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_task_076_no_ui_thread_get_sync_status_calls() {
+    let app_code = include_str!("../src/ui/app.rs");
+    let mut illegal_calls = Vec::new();
+
+    for (idx, line) in app_code.lines().enumerate() {
+        let line_num = idx + 1;
+        if line.contains("get_sync_status(") {
+            illegal_calls.push((line_num, line.trim().to_string()));
+        }
+    }
+
+    // Invariant: GitService::get_sync_status må kun optræde i baggrundstråde (spawn_blocking).
+    // I src/ui/app.rs er der højst 3 legitime forekomster: 2 i execute_publish_workflow og 1 i perform_git_status_refresh.
+    // De 6 synkrone UI-tråds call-sites fra Task 076 inventaret (linje 2738, 3031, 3244, 3274, 3383, 4220) skal alle være fjernet.
+    assert!(
+        illegal_calls.len() <= 3,
+        "Der må IKKE være synkrone UI-tråds kald til get_sync_status i src/ui/app.rs! Fandt {} forekomster: {:?}",
+        illegal_calls.len(),
+        illegal_calls
+    );
+}
+
+#[test]
+fn test_task_076_report_contains_full_log_buffer() {
+    use kant::features::diagnostics::{get_system_diagnostics, log_error, log_info, log_warn};
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let msg1 = format!("Acceptance 076 start alpha {}", id);
+    let msg2 = format!("Acceptance 076 middle beta {}", id);
+    let msg3 = format!("Acceptance 076 final gamma {}", id);
+
+    log_info("clipboard_test", &msg1);
+    log_warn("clipboard_test", &msg2);
+    log_error("clipboard_test", &msg3);
+
+    let diag = get_system_diagnostics();
+    assert!(
+        diag.recent_logs.iter().any(|l| l.contains(&msg1)),
+        "recent_logs i SystemDiagnostics skal indeholde de loggede hændelser"
+    );
+
+    let report = diag.formatted_report();
+    assert!(
+        report.contains("Seneste loghændelser (In-memory buffer"),
+        "formatted_report skal indeholde sektion med overskriften 'Seneste loghændelser'"
+    );
+
+    let pos1 = report
+        .find(&msg1)
+        .expect("msg1 skal findes i den formaterede rapport");
+    let pos2 = report
+        .find(&msg2)
+        .expect("msg2 skal findes i den formaterede rapport");
+    let pos3 = report
+        .find(&msg3)
+        .expect("msg3 skal findes i den formaterede rapport");
+
+    assert!(
+        pos1 < pos2 && pos2 < pos3,
+        "Loghændelser i rapporten skal fremtræde i streng kronologisk rækkefølge (første før sidste)"
     );
 }

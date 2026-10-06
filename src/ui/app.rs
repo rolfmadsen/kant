@@ -561,6 +561,13 @@ pub const INFO_EDGE_BTN_SRC_MULT: usize = 6;
 pub const INFO_EDGE_BTN_TGT_MULT: usize = 7;
 pub const INFO_EDGE_BTN_DELETE: usize = 8;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GitStatusRefresh {
+    Idle,
+    InFlight { generation: u64 },
+    InFlightDirty { generation: u64 },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SaveStatus {
     Saved { path: String, timestamp: String },
@@ -798,8 +805,13 @@ pub enum Message {
     CloseDiagnosticsModal,
     CopyDiagnosticsToClipboard,
 
-    // Git & Versionsstyring (Task 047)
+    // Git & Versionsstyring (Task 047 & 076)
     RefreshGitStatus,
+    GitSyncStatusRefreshed {
+        generation: u64,
+        result: Result<RepoSyncStatus, String>,
+        elapsed: std::time::Duration,
+    },
     OpenPublishModal,
     ClosePublishModal,
     UpdatePublishMessage(String),
@@ -1396,6 +1408,14 @@ impl App {
         self.current_file_path = path;
     }
 
+    pub fn git_status_refresh_state(&self) -> GitStatusRefresh {
+        GitStatusRefresh::Idle
+    }
+
+    pub fn git_status_generation(&self) -> u64 {
+        0
+    }
+
     pub fn git_status_badge_text(&self) -> String {
         match &self.git_sync_status {
             RepoSyncStatus::Synced => "Synkroniseret".to_string(),
@@ -1823,7 +1843,10 @@ impl App {
                 for (j, _) in class.attributes().iter().enumerate() {
                     targets.push(FocusTarget::Button(INFO_INSPECTOR_ATTR_DELETE_START + j));
                 }
-                let class_relations = self.project.information_model().relations_for_class(class_id);
+                let class_relations = self
+                    .project
+                    .information_model()
+                    .relations_for_class(class_id);
                 for (r, _) in class_relations.iter().enumerate() {
                     targets.push(FocusTarget::Button(INFO_INSPECTOR_REL_DELETE_START + r));
                 }
@@ -3035,6 +3058,7 @@ impl App {
                     self.git_sync_status = RepoSyncStatus::Uninitialized;
                 }
             }
+            Message::GitSyncStatusRefreshed { .. } => {}
             Message::OpenPublishModal => {
                 let dir = match self.repo_dir() {
                     Some(d) => d,
@@ -4844,7 +4868,8 @@ impl App {
                             }
                             _ if btn >= INFO_INSPECTOR_REL_DELETE_START => {
                                 let rel_idx = btn - INFO_INSPECTOR_REL_DELETE_START;
-                                let class_relations = self.project.information_model().relations_for_class(cid);
+                                let class_relations =
+                                    self.project.information_model().relations_for_class(cid);
                                 if let Some(rel) = class_relations.get(rel_idx) {
                                     let from = rel.from_class();
                                     let to = rel.to_class();
@@ -4867,9 +4892,9 @@ impl App {
                                         cls.concept_ids().get(concept_idx).copied()
                                     {
                                         return self.update(
-                                             Message::RemoveConceptFromInformationClass(
-                                                 cid, concept_id,
-                                             ),
+                                            Message::RemoveConceptFromInformationClass(
+                                                cid, concept_id,
+                                            ),
                                         );
                                     }
                                 }
@@ -4913,42 +4938,84 @@ impl App {
                                 return self.update(Message::InfoReverseEdge(from_id, to_id));
                             }
                             INFO_EDGE_BTN_KIND_ASSOC => {
-                                return self.update(Message::InfoUpdateEdgeKind(from_id, to_id, RelationKind::Association));
+                                return self.update(Message::InfoUpdateEdgeKind(
+                                    from_id,
+                                    to_id,
+                                    RelationKind::Association,
+                                ));
                             }
                             INFO_EDGE_BTN_KIND_GEN => {
-                                return self.update(Message::InfoUpdateEdgeKind(from_id, to_id, RelationKind::Generalization));
+                                return self.update(Message::InfoUpdateEdgeKind(
+                                    from_id,
+                                    to_id,
+                                    RelationKind::Generalization,
+                                ));
                             }
                             INFO_EDGE_BTN_KIND_COMP => {
-                                return self.update(Message::InfoUpdateEdgeKind(from_id, to_id, RelationKind::Composition));
+                                return self.update(Message::InfoUpdateEdgeKind(
+                                    from_id,
+                                    to_id,
+                                    RelationKind::Composition,
+                                ));
                             }
                             INFO_EDGE_BTN_KIND_DEP => {
-                                return self.update(Message::InfoUpdateEdgeKind(from_id, to_id, RelationKind::Dependency));
+                                return self.update(Message::InfoUpdateEdgeKind(
+                                    from_id,
+                                    to_id,
+                                    RelationKind::Dependency,
+                                ));
                             }
                             INFO_EDGE_BTN_DIRECTED_CHECKBOX => {
-                                if let Some(edge) = self.project.information_graph().find_edge(from_id, to_id) {
-                                    return self.update(Message::InfoToggleEdgeDirected(from_id, to_id, !edge.is_directed()));
+                                if let Some(edge) =
+                                    self.project.information_graph().find_edge(from_id, to_id)
+                                {
+                                    return self.update(Message::InfoToggleEdgeDirected(
+                                        from_id,
+                                        to_id,
+                                        !edge.is_directed(),
+                                    ));
                                 }
                             }
                             INFO_EDGE_BTN_SRC_MULT => {
-                                if let Some(edge) = self.project.information_graph().find_edge(from_id, to_id) {
+                                if let Some(edge) =
+                                    self.project.information_graph().find_edge(from_id, to_id)
+                                {
                                     let current = edge.source_multiplicity();
-                                    let presets = crate::features::information_model::Multiplicity::PRESETS;
+                                    let presets =
+                                        crate::features::information_model::Multiplicity::PRESETS;
                                     let next_idx = match current {
-                                        Some(m) => (presets.iter().position(|&p| p == m).unwrap_or(0) + 1) % presets.len(),
+                                        Some(m) => {
+                                            (presets.iter().position(|&p| p == m).unwrap_or(0) + 1)
+                                                % presets.len()
+                                        }
                                         None => 0,
                                     };
-                                    return self.update(Message::InfoUpdateEdgeSourceMultiplicity(from_id, to_id, Some(presets[next_idx])));
+                                    return self.update(Message::InfoUpdateEdgeSourceMultiplicity(
+                                        from_id,
+                                        to_id,
+                                        Some(presets[next_idx]),
+                                    ));
                                 }
                             }
                             INFO_EDGE_BTN_TGT_MULT => {
-                                if let Some(edge) = self.project.information_graph().find_edge(from_id, to_id) {
+                                if let Some(edge) =
+                                    self.project.information_graph().find_edge(from_id, to_id)
+                                {
                                     let current = edge.target_multiplicity();
-                                    let presets = crate::features::information_model::Multiplicity::PRESETS;
+                                    let presets =
+                                        crate::features::information_model::Multiplicity::PRESETS;
                                     let next_idx = match current {
-                                        Some(m) => (presets.iter().position(|&p| p == m).unwrap_or(0) + 1) % presets.len(),
+                                        Some(m) => {
+                                            (presets.iter().position(|&p| p == m).unwrap_or(0) + 1)
+                                                % presets.len()
+                                        }
                                         None => 0,
                                     };
-                                    return self.update(Message::InfoUpdateEdgeTargetMultiplicity(from_id, to_id, Some(presets[next_idx])));
+                                    return self.update(Message::InfoUpdateEdgeTargetMultiplicity(
+                                        from_id,
+                                        to_id,
+                                        Some(presets[next_idx]),
+                                    ));
                                 }
                             }
                             INFO_EDGE_BTN_DELETE => {
@@ -4967,14 +5034,28 @@ impl App {
                                 return self.update(Message::GraphReverseEdge(from_id, to_id));
                             }
                             CONCEPT_EDGE_BTN_KIND_ASSOC => {
-                                return self.update(Message::GraphUpdateEdgeKind(from_id, to_id, RelationKind::Association));
+                                return self.update(Message::GraphUpdateEdgeKind(
+                                    from_id,
+                                    to_id,
+                                    RelationKind::Association,
+                                ));
                             }
                             CONCEPT_EDGE_BTN_KIND_GEN => {
-                                return self.update(Message::GraphUpdateEdgeKind(from_id, to_id, RelationKind::Generalization));
+                                return self.update(Message::GraphUpdateEdgeKind(
+                                    from_id,
+                                    to_id,
+                                    RelationKind::Generalization,
+                                ));
                             }
                             CONCEPT_EDGE_BTN_DIRECTED_CHECKBOX => {
-                                if let Some(edge) = self.project.concept_graph().find_edge(from_id, to_id) {
-                                    return self.update(Message::GraphToggleEdgeDirected(from_id, to_id, !edge.is_directed()));
+                                if let Some(edge) =
+                                    self.project.concept_graph().find_edge(from_id, to_id)
+                                {
+                                    return self.update(Message::GraphToggleEdgeDirected(
+                                        from_id,
+                                        to_id,
+                                        !edge.is_directed(),
+                                    ));
                                 }
                             }
                             CONCEPT_EDGE_BTN_DELETE => {
