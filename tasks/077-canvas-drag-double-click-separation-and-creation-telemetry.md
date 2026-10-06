@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 077: Adskillelse af Canvas Drag og Dobbeltklik samt Node-oprettelse Telemetri"
 description: "DiagramCanvas skal kun udløse dobbeltklik ved to stillestående klik på samme mål, aldrig afbryde et påbegyndt træk, logge lynoprettelser og rulle tomme lynoprettede begreber tilbage."
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-06T19:35:00Z" }
 tags: [canvas, drag-and-drop, double-click, mouse, telemetry, concept-model, information-model]
 ---
 
 # Task 077: Adskillelse af Canvas Drag og Dobbeltklik samt Node-oprettelse Telemetri
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🐛 BUG FIX`
 **Oprettet**: `2026-10-06`
 **Scope**: `src/ui/diagram_canvas.rs`, `src/ui/app.rs`, `tests/acceptance.rs`
@@ -65,15 +65,15 @@ press_screen_pos: Option<Point>       // ny
 - Hvis brugeren har udfyldt en term, rulles der aldrig tilbage, heller ikke ved annullering.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 – Klik + træk er et træk**: Klik (tryk+slip) på node A, derefter straks tryk på A og flyt ≥ 4 skærm-px → `on_nodes_moved` udsendes; hverken `on_node_double_clicked` eller `on_canvas_double_clicked`. Gælder også for multiselektion (2 noder flyttes).
-- [ ] **AC2 – Reelt dobbeltklik på tomt lærred**: To stillestående klik på tomt lærred (≤ 500 ms, ≤ 20 px) → præcis én `on_canvas_double_clicked`, udsendt ved **andet slip**.
-- [ ] **AC3 – Reelt dobbeltklik på node (Task 073 bevares)**: To stillestående klik på node A → præcis én `on_node_double_clicked(A)` ved andet slip, ingen `on_drag_released`, ingen ændring af nodeposition; `test_task_073_*` passerer uændret.
-- [ ] **AC4 – Samme mål kræves**: Klik på node A efterfulgt af klik på tomt lærred (eller node B) inden for 500 ms/20 px → intet dobbeltklik.
-- [ ] **AC5 – Ctrl-klik deltager ikke**: Ctrl+klik på A efterfulgt af klik på A → intet dobbeltklik.
-- [ ] **AC6 – Zoom-uafhængig tærskel**: Ved zoom 0,25 og 2,0 starter træk ved samme skærm-afstand (4 px).
-- [ ] **AC7 – Telemetri**: Lynoprettelse via dobbeltklik og via `CreateConceptAtCenter` logger hver sin kilde med begrebs-id og koordinater; node-dobbeltklik logges.
-- [ ] **AC8 – Rollback**: `CanvasDoubleClicked` → `CancelConceptEdit` med tom term → begrebet og noden findes ikke i projektet, og autosave er udløst. Med udfyldt term → begrebet bevares.
-- [ ] **AC9 – Regression Gauntlet**: Task 040 (bulk drag/marquee), Task 067 (delta-filter, drop-commit, `test_*drag*`), Task 073 tests og `test_graph_canvas_double_click_events` passerer; `cargo clippy --workspace --all-targets -- -D warnings` grøn.
+- [x] **AC1 – Klik + træk er et træk**: Klik (tryk+slip) på node A, derefter straks tryk på A og flyt ≥ 4 skærm-px → `on_nodes_moved` udsendes; hverken `on_node_double_clicked` eller `on_canvas_double_clicked`. Gælder også for multiselektion (2 noder flyttes).
+- [x] **AC2 – Reelt dobbeltklik på tomt lærred**: To stillestående klik på tomt lærred (≤ 500 ms, ≤ 20 px) → præcis én `on_canvas_double_clicked`, udsendt ved **andet slip**.
+- [x] **AC3 – Reelt dobbeltklik på node (Task 073 bevares)**: To stillestående klik på node A → præcis én `on_node_double_clicked(A)` ved andet slip, ingen `on_drag_released`, ingen ændring af nodeposition; `test_task_073_*` passerer uændret.
+- [x] **AC4 – Samme mål kræves**: Klik på node A efterfulgt af klik på tomt lærred (eller node B) inden for 500 ms/20 px → intet dobbeltklik.
+- [x] **AC5 – Ctrl-klik deltager ikke**: Ctrl+klik på A efterfulgt af klik på A → intet dobbeltklik.
+- [x] **AC6 – Zoom-uafhængig tærskel**: Ved zoom 0,25 og 2,0 starter træk ved samme skærm-afstand (4 px).
+- [x] **AC7 – Telemetri**: Lynoprettelse via dobbeltklik og via `CreateConceptAtCenter` logger hver sin kilde med begrebs-id og koordinater; node-dobbeltklik logges.
+- [x] **AC8 – Rollback**: `CanvasDoubleClicked` → `CancelConceptEdit` med tom term → begrebet og noden findes ikke i projektet, og autosave er udløst. Med udfyldt term → begrebet bevares.
+- [x] **AC9 – Regression Gauntlet**: Task 040 (bulk drag/marquee), Task 067 (delta-filter, drop-commit, `test_*drag*`), Task 073 tests og `test_graph_canvas_double_click_events` passerer; `cargo clippy --workspace --all-targets -- -D warnings` grøn.
 
 ## 🚫 Must NOT
 - Må IKKE afbryde et påbegyndt træk på grund af et forudgående klik.
