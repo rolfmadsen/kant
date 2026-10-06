@@ -95,10 +95,20 @@ impl CanvasViewport {
     }
 }
 
+pub const CLICK_SLOP_PX: f32 = 4.0;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClickTarget {
+    Node(NodeId),
+    Empty,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ClickRecord {
     pub position: Point,
+    pub world_position: Point,
     pub time: Instant,
+    pub target: ClickTarget,
 }
 
 /// Abstraktion for noder på et diagram
@@ -268,6 +278,8 @@ pub struct DiagramCanvasState {
     pub bulk_drag: Option<BulkDragState>,
     pub marquee: Option<MarqueeState>,
     pub last_click: Option<ClickRecord>,
+    pub pending_double: Option<(ClickTarget, Point)>,
+    pub press_screen_pos: Option<Point>,
     pub panning_start: Option<(Point, Vector)>,
     pub is_panning_space: bool,
     pub is_panning_minimap: bool,
@@ -752,36 +764,40 @@ where
                     }
                 }
 
-                let now = Instant::now();
-                let is_double_click = if let Some(last) = state.last_click {
-                    let dist =
-                        (cursor_pos.x - last.position.x).hypot(cursor_pos.y - last.position.y);
-                    let elapsed = now.duration_since(last.time).as_millis();
-                    dist <= 20.0 && elapsed <= 500
-                } else {
-                    false
-                };
-                state.last_click = Some(ClickRecord {
-                    position: cursor_pos,
-                    time: now,
-                });
+                let is_ctrl = state.modifiers.control() || state.modifiers.command();
+                state.press_screen_pos = Some(cursor_pos);
 
-                if is_double_click {
+                let target = self
+                    .nodes
+                    .iter()
+                    .rev()
+                    .find(|node| node.contains(world_pos.x, world_pos.y))
+                    .map(|node| ClickTarget::Node(node.id()))
+                    .unwrap_or(ClickTarget::Empty);
+
+                if is_ctrl {
                     state.last_click = None;
-                    state.dragging_node = None;
-                    state.bulk_drag = None;
-                    for node in self.nodes.iter().rev() {
-                        if node.contains(world_pos.x, world_pos.y) {
-                            return Some(
-                                Action::publish((self.on_node_double_clicked)(node.id()))
-                                    .and_capture(),
-                            );
-                        }
+                    state.pending_double = None;
+                } else {
+                    let now = Instant::now();
+                    let is_candidate = if let Some(last) = state.last_click {
+                        let dist =
+                            (cursor_pos.x - last.position.x).hypot(cursor_pos.y - last.position.y);
+                        let elapsed = now.duration_since(last.time).as_millis();
+                        dist <= 20.0 && elapsed <= 500 && last.target == target
+                    } else {
+                        false
+                    };
+
+                    if is_candidate {
+                        let first_world_pos = state
+                            .last_click
+                            .map(|l| l.world_position)
+                            .unwrap_or(world_pos);
+                        state.pending_double = Some((target, first_world_pos));
+                    } else {
+                        state.pending_double = None;
                     }
-                    return Some(
-                        Action::publish((self.on_canvas_double_clicked)(world_pos.x, world_pos.y))
-                            .and_capture(),
-                    );
                 }
 
                 // 2. Klik på en node
@@ -912,6 +928,14 @@ where
                 Some(Action::capture())
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                if let Some(press_pos) = state.press_screen_pos {
+                    let dist = (cursor_pos.x - press_pos.x).hypot(cursor_pos.y - press_pos.y);
+                    if dist >= CLICK_SLOP_PX {
+                        state.pending_double = None;
+                        state.last_click = None;
+                    }
+                }
+
                 if state.is_panning_minimap {
                     let panel_rect = Self::floating_panel_rect(bounds);
                     let minimap_rect = Self::minimap_rect(panel_rect);
@@ -965,6 +989,14 @@ where
                 }
 
                 if let Some(ref mut bulk) = state.bulk_drag {
+                    let screen_dist = state
+                        .press_screen_pos
+                        .map(|p| (cursor_pos.x - p.x).hypot(cursor_pos.y - p.y))
+                        .unwrap_or(CLICK_SLOP_PX);
+                    if screen_dist < CLICK_SLOP_PX {
+                        return Some(Action::capture());
+                    }
+
                     let world_pos = self.viewport.to_world(cursor_pos);
                     let raw_dx = world_pos.x - bulk.start_world_pos.x;
                     let raw_dy = world_pos.y - bulk.start_world_pos.y;
@@ -1006,6 +1038,14 @@ where
                     }
                     return Some(Action::capture());
                 } else if let Some((id, offset)) = state.dragging_node {
+                    let screen_dist = state
+                        .press_screen_pos
+                        .map(|p| (cursor_pos.x - p.x).hypot(cursor_pos.y - p.y))
+                        .unwrap_or(CLICK_SLOP_PX);
+                    if screen_dist < CLICK_SLOP_PX {
+                        return Some(Action::capture());
+                    }
+
                     let world_pos = self.viewport.to_world(cursor_pos);
                     let raw_world_x = world_pos.x - offset.x;
                     let raw_world_y = world_pos.y - offset.y;
@@ -1059,12 +1099,48 @@ where
                     return Some(Action::request_redraw().and_capture());
                 }
 
+                let press_pos = state.press_screen_pos.take();
+                let move_dist = press_pos
+                    .map(|p| (cursor_pos.x - p.x).hypot(cursor_pos.y - p.y))
+                    .unwrap_or(0.0);
+
+                if let Some((target, first_world_pos)) = state.pending_double.take() {
+                    if move_dist < CLICK_SLOP_PX {
+                        state.bulk_drag = None;
+                        state.dragging_node = None;
+                        state.marquee = None;
+                        state.last_click = None;
+                        match target {
+                            ClickTarget::Node(id) => {
+                                return Some(
+                                    Action::publish((self.on_node_double_clicked)(id))
+                                        .and_capture(),
+                                );
+                            }
+                            ClickTarget::Empty => {
+                                return Some(
+                                    Action::publish((self.on_canvas_double_clicked)(
+                                        first_world_pos.x,
+                                        first_world_pos.y,
+                                    ))
+                                    .and_capture(),
+                                );
+                            }
+                        }
+                    }
+                }
+
                 if let Some(marquee) = state.marquee.take() {
-                    let drag_dist = (marquee.current.x - marquee.start.x)
-                        .hypot(marquee.current.y - marquee.start.y);
-                    if drag_dist < 4.0 {
+                    let is_drag = move_dist >= CLICK_SLOP_PX;
+                    if !is_drag {
                         // Enkeltklik på tomt lærred (ikke drag)
                         if !state.modifiers.control() && !state.modifiers.command() {
+                            state.last_click = Some(ClickRecord {
+                                position: cursor_pos,
+                                world_position: self.viewport.to_world(cursor_pos),
+                                time: Instant::now(),
+                                target: ClickTarget::Empty,
+                            });
                             state.selected_node_ids.clear();
                             if let Some(ref on_edge_selected) = self.on_edge_selected {
                                 let _ = (on_edge_selected)(None);
@@ -1134,41 +1210,48 @@ where
 
                 if let Some(bulk) = state.bulk_drag.take() {
                     state.dragging_node = None;
-                    let world_pos = self.viewport.to_world(cursor_pos);
-                    let drag_dist = (world_pos.x - bulk.start_world_pos.x)
-                        .hypot(world_pos.y - bulk.start_world_pos.y);
-                    if drag_dist >= 4.0 {
+                    let is_drag = move_dist >= CLICK_SLOP_PX;
+                    if is_drag {
                         state.last_click = None;
                         crate::features::diagnostics::log_info(
                             "canvas",
                             &format!(
-                                "Drag fuldført for {} noder (distance: {:.1}px, varighed: {:?})",
+                                "Drag fuldført for {} noder (skærm-distance: {:.1}px, varighed: {:?})",
                                 bulk.initial_positions.len(),
-                                drag_dist,
+                                move_dist,
                                 bulk.start_time.elapsed()
                             ),
                         );
                         if let Some(ref on_drag_released) = self.on_drag_released {
                             return Some(Action::publish((on_drag_released)()).and_capture());
                         }
-                    }
-                    if drag_dist < 4.0
-                        && state.selected_node_ids.len() > 1
-                        && !state.modifiers.control()
-                        && !state.modifiers.command()
-                    {
-                        state.selected_node_ids = [bulk.leader_id].into_iter().collect();
-                        let new_selection = state.selected_node_ids.clone();
-                        if let Some(ref on_selection_changed) = self.on_selection_changed {
-                            return Some(
-                                Action::publish((on_selection_changed)(new_selection))
-                                    .and_capture(),
-                            );
-                        } else {
-                            return Some(
-                                Action::publish((self.on_node_selected)(Some(bulk.leader_id)))
-                                    .and_capture(),
-                            );
+                    } else {
+                        // Enkeltklik på en node uden bevægelse
+                        if !state.modifiers.control() && !state.modifiers.command() {
+                            state.last_click = Some(ClickRecord {
+                                position: cursor_pos,
+                                world_position: self.viewport.to_world(cursor_pos),
+                                time: Instant::now(),
+                                target: ClickTarget::Node(bulk.leader_id),
+                            });
+                        }
+                        if state.selected_node_ids.len() > 1
+                            && !state.modifiers.control()
+                            && !state.modifiers.command()
+                        {
+                            state.selected_node_ids = [bulk.leader_id].into_iter().collect();
+                            let new_selection = state.selected_node_ids.clone();
+                            if let Some(ref on_selection_changed) = self.on_selection_changed {
+                                return Some(
+                                    Action::publish((on_selection_changed)(new_selection))
+                                        .and_capture(),
+                                );
+                            } else {
+                                return Some(
+                                    Action::publish((self.on_node_selected)(Some(bulk.leader_id)))
+                                        .and_capture(),
+                                );
+                            }
                         }
                     }
                     return Some(Action::capture());
@@ -1176,8 +1259,11 @@ where
 
                 if state.dragging_node.is_some() {
                     state.dragging_node = None;
-                    if let Some(ref on_drag_released) = self.on_drag_released {
-                        return Some(Action::publish((on_drag_released)()).and_capture());
+                    let is_drag = move_dist >= CLICK_SLOP_PX;
+                    if is_drag {
+                        if let Some(ref on_drag_released) = self.on_drag_released {
+                            return Some(Action::publish((on_drag_released)()).and_capture());
+                        }
                     }
                     return Some(Action::capture());
                 }

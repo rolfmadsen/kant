@@ -1030,6 +1030,12 @@ pub enum Message {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuickCreateSource {
+    DoubleClick,
+    Toolbar,
+}
+
 pub struct App {
     project: ModelProject,
     active_tab: Tab,
@@ -1045,6 +1051,7 @@ pub struct App {
     relation_dialog: Option<RelationDialogState>,
     quick_create: Option<QuickCreateState>,
     is_inline_graph_editing: bool,
+    pending_quick_create: Option<Uuid>,
     canvas_viewport: crate::ui::graph_canvas::CanvasViewport,
     snap_to_grid: bool,
     is_space_pressed: bool,
@@ -1244,6 +1251,7 @@ impl App {
                         is_concept_picker_open: false,
                         concept_picker_search: String::new(),
                         concept_picker_index: 0,
+                        pending_quick_create: None,
                     };
                 }
             }
@@ -1333,6 +1341,7 @@ impl App {
             is_concept_picker_open: false,
             concept_picker_search: String::new(),
             concept_picker_index: 0,
+            pending_quick_create: None,
         }
     }
 
@@ -2810,6 +2819,100 @@ impl App {
         self.trigger_autosave();
     }
 
+    pub fn close_concept_editor(&mut self) {
+        if let Some(pending_id) = self.pending_quick_create.take() {
+            let is_empty = self
+                .editor_state
+                .as_ref()
+                .map(|e| e.preferred_term.trim().is_empty())
+                .unwrap_or(true);
+            if is_empty {
+                let node_id = self
+                    .project
+                    .concept_graph()
+                    .find_node_by_concept(pending_id)
+                    .map(|n| n.id());
+                self.project.remove_concept(pending_id);
+                self.broadcast_mutation(
+                    &crate::features::collab::protocol::ModelMutation::ConceptDeleted(pending_id),
+                );
+                if let Some(nid) = node_id {
+                    if self.selected_graph_node_id == Some(nid) {
+                        self.selected_graph_node_id = None;
+                    }
+                    self.selected_graph_node_ids.remove(&nid);
+                }
+                self.trigger_autosave();
+                crate::features::diagnostics::log_info(
+                    "canvas",
+                    &format!("Rullede tomt lynoprettet begreb {} tilbage", pending_id),
+                );
+            }
+        }
+        self.editor_state = None;
+        self.is_inline_graph_editing = false;
+    }
+
+    pub fn quick_create_concept_at(
+        &mut self,
+        x: f32,
+        y: f32,
+        source: QuickCreateSource,
+    ) -> Task<Message> {
+        let (nx, ny) = (x, y);
+        let concept = Concept::new("Nyt begreb", "Definition mangler", BelongsToDomain::Yes);
+        if let Ok(concept_id) = self.project.add_concept(concept.clone()) {
+            if let Some(node) = self
+                .project
+                .concept_graph_mut()
+                .find_node_by_concept_mut(concept_id)
+            {
+                node.set_position(nx, ny);
+            }
+            if let Some(node) = self
+                .project
+                .concept_graph()
+                .find_node_by_concept(concept_id)
+            {
+                self.selected_graph_node_id = Some(node.id());
+                self.selected_graph_node_ids = [node.id()].into_iter().collect();
+            }
+            self.selected_edge = None;
+            let mut editor = ConceptEditorState::from_concept(&concept);
+            editor.preferred_term = String::new();
+            editor.set_inline(true);
+            self.editor_state = Some(editor);
+            self.is_inline_graph_editing = true;
+            self.pending_quick_create = Some(concept_id);
+
+            let source_str = match source {
+                QuickCreateSource::DoubleClick => "dobbeltklik",
+                QuickCreateSource::Toolbar => "værktøjslinje",
+            };
+            crate::features::diagnostics::log_info(
+                "canvas",
+                &format!(
+                    "Lynoprettede begreb {} via {} på ({:.1}, {:.1})",
+                    concept_id, source_str, nx, ny
+                ),
+            );
+
+            self.broadcast_mutation(
+                &crate::features::collab::protocol::ModelMutation::ConceptAdded(concept),
+            );
+            self.broadcast_mutation(
+                &crate::features::collab::protocol::ModelMutation::NodeMoved {
+                    id: concept_id,
+                    x: nx,
+                    y: ny,
+                },
+            );
+            self.trigger_autosave();
+            return operation::focus("preferred_term_input");
+        }
+        Task::none()
+    }
+
     pub fn trigger_autosave(&mut self) {
         if self.collab_state.is_guest() {
             return;
@@ -3047,6 +3150,9 @@ impl App {
                 self.guest_ended_notice = None;
             }
             Message::SelectTab(tab) => {
+                if self.is_inline_graph_editing {
+                    self.close_concept_editor();
+                }
                 self.active_tab = tab;
                 self.toolbar_focus.reset();
                 self.info_inspector_focus.reset();
@@ -4182,6 +4288,7 @@ impl App {
                                             ),
                                         );
                                     }
+                                    self.pending_quick_create = None;
                                     self.editor_state = None;
                                     self.is_inline_graph_editing = false;
                                     if is_node_edit {
@@ -4207,8 +4314,7 @@ impl App {
                 }
             }
             Message::CancelConceptEdit => {
-                self.editor_state = None;
-                self.is_inline_graph_editing = false;
+                self.close_concept_editor();
             }
             Message::UpdateConceptField(field, value) => {
                 if let Some(editor) = &mut self.editor_state {
@@ -4728,12 +4834,8 @@ impl App {
                 }
 
                 // 3. Inline redigering på canvas eller i begrebslisten
-                if self.is_inline_graph_editing {
-                    self.is_inline_graph_editing = false;
-                    self.editor_state = None;
-                    return Task::none();
-                } else if self.editor_state.is_some() {
-                    self.editor_state = None;
+                if self.is_inline_graph_editing || self.editor_state.is_some() {
+                    self.close_concept_editor();
                     return Task::none();
                 }
 
@@ -5274,16 +5376,41 @@ impl App {
 
             // Graf-handlinger (Fase 3)
             Message::GraphNodeSelected(node_id) => {
+                if self.is_inline_graph_editing {
+                    let cur_node_id = self
+                        .editor_state
+                        .as_ref()
+                        .and_then(|e| e.editing_id)
+                        .and_then(|cid| self.project.concept_graph().find_node_by_concept(cid))
+                        .map(|n| n.id());
+                    if cur_node_id != node_id {
+                        self.close_concept_editor();
+                    }
+                }
                 self.selected_graph_node_id = node_id;
                 self.selected_graph_node_ids = node_id.into_iter().collect();
                 self.selected_edge = None;
             }
             Message::GraphNodesSelected(ids) => {
+                if self.is_inline_graph_editing {
+                    let cur_node_id = self
+                        .editor_state
+                        .as_ref()
+                        .and_then(|e| e.editing_id)
+                        .and_then(|cid| self.project.concept_graph().find_node_by_concept(cid))
+                        .map(|n| n.id());
+                    if !cur_node_id.map(|id| ids.contains(&id)).unwrap_or(false) {
+                        self.close_concept_editor();
+                    }
+                }
                 self.selected_graph_node_ids = ids;
                 self.selected_graph_node_id = self.selected_graph_node_ids.iter().next().copied();
                 self.selected_edge = None;
             }
             Message::GraphEdgeSelected(edge) => {
+                if edge.is_some() && self.is_inline_graph_editing {
+                    self.close_concept_editor();
+                }
                 self.selected_edge = edge;
                 if edge.is_some() {
                     self.selected_graph_node_id = None;
@@ -5830,51 +5957,15 @@ impl App {
                 self.concept_model_search = query;
             }
 
-            // Lynoprettelse & Node-redigering på Canvas (Task 006, 030 & 039)
+            // Lynoprettelse & Node-redigering på Canvas (Task 006, 030, 039 & 077)
             Message::CanvasDoubleClicked(x, y) => {
-                let (nx, ny) = (x, y);
-                let concept =
-                    Concept::new("Nyt begreb", "Definition mangler", BelongsToDomain::Yes);
-                if let Ok(concept_id) = self.project.add_concept(concept.clone()) {
-                    if let Some(node) = self
-                        .project
-                        .concept_graph_mut()
-                        .find_node_by_concept_mut(concept_id)
-                    {
-                        node.set_position(nx, ny);
-                    }
-                    if let Some(node) = self
-                        .project
-                        .concept_graph()
-                        .find_node_by_concept(concept_id)
-                    {
-                        self.selected_graph_node_id = Some(node.id());
-                    }
-                    self.selected_edge = None;
-                    let mut editor = ConceptEditorState::from_concept(&concept);
-                    editor.preferred_term = String::new();
-                    editor.set_inline(true);
-                    self.editor_state = Some(editor);
-                    self.is_inline_graph_editing = true;
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::ConceptAdded(concept),
-                    );
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::NodeMoved {
-                            id: concept_id,
-                            x: nx,
-                            y: ny,
-                        },
-                    );
-                    self.trigger_autosave();
-                    return operation::focus("preferred_term_input");
-                }
+                return self.quick_create_concept_at(x, y, QuickCreateSource::DoubleClick);
             }
             Message::CreateConceptAtCenter => {
                 let center_world = self.canvas_viewport.to_world(Point::new(500.0, 350.0));
                 let cx = center_world.x - crate::features::concept_model::DEFAULT_NODE_WIDTH / 2.0;
                 let cy = center_world.y - crate::features::concept_model::DEFAULT_NODE_HEIGHT / 2.0;
-                return self.update(Message::CanvasDoubleClicked(cx, cy));
+                return self.quick_create_concept_at(cx, cy, QuickCreateSource::Toolbar);
             }
             Message::QuickCreateTermChanged(term) => {
                 if let Some(qc) = &mut self.quick_create {
@@ -5944,6 +6035,10 @@ impl App {
                 }
             }
             Message::GraphNodeDoubleClicked(node_id) => {
+                crate::features::diagnostics::log_info(
+                    "canvas",
+                    &format!("Dobbeltklik på node {} – åbner egenskaber", node_id),
+                );
                 self.selected_graph_node_id = Some(node_id);
                 self.selected_graph_node_ids = Some(node_id).into_iter().collect();
                 self.selected_edge = None;
@@ -7036,6 +7131,10 @@ impl App {
                 }
             }
             Message::InfoNodeDoubleClicked(node_id) => {
+                crate::features::diagnostics::log_info(
+                    "canvas",
+                    &format!("Dobbeltklik på node {} – åbner egenskaber", node_id),
+                );
                 self.selected_info_graph_node_id = Some(node_id);
                 self.selected_info_graph_node_ids = Some(node_id).into_iter().collect();
                 self.selected_info_edge = None;
