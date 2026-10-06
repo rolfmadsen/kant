@@ -11616,3 +11616,462 @@ fn test_task_076_boot_returns_initial_refresh_task() {
 
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_task_077_click_then_drag_moves_nodes() {
+    use iced::mouse::{Button, Cursor};
+    use iced::widget::canvas::{Event, Program};
+    use iced::{Point, Rectangle, Size};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode};
+    use kant::ui::diagram_canvas::{CanvasViewport, DiagramCanvas, DiagramCanvasState};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use uuid::Uuid;
+
+    let node_id = Uuid::new_v4();
+    let node = DiagramNode::custom(
+        node_id,
+        "TestNode".to_string(),
+        100.0,
+        100.0,
+        120.0,
+        60.0,
+    );
+    let nodes = vec![node];
+    let edges: Vec<DiagramEdge> = vec![];
+
+    let node_dc_count = Arc::new(AtomicUsize::new(0));
+    let canvas_dc_count = Arc::new(AtomicUsize::new(0));
+    let moves_count = Arc::new(AtomicUsize::new(0));
+    let drag_release_count = Arc::new(AtomicUsize::new(0));
+
+    let ndc_clone = Arc::clone(&node_dc_count);
+    let cdc_clone = Arc::clone(&canvas_dc_count);
+    let m_clone = Arc::clone(&moves_count);
+    let r_clone = Arc::clone(&drag_release_count);
+
+    let canvas = DiagramCanvas::new(
+        &nodes,
+        &edges,
+        None,
+        CanvasViewport::default(),
+        false,
+        |_, _, _, _| (),
+        |_| (),
+        |_, _, _| (),
+        move |_, _| {
+            cdc_clone.fetch_add(1, Ordering::SeqCst);
+        },
+        move |_| {
+            ndc_clone.fetch_add(1, Ordering::SeqCst);
+        },
+        |_| (),
+    )
+    .on_nodes_moved(move |_| {
+        m_clone.fetch_add(1, Ordering::SeqCst);
+    })
+    .on_drag_released(move || {
+        r_clone.fetch_add(1, Ordering::SeqCst);
+    });
+
+    let mut state = DiagramCanvasState::default();
+    let bounds = Rectangle::new(Point::ORIGIN, Size::new(800.0, 600.0));
+    let click_pos = Point::new(120.0, 120.0);
+    let cursor_pos = Cursor::Available(click_pos);
+
+    // 1. Klik for at vælge noden: Press + Release
+    let press1 = Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left));
+    let _ = canvas.update(&mut state, &press1, bounds, cursor_pos);
+    let release1 = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
+    let _ = canvas.update(&mut state, &release1, bounds, cursor_pos);
+
+    // 2. Hurtigt efter (<500ms): tryk ned for at påbegynde træk
+    let press2 = Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left));
+    let _ = canvas.update(&mut state, &press2, bounds, cursor_pos);
+
+    // 3. Bevæg markøren 20 skærm-px
+    let moved_pos = Point::new(140.0, 120.0);
+    let cursor_moved = Cursor::Available(moved_pos);
+    let move_event = Event::Mouse(iced::mouse::Event::CursorMoved { position: moved_pos });
+    let _ = canvas.update(&mut state, &move_event, bounds, cursor_moved);
+
+    // 4. Slip musen
+    let release2 = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
+    let _ = canvas.update(&mut state, &release2, bounds, cursor_moved);
+
+    // AC1: Dette skal være et træk, IKKE et dobbeltklik!
+    assert_eq!(
+        node_dc_count.load(Ordering::SeqCst),
+        0,
+        "Tryk efterfulgt af bevægelse må IKKE udløse on_node_double_clicked"
+    );
+    assert_eq!(
+        canvas_dc_count.load(Ordering::SeqCst),
+        0,
+        "Tryk efterfulgt af bevægelse må IKKE udløse on_canvas_double_clicked"
+    );
+    assert!(
+        moves_count.load(Ordering::SeqCst) >= 1,
+        "on_nodes_moved skal være udsendt ved træk"
+    );
+    assert_eq!(
+        drag_release_count.load(Ordering::SeqCst),
+        1,
+        "on_drag_released skal være udsendt ved afslutning af træk"
+    );
+}
+
+#[test]
+fn test_task_077_double_click_requires_same_target() {
+    use iced::mouse::{Button, Cursor};
+    use iced::widget::canvas::{Event, Program};
+    use iced::{Point, Rectangle, Size};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode};
+    use kant::ui::diagram_canvas::{CanvasViewport, DiagramCanvas, DiagramCanvasState};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use uuid::Uuid;
+
+    let node = DiagramNode::custom(
+        Uuid::new_v4(),
+        "NodeA".to_string(),
+        100.0,
+        100.0,
+        120.0,
+        60.0,
+    );
+    let nodes = vec![node];
+    let edges: Vec<DiagramEdge> = vec![];
+
+    let canvas_dc_count = Arc::new(AtomicUsize::new(0));
+    let cdc_clone = Arc::clone(&canvas_dc_count);
+
+    let canvas = DiagramCanvas::new(
+        &nodes,
+        &edges,
+        None,
+        CanvasViewport::default(),
+        false,
+        |_, _, _, _| (),
+        |_| (),
+        |_, _, _| (),
+        move |_, _| {
+            cdc_clone.fetch_add(1, Ordering::SeqCst);
+        },
+        |_| (),
+        |_| (),
+    );
+
+    let mut state = DiagramCanvasState::default();
+    let bounds = Rectangle::new(Point::ORIGIN, Size::new(800.0, 600.0));
+
+    // 1. Klik på noden ved (110.0, 110.0)
+    let node_pos = Point::new(110.0, 110.0);
+    let cursor_node = Cursor::Available(node_pos);
+    let press1 = Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left));
+    let _ = canvas.update(&mut state, &press1, bounds, cursor_node);
+    let release1 = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
+    let _ = canvas.update(&mut state, &release1, bounds, cursor_node);
+
+    // 2. Klik straks efter (<500ms) på tomt lærred ved (105.0, 95.0) - kun 15.8 skærm-px væk!
+    let empty_pos = Point::new(105.0, 95.0);
+    let cursor_empty = Cursor::Available(empty_pos);
+    let press2 = Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left));
+    let _ = canvas.update(&mut state, &press2, bounds, cursor_empty);
+    let release2 = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
+    let _ = canvas.update(&mut state, &release2, bounds, cursor_empty);
+
+    // AC4: Målene er forskellige (Node vs Tomt lærred) -> må IKKE udløse dobbeltklik
+    assert_eq!(
+        canvas_dc_count.load(Ordering::SeqCst),
+        0,
+        "Klik på node efterfulgt af klik på tomt lærred må IKKE udløse on_canvas_double_clicked"
+    );
+}
+
+#[test]
+fn test_task_077_double_click_fires_on_release() {
+    use iced::mouse::{Button, Cursor};
+    use iced::widget::canvas::{Event, Program};
+    use iced::{Point, Rectangle, Size};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode};
+    use kant::ui::diagram_canvas::{CanvasViewport, DiagramCanvas, DiagramCanvasState};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    let nodes: Vec<DiagramNode> = vec![];
+    let edges: Vec<DiagramEdge> = vec![];
+
+    let canvas_dc_count = Arc::new(AtomicUsize::new(0));
+    let cdc_clone = Arc::clone(&canvas_dc_count);
+
+    let canvas = DiagramCanvas::new(
+        &nodes,
+        &edges,
+        None,
+        CanvasViewport::default(),
+        false,
+        |_, _, _, _| (),
+        |_| (),
+        |_, _, _| (),
+        move |_, _| {
+            cdc_clone.fetch_add(1, Ordering::SeqCst);
+        },
+        |_| (),
+        |_| (),
+    );
+
+    let mut state = DiagramCanvasState::default();
+    let bounds = Rectangle::new(Point::ORIGIN, Size::new(800.0, 600.0));
+    let pos = Point::new(300.0, 300.0);
+    let cursor = Cursor::Available(pos);
+
+    // 1. Første klik: Press + Release
+    let press1 = Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left));
+    let _ = canvas.update(&mut state, &press1, bounds, cursor);
+    let release1 = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
+    let _ = canvas.update(&mut state, &release1, bounds, cursor);
+
+    // 2. Andet tryk (ButtonPressed)
+    let press2 = Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left));
+    let _ = canvas.update(&mut state, &press2, bounds, cursor);
+
+    // AC2 / RED-hypotese 3: Dobbeltklik må IKKE affyres ved ButtonPressed
+    assert_eq!(
+        canvas_dc_count.load(Ordering::SeqCst),
+        0,
+        "Dobbeltklik må IKKE affyres ved ButtonPressed, men skal afvente ButtonReleased"
+    );
+
+    // 3. Andet slip (ButtonReleased)
+    let release2 = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
+    let _ = canvas.update(&mut state, &release2, bounds, cursor);
+
+    // Nu skal dobbeltklikket være affyret præcis én gang
+    assert_eq!(
+        canvas_dc_count.load(Ordering::SeqCst),
+        1,
+        "Dobbeltklik skal affyres præcis én gang ved ButtonReleased"
+    );
+}
+
+#[test]
+fn test_task_077_ctrl_click_does_not_participate_in_double_click() {
+    use iced::mouse::{Button, Cursor};
+    use iced::widget::canvas::{Event, Program};
+    use iced::{Point, Rectangle, Size};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode};
+    use kant::ui::diagram_canvas::{CanvasViewport, DiagramCanvas, DiagramCanvasState};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use uuid::Uuid;
+
+    let node = DiagramNode::custom(
+        Uuid::new_v4(),
+        "NodeA".to_string(),
+        100.0,
+        100.0,
+        120.0,
+        60.0,
+    );
+    let nodes = vec![node];
+    let edges: Vec<DiagramEdge> = vec![];
+
+    let node_dc_count = Arc::new(AtomicUsize::new(0));
+    let ndc_clone = Arc::clone(&node_dc_count);
+
+    let canvas = DiagramCanvas::new(
+        &nodes,
+        &edges,
+        None,
+        CanvasViewport::default(),
+        false,
+        |_, _, _, _| (),
+        |_| (),
+        |_, _, _| (),
+        |_, _| (),
+        move |_| {
+            ndc_clone.fetch_add(1, Ordering::SeqCst);
+        },
+        |_| (),
+    );
+
+    let mut state = DiagramCanvasState::default();
+    let bounds = Rectangle::new(Point::ORIGIN, Size::new(800.0, 600.0));
+    let pos = Point::new(120.0, 120.0);
+    let cursor = Cursor::Available(pos);
+
+    // 1. Ctrl-klik på noden (f.eks. multiselect):
+    state.modifiers = iced::keyboard::Modifiers::CTRL;
+    let press1 = Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left));
+    let _ = canvas.update(&mut state, &press1, bounds, cursor);
+    let release1 = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
+    let _ = canvas.update(&mut state, &release1, bounds, cursor);
+
+    // 2. Almindeligt klik uden Ctrl straks efter (<500ms):
+    state.modifiers = iced::keyboard::Modifiers::empty();
+    let press2 = Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left));
+    let _ = canvas.update(&mut state, &press2, bounds, cursor);
+    let release2 = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
+    let _ = canvas.update(&mut state, &release2, bounds, cursor);
+
+    // AC5: Ctrl-klik må ikke starte en dobbeltklik-sekvens
+    assert_eq!(
+        node_dc_count.load(Ordering::SeqCst),
+        0,
+        "Ctrl-klik efterfulgt af klik må IKKE udløse on_node_double_clicked"
+    );
+}
+
+#[test]
+fn test_task_077_cancel_empty_quick_create_rolls_back() {
+    use kant::ui::concept_editor::ConceptFormField;
+    use kant::ui::app::{App, Message, Tab};
+
+    let mut app = App::new();
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    assert_eq!(app.project().concepts().len(), 0);
+
+    // 1. Dobbeltklik på tomt lærred lynopretter et begreb med tomt preferred_term
+    let _ = app.update(Message::CanvasDoubleClicked(250.0, 150.0));
+    assert_eq!(app.project().concepts().len(), 1);
+
+    // 2. Annuller redigering uden at udfylde navn (CancelConceptEdit)
+    let _ = app.update(Message::CancelConceptEdit);
+
+    // AC8: Tomt lynoprettet begreb skal rulles tilbage og fjernes helt
+    assert_eq!(
+        app.project().concepts().len(),
+        0,
+        "Tomt lynoprettet begreb skal fjernes fra projektet ved CancelConceptEdit"
+    );
+    assert_eq!(
+        app.project().concept_graph().nodes().len(),
+        0,
+        "Grafnoden for det tomme lynoprettede begreb skal fjernes"
+    );
+
+    // 3. Test at begreb MED udfyldt term IKKE rulles tilbage ved annullering:
+    let _ = app.update(Message::CanvasDoubleClicked(300.0, 200.0));
+    assert_eq!(app.project().concepts().len(), 1);
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::PreferredTerm,
+        "Faktura".to_string(),
+    ));
+    let _ = app.update(Message::CancelConceptEdit);
+    assert_eq!(
+        app.project().concepts().len(),
+        1,
+        "Begreb med udfyldt navn må IKKE rulles tilbage ved annullering"
+    );
+}
+
+#[test]
+fn test_task_077_telemetry_sources_and_node_double_click() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::diagnostics::get_recent_logs;
+    use kant::ui::app::{App, Message, Tab};
+
+    let mut app = App::new();
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+
+    // 1. Lynoprettelse via CanvasDoubleClicked -> log "via dobbeltklik"
+    let _ = app.update(Message::CanvasDoubleClicked(100.0, 150.0));
+    let logs1 = get_recent_logs();
+    assert!(
+        logs1.iter().any(|l| l.contains("Lynoprettede begreb") && l.contains("via dobbeltklik")),
+        "CanvasDoubleClicked skal logge telemetri med 'via dobbeltklik'"
+    );
+
+    // 2. Lynoprettelse via CreateConceptAtCenter -> log "via værktøjslinje"
+    let _ = app.update(Message::CreateConceptAtCenter);
+    let logs2 = get_recent_logs();
+    assert!(
+        logs2.iter().any(|l| l.contains("Lynoprettede begreb") && l.contains("via værktøjslinje")),
+        "CreateConceptAtCenter skal logge telemetri med 'via værktøjslinje'"
+    );
+
+    // 3. Dobbeltklik på node i grafen -> log "Dobbeltklik på node ... – åbner egenskaber"
+    let concept = Concept::new("Vej", "Færdselsareal", BelongsToDomain::Yes);
+    let cid = app.project_mut().add_concept(concept).unwrap();
+    let nid = app.project().concept_graph().find_node_by_concept(cid).unwrap().id();
+    let _ = app.update(Message::GraphNodeDoubleClicked(nid));
+    let logs3 = get_recent_logs();
+    assert!(
+        logs3.iter().any(|l| l.contains("Dobbeltklik på node") && l.contains("åbner egenskaber")),
+        "GraphNodeDoubleClicked skal logge telemetri"
+    );
+}
+
+#[test]
+fn test_task_077_zoom_independent_threshold() {
+    use iced::mouse::{Button, Cursor};
+    use iced::widget::canvas::{Event, Program};
+    use iced::{Point, Rectangle, Size};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode};
+    use kant::ui::diagram_canvas::{CanvasViewport, DiagramCanvas, DiagramCanvasState};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use uuid::Uuid;
+
+    let node = DiagramNode::custom(
+        Uuid::new_v4(),
+        "NodeA".to_string(),
+        100.0,
+        100.0,
+        120.0,
+        60.0,
+    );
+    let nodes = vec![node];
+    let edges: Vec<DiagramEdge> = vec![];
+
+    let drag_release_count = Arc::new(AtomicUsize::new(0));
+    let r_clone = Arc::clone(&drag_release_count);
+
+    let mut vp_zoomed_out = CanvasViewport::default();
+    vp_zoomed_out.set_zoom(0.25);
+
+    let canvas = DiagramCanvas::new(
+        &nodes,
+        &edges,
+        None,
+        vp_zoomed_out,
+        false,
+        |_, _, _, _| (),
+        |_| (),
+        |_, _, _| (),
+        |_, _| (),
+        |_| (),
+        |_| (),
+    )
+    .on_drag_released(move || {
+        r_clone.fetch_add(1, Ordering::SeqCst);
+    });
+
+    let mut state = DiagramCanvasState::default();
+    let bounds = Rectangle::new(Point::ORIGIN, Size::new(800.0, 600.0));
+    let screen_node_pos = Point::new(25.0, 25.0);
+    let cursor = Cursor::Available(screen_node_pos);
+
+    // 1. Press på node
+    let press = Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left));
+    let _ = canvas.update(&mut state, &press, bounds, cursor);
+
+    // 2. Flyt 2 skærm-px (svarende til 8 verdens-px ved zoom 0.25)
+    let moved_2px = Point::new(27.0, 25.0);
+    let cursor_moved = Cursor::Available(moved_2px);
+    let move_event = Event::Mouse(iced::mouse::Event::CursorMoved { position: moved_2px });
+    let _ = canvas.update(&mut state, &move_event, bounds, cursor_moved);
+
+    // 3. Slip musen
+    let release = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
+    let _ = canvas.update(&mut state, &release, bounds, cursor_moved);
+
+    // AC6: 2 skærm-px er < 4 skærm-px -> må IKKE tælle som drag release!
+    assert_eq!(
+        drag_release_count.load(Ordering::SeqCst),
+        0,
+        "Bevægelse på 2 skærm-px ved zoom 0.25 må IKKE udløse drag_released (skal bruge skærm-slop)"
+    );
+}
+
