@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 076: Asynkron Git Synkroniseringsstatus og Komplet Diagnostik Log-udklipsholder"
 description: "Eliminering af UI-frys ved at flytte GitService::get_sync_status fra Iced UI-tråden til en koalesceret baggrundsopgave, samt inkludering af fuld hændelseslog i diagnostik-udklipsholderen."
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-06T19:35:00Z" }
 tags: [git, async, performance, diagnostics, clipboard, autosave, windows]
 ---
 
 # Task 076: Asynkron Git Synkroniseringsstatus og Komplet Diagnostik Log-udklipsholder
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🐛 BUG FIX`
 **Oprettet**: `2026-10-06`
 **Scope**: `src/ui/app.rs`, `src/main.rs`, `src/features/diagnostics.rs`, `tests/acceptance.rs`
@@ -76,14 +76,14 @@ tags: [git, async, performance, diagnostics, clipboard, autosave, windows]
    - Dialogens visning (30 nyeste, omvendt rækkefølge) er uændret.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 – Ingen synkron statuskald i autosave**: `trigger_autosave()` ændrer ikke `git_sync_status` og kalder ikke `GitService`; den sætter kun refresh-flaget. Bevis: test i et midlertidigt git-repo, hvor status før og umiddelbart efter `trigger_autosave()` er uændret, og `git_status_refresh_state()` er `InFlight` efter `update()`.
-- [ ] **AC2 – Koalescering**: N på hinanden følgende autosaves mens et tjek kører giver højst ét efterfølgende tjek (`InFlight` → `InFlightDirty` → ét nyt tjek ved svar). Testes direkte på tilstandsmaskinen via `Message::GitSyncStatusRefreshed`.
-- [ ] **AC3 – Forældede svar kasseres**: Et `GitSyncStatusRefreshed` med gammel `generation` (fx efter `FileOpened` af anden model) ændrer ikke `git_sync_status`.
-- [ ] **AC4 – Sandfærdig status**: I et midlertidigt git-repo med commit: save uden reel modelændring → `Synced`; save med ændring → `PendingChanges`. `UnpublishedCommits(n)` overskrives ikke af autosave alene.
-- [ ] **AC5 – Alle UI-tråds call-sites erstattet**: Linjerne 2738, 3031, 3244, 3274, 3383 og 4220 bruger `request_git_status_refresh()`. Invariant-test: `include_str!("../src/ui/app.rs")` indeholder `get_sync_status(` kun i baggrundshelperen og i `execute_publish_workflow`.
-- [ ] **AC6 – Initialt tjek ved boot**: Når en model i et git-repo åbnes ved opstart, returnerer boot en task, der opdaterer status uden at blokere første frame.
-- [ ] **AC7 – Fuld log i udklipsholderen**: `formatted_report()` indeholder sektionen `Seneste loghændelser`, alle buffer-linjer i kronologisk rækkefølge (første før sidste), og eksisterende rapport-tests (acceptance.rs ~8660 og ~8760) passerer fortsat.
-- [ ] **AC8 – Regression Gauntlet**: `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check` og `xgauntlet verify` er grønne.
+- [x] **AC1 – Ingen synkron statuskald i autosave**: `trigger_autosave()` ændrer ikke `git_sync_status` og kalder ikke `GitService`; den sætter kun refresh-flaget. Bevis: test i et midlertidigt git-repo, hvor status før og umiddelbart efter `trigger_autosave()` er uændret, og `git_status_refresh_state()` er `InFlight` efter `update()`.
+- [x] **AC2 – Koalescering**: N på hinanden følgende autosaves mens et tjek kører giver højst ét efterfølgende tjek (`InFlight` → `InFlightDirty` → ét nyt tjek ved svar). Testes direkte på tilstandsmaskinen via `Message::GitSyncStatusRefreshed`.
+- [x] **AC3 – Forældede svar kasseres**: Et `GitSyncStatusRefreshed` med gammel `generation` (fx efter `FileOpened` af anden model) ændrer ikke `git_sync_status`.
+- [x] **AC4 – Sandfærdig status**: I et midlertidigt git-repo med commit: save uden reel modelændring → `Synced`; save med ændring → `PendingChanges`. `UnpublishedCommits(n)` overskrives ikke af autosave alene.
+- [x] **AC5 – Alle UI-tråds call-sites erstattet**: Linjerne 2738, 3031, 3244, 3274, 3383 og 4220 bruger `request_git_status_refresh()`. Invariant-test: `include_str!("../src/ui/app.rs")` indeholder `get_sync_status(` kun i baggrundshelperen og i `execute_publish_workflow`.
+- [x] **AC6 – Initialt tjek ved boot**: Når en model i et git-repo åbnes ved opstart, returnerer boot en task, der opdaterer status uden at blokere første frame.
+- [x] **AC7 – Fuld log i udklipsholderen**: `formatted_report()` indeholder sektionen `Seneste loghændelser`, alle buffer-linjer i kronologisk rækkefølge (første før sidste), og eksisterende rapport-tests (acceptance.rs ~8660 og ~8760) passerer fortsat.
+- [x] **AC8 – Regression Gauntlet**: `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check` og `xgauntlet verify` er grønne.
 
 ## 🚫 Must NOT
 - Må IKKE kalde `GitService::get_sync_status` på UI-tråden (håndhæves af AC5-invarianttesten).
