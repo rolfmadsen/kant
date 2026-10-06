@@ -1,7 +1,7 @@
 ---
 type: Task Package
 title: "Task 077: Adskillelse af Canvas Drag og Dobbeltklik samt Node-oprettelse Telemetri"
-description: "Robustgørelse af DiagramCanvas museinteraktion så hurtigt træk efter valg ikke mistolkes som dobbeltklik, samt telemetri-logning ved lynoprettelse af begreber."
+description: "DiagramCanvas skal kun udløse dobbeltklik ved to stillestående klik på samme mål, aldrig afbryde et påbegyndt træk, logge lynoprettelser og rulle tomme lynoprettede begreber tilbage."
 status: active
 generated: { by: process:antigravity-task-init, at: "2026-10-06T19:35:00Z" }
 tags: [canvas, drag-and-drop, double-click, mouse, telemetry, concept-model, information-model]
@@ -13,36 +13,96 @@ tags: [canvas, drag-and-drop, double-click, mouse, telemetry, concept-model, inf
 **Intent**: `🐛 BUG FIX`
 **Oprettet**: `2026-10-06`
 **Scope**: `src/ui/diagram_canvas.rs`, `src/ui/app.rs`, `tests/acceptance.rs`
+**Blokeret af**: Task 076 (frysningen er hovedårsagen til fantom-dobbeltklik; uden 076 kan 077 ikke verificeres manuelt)
 
 ## 🎯 Formål
-Løse race condition og ergonomisk fejl i `DiagramCanvas`, hvor hurtigt træk efter valg mistolkes som dobbeltklik og afbryder nodetræk:
-1. **Adskillelse af Drag og Dobbeltklik**:
-   - I `DiagramCanvas` evalueres dobbeltklik p.t. på `ButtonPressed`. Hvis en bruger klikker på en node for at vælge den og inden for 500 ms trykker musen ned for at trække (`ButtonPressed` ➔ `CursorMoved`), må trækket ALDRIG afbrydes eller konverteres til et dobbeltklik.
-   - Dobbeltklik (både på node og tomt lærred) skal kun bekræftes, når brugeren udfører to på hinanden følgende klik med lav bevægelse (`drag_dist < 4.0 px`), valideret ved `ButtonReleased` (eller hvor et påbegyndt træk med `drag_dist >= 4.0 px` annullerer dobbeltklik-tilstanden).
-2. **Telemetri for Lynoprettelse & Canvas Interaktion**:
-   - `Message::CanvasDoubleClicked(x, y)` i `src/ui/app.rs` skal logge eksplicit via `diagnostics::log_info("canvas", &format!("Lynoprettede begreb via dobbeltklik på ({:.1}, {:.1})", x, y))` så fremtidig fejlfinding har direkte evidens for auto-oprettede begreber.
-3. **Håndtering af Annulleret Hurtigoprettelse**:
-   - Hvis en bruger har trigget et dobbeltklik på tomt lærred, og den resulterende inline editor forlades/annulleres med tom foretrukken term, ryddes det midlertidigt oprettede begreb op fra projekt og lærred, så der ikke efterlades tomme spøgelsesbegreber ("Nyt begreb").
+Robustgøre `DiagramCanvas` museinteraktion så hurtigt træk efter valg ikke mistolkes som dobbeltklik, forhindre utilsigtede lynoprettelser af noder samt rulle tomme begreber tilbage:
+1. **Adskillelse af Drag og Dobbeltklik**: Dobbeltklik evalueres kun ved to stillestående klik på samme mål (<4 skærm-px) ved `ButtonReleased`. Et påbegyndt træk (bevægelse ≥ 4 skærm-px) annullerer altid dobbeltklik-tilstanden og gennemfører trækket.
+2. **Kildebevidst Telemetri**: `Message::CanvasDoubleClicked` og `CreateConceptAtCenter` logger eksplicit oprettelse af begreber med id og kilde.
+3. **Rollback af tomme lynoprettede begreber**: Hvis en bruger lynopretter et begreb ved en fejl og lukker/annullerer editoren uden at indtaste et navn, fjernes det midlertidige begreb fra projektet.
+
+## 🔬 Problem (verificeret i kode, v0.8.0)
+`DiagramCanvas` ([diagram_canvas.rs:755–785](../src/ui/diagram_canvas.rs)) afgør dobbeltklik ved **andet `ButtonPressed`**:
+- Kriterium i dag: ≤ 500 ms og ≤ 20 px (skærm) fra *forrige tryk* — uanset hvad der blev ramt første gang.
+- Ved match ryddes `dragging_node`/`bulk_drag` (Task 073), og beskeden sendes straks.
+
+Konsekvenser:
+1. **Klik-for-at-vælge, tryk-for-at-trække** (inden for 500 ms) åbner editoren på noden (`GraphNodeDoubleClicked`) i stedet for at trække.
+2. **Forskellige mål**: klik på node, derefter tryk på tomt lærred ≤ 20 px væk → `CanvasDoubleClicked` → **ny node "Nyt begreb"**.
+3. **Ctrl-klik** (multiselektion) sætter også `last_click`, så Ctrl+klik efterfulgt af almindeligt tryk kan blive dobbeltklik.
+4. **Inkonsistente enheder**: dobbeltklik-afstand måles i skærm-px, træk-tærsklen (`drag_dist >= 4.0`) i verdens-koordinater → ved zoom 0,25 er 4 verdens-px = 1 skærm-px.
+5. `CanvasDoubleClicked` logger intet, så lynoprettelser er usynlige i diagnostikken.
+6. `CancelConceptEdit` ([app.rs:4068](../src/ui/app.rs)) lukker kun editoren. Det lynoprettede begreb er allerede gemt (autosave) og broadcastet (`ConceptAdded`), så det bliver liggende som "Nyt begreb".
+7. `CreateConceptAtCenter` (app.rs ~5676) genbruger `CanvasDoubleClicked`, så telemetri i den handler ville fejlagtigt sige "dobbeltklik".
+
+## 🏗️ Design (bindende)
+### A. Pending double-click i `DiagramCanvasState`
+```rust
+enum ClickTarget { Node(NodeId), Empty }
+struct ClickRecord { position: Point /* skærm */, time: Instant, target: ClickTarget }
+pending_double: Option<ClickTarget>   // ny
+press_screen_pos: Option<Point>       // ny
+```
+- **ButtonPressed (venstre, uden Ctrl/Cmd)**: beregn `target`. Kandidat hvis `last_click` har samme `target`, ≤ 500 ms og ≤ 20 px skærm. Kandidat → `pending_double = Some(target)`. **Start træk/marquee præcis som i dag** — intet ryddes.
+- **ButtonPressed med Ctrl/Cmd**: `last_click = None`, `pending_double = None` (Ctrl-klik deltager aldrig i dobbeltklik).
+- **CursorMoved**: hvis afstand fra `press_screen_pos` ≥ 4 skærm-px → `pending_double = None`, `last_click = None`. Herefter almindelig drag-logik (Task 067 delta-filter uændret).
+- **ButtonReleased**:
+  - `pending_double.take()` er `Some` og bevægelse < 4 skærm-px → ryd `bulk_drag`/`dragging_node`/`marquee` **uden** `on_drag_released` og **uden** single-click-sideeffekter (selektionskollaps til leader, "klik på tomt rydder selektion"), sæt `last_click = None` og publicér `on_node_double_clicked(id)` eller `on_canvas_double_clicked(x, y)` (verdens-koordinater fra *første* klik).
+  - Ellers: nuværende adfærd. Efter et stillestående klik registreres `last_click = Some(ClickRecord { .. })`.
+- **Tærskler**: én konstant `CLICK_SLOP_PX: f32 = 4.0` i skærm-px for både drag-start og dobbeltklik-annullering. Eksisterende `drag_dist >= 4.0` (verden) erstattes af skærm-baseret måling.
+
+### B. Telemetri (kildebevidst)
+- `CanvasDoubleClicked` deler logik med `CreateConceptAtCenter` via `fn quick_create_concept_at(&mut self, x, y, source: QuickCreateSource)`.
+- Log: `log_info("canvas", "Lynoprettede begreb {id} via {dobbeltklik|værktøjslinje} på ({x:.1}, {y:.1})")`.
+- `GraphNodeDoubleClicked` og `InfoNodeDoubleClicked`: `log_info("canvas", "Dobbeltklik på node {id} – åbner egenskaber")`.
+
+### C. Rollback af tomt lynoprettet begreb
+- Nyt felt: `pending_quick_create: Option<Uuid>` (concept id), sættes i `quick_create_concept_at`.
+- Ryddes (uden rollback) når `SaveConcept` lykkes for det id.
+- Rollback når editoren lukkes uden gyldig save og `preferred_term` er tom (trimmet). Gælder mindst: `CancelConceptEdit`, Escape (app.rs ~4786 → `CancelConceptEdit`), valg af anden node/tomt lærred, fanebyt.
+- Implementeres centralt: `fn close_concept_editor(&mut self)`, som alle ovenstående stier kalder.
+- Rollback skal: fjerne begreb + node fra projekt/diagram (genbrug eksisterende slette-sti, app.rs ~4000), broadcaste `ModelMutation::ConceptDeleted(id)`, nulstille `selected_graph_node_id(s)` og kalde `trigger_autosave()`.
+- Hvis brugeren har udfyldt en term, rulles der aldrig tilbage, heller ikke ved annullering.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Drag afbrydes ikke af forudgående klik**: Hvis en bruger klikker på en node (eller tomt lærred) og inden for 500 ms trykker ned og trækker musen (>4 px), udføres trækket normalt. Noderne flyttes, og hverken `CanvasDoubleClicked` eller `GraphNodeDoubleClicked` affyres.
-- [ ] **AC2 - Dobbeltklik på tomt lærred ved reelt dobbeltklik**: To på hinanden følgende klik på tomt lærred uden bevægelse (<4 px) inden for 500 ms udløser `CanvasDoubleClicked`.
-- [ ] **AC3 - Dobbeltklik på node ved reelt dobbeltklik**: To på hinanden følgende klik på en node uden bevægelse (<4 px) inden for 500 ms udløser `GraphNodeDoubleClicked` / `InfoNodeDoubleClicked` og sætter tastaturfokus i navnefeltet (Task 073 adfærd bevares).
-- [ ] **AC4 - Telemetri-logning ved lynoprettelse**: Oprettelse af et begreb via dobbeltklik på lærredet logges i in-memory logbufferen med koordinater.
-- [ ] **AC5 - Automatisk oprydning ved annullering af tom lyn-node**: Hvis et lynoprettet begreb forlades eller annulleres uden at brugeren har indtastet en gyldig foretrukken term, fjernes det midlertidige begreb fra projektet.
-- [ ] **AC6 - Regression Gauntlet**: Samtlige canvas- og accepttests i workspacet passerer 100% grønt med zero clippy warnings.
+- [ ] **AC1 – Klik + træk er et træk**: Klik (tryk+slip) på node A, derefter straks tryk på A og flyt ≥ 4 skærm-px → `on_nodes_moved` udsendes; hverken `on_node_double_clicked` eller `on_canvas_double_clicked`. Gælder også for multiselektion (2 noder flyttes).
+- [ ] **AC2 – Reelt dobbeltklik på tomt lærred**: To stillestående klik på tomt lærred (≤ 500 ms, ≤ 20 px) → præcis én `on_canvas_double_clicked`, udsendt ved **andet slip**.
+- [ ] **AC3 – Reelt dobbeltklik på node (Task 073 bevares)**: To stillestående klik på node A → præcis én `on_node_double_clicked(A)` ved andet slip, ingen `on_drag_released`, ingen ændring af nodeposition; `test_task_073_*` passerer uændret.
+- [ ] **AC4 – Samme mål kræves**: Klik på node A efterfulgt af klik på tomt lærred (eller node B) inden for 500 ms/20 px → intet dobbeltklik.
+- [ ] **AC5 – Ctrl-klik deltager ikke**: Ctrl+klik på A efterfulgt af klik på A → intet dobbeltklik.
+- [ ] **AC6 – Zoom-uafhængig tærskel**: Ved zoom 0,25 og 2,0 starter træk ved samme skærm-afstand (4 px).
+- [ ] **AC7 – Telemetri**: Lynoprettelse via dobbeltklik og via `CreateConceptAtCenter` logger hver sin kilde med begrebs-id og koordinater; node-dobbeltklik logges.
+- [ ] **AC8 – Rollback**: `CanvasDoubleClicked` → `CancelConceptEdit` med tom term → begrebet og noden findes ikke i projektet, og autosave er udløst. Med udfyldt term → begrebet bevares.
+- [ ] **AC9 – Regression Gauntlet**: Task 040 (bulk drag/marquee), Task 067 (delta-filter, drop-commit, `test_*drag*`), Task 073 tests og `test_graph_canvas_double_click_events` passerer; `cargo clippy --workspace --all-targets -- -D warnings` grøn.
 
 ## 🚫 Must NOT
-- Må IKKE ødelægge eksisterende multi-selection marquee eller bulk drag (Task 040 & Task 067).
-- Må IKKE forringe dobbeltklik-følsomheden ved bevidst dobbeltklik (standard 500 ms interval og 20 px rumlig tolerance).
-- Må IKKE udføre synkronskrivning under træk.
-- Må IKKE udføre remote push eller destruktive git handlinger.
+- Må IKKE afbryde et påbegyndt træk på grund af et forudgående klik.
+- Må IKKE ændre dobbeltklik-vinduet (500 ms / 20 px skærm) for bevidste dobbeltklik.
+- Må IKKE udsende `on_drag_released` (og dermed autosave) for et dobbeltklik uden bevægelse.
+- Må IKKE logge pr. `CursorMoved` (Task 067).
+- Må IKKE rulle et begreb tilbage, som brugeren har givet en term.
+- Må IKKE udføre `git push` eller destruktive git-handlinger.
+
+## ⚠️ Kendt restrisiko (accepteret, dokumenteres)
+Iced-musehændelser har intet tidsstempel; `Instant::now()` måles ved behandling. Hvis UI-tråden blokeres af anden årsag (se Task 076 "Uden for scope"), kan to *stillestående* klik under frysningen stadig blive læst som dobbeltklik. AC8-rollback og AC7-telemetri begrænser skaden og gør det synligt.
+
+## ⛔ Uden for scope
+- Informationsmodellens `CreateInformationClassAt` (tomt-lærred-dobbeltklik i fane 3) får samme canvas-adfærd via `DiagramCanvas`, men rollback af tomme klasser er ikke en del af denne task.
+
+## 🧪 RED-hypoteser
+1. `test_task_077_click_then_drag_moves_nodes` (unit i `diagram_canvas.rs`, mønster som ~2260–2324 med `AtomicUsize`-tællere) fejler i dag: andet tryk udløser `on_node_double_clicked`, og `on_nodes_moved` tælles 0.
+2. `test_task_077_double_click_requires_same_target` fejler i dag: node→tomt lærred udløser `on_canvas_double_clicked`.
+3. `test_task_077_double_click_fires_on_release` fejler i dag: beskeden udsendes ved tryk.
+4. `test_task_077_cancel_empty_quick_create_rolls_back` (acceptance) fejler i dag: begrebet findes stadig efter `CancelConceptEdit`.
 
 ## 📝 Revisions
 - 2026-10-06: Oprettet opgavepakke efter opdaget race-condition mellem hurtig node-udvælgelse, nodetræk og lærreds-dobbeltklik.
+- 2026-10-06: Skærpet efter review: tilstandsmaskine for pending double-click, krav om samme mål, Ctrl-undtagelse, skærm-px-tærskel, kildebevidst telemetri (`CreateConceptAtCenter`), centraliseret rollback inkl. broadcast, dokumenteret restrisiko og afhængighed af Task 076.
 
 ## 🧪 Verifikation
-- `cargo test --test acceptance test_task_077_`
+- `cargo test test_task_077_`
+- `cargo test --test acceptance test_task_073_`
 - `cargo test --workspace`
-- `cargo clippy --workspace --all-targets`
+- `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo fmt --check`
+- `xgauntlet check-spec -t 077`
