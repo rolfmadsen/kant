@@ -18,6 +18,14 @@ fn test_appx_manifest_structure_and_identity() {
         content.starts_with(r#"<?xml version="1.0" encoding="utf-8"?>"#),
         "XML deklaration skal være præcis lowercase version=\"1.0\""
     );
+    assert!(
+        !content.contains("x-default"),
+        "Må IKKE indeholde pseudo-sprogkoden x-default"
+    );
+    assert!(
+        content.contains(r#"<Resource Language="da-DK" />"#),
+        "Skal indeholde da-DK som sprogdeklaration"
+    );
 
     // Valider nøgleelementer og Partner Center identitet
     assert!(content.contains(r#"Name="RolfMadsen.Kant""#), "Identity Name skal være RolfMadsen.Kant");
