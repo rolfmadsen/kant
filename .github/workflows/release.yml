@@ -128,14 +128,18 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/kant.exe" -Destination dist-msix/
           Copy-Item "assets/windows/images/*" -Destination dist-msix/images/
 
-          # Tilpas version i AppxManifest (fx v0.8.1 -> 0.8.1.0)
-          $appVersion = "0.8.1.0"
+          # Tilpas version i AppxManifest (fx v0.8.2 -> 0.8.2.0)
+          $appVersion = "0.8.2.0"
           if ("${{ github.ref }}" -match 'refs/tags/v?(\d+\.\d+\.\d+)') {
               $appVersion = "$($Matches[1]).0"
           }
-          $manifestContent = Get-Content "assets/windows/AppxManifest.xml" -Raw
-          $manifestContent = $manifestContent -replace 'Version="[^"]+"', "Version=`"$appVersion`""
-          $manifestContent | Set-Content -Encoding utf8 "dist-msix/AppxManifest.xml"
+          $manifestContent = [System.IO.File]::ReadAllText("assets/windows/AppxManifest.xml")
+          # Sørg for KUN at erstatte Version inde i <Identity>, og ALDRIG røre <?xml version="1.0"
+          $manifestContent = [regex]::Replace($manifestContent, '(?s)(<Identity\b[^>]*?\bVersion=")[^"]+(")', "`${1}${appVersion}`${2}")
+          [System.IO.File]::WriteAllText("$PWD/dist-msix/AppxManifest.xml", $manifestContent, [System.Text.UTF8Encoding]::new($false))
+
+          Write-Host "Verificerer de første 5 linjer af dist-msix/AppxManifest.xml:"
+          Get-Content dist-msix/AppxManifest.xml -TotalCount 5
 
           # Pak MSIX (uden validering af certifikat, da Store re-signerer)
           $msixFile = "kant-windows-x86_64.msix"

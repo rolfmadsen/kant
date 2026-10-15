@@ -14,6 +14,10 @@ fn test_appx_manifest_structure_and_identity() {
     );
 
     let content = std::fs::read_to_string(&manifest_path).expect("Kunne ikke læse AppxManifest.xml");
+    assert!(
+        content.starts_with(r#"<?xml version="1.0" encoding="utf-8"?>"#),
+        "XML deklaration skal være præcis lowercase version=\"1.0\""
+    );
 
     // Valider nøgleelementer og Partner Center identitet
     assert!(content.contains(r#"Name="RolfMadsen.Kant""#), "Identity Name skal være RolfMadsen.Kant");
