@@ -7,7 +7,7 @@ resolver = "2"
 
 [package]
 name = "kant"
-version = "0.8.4"
+version = "0.8.5"
 edition = "2021"
 authors = ["Rolf Madsen"]
 license = "MIT"
