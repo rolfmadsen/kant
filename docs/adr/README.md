@@ -15,4 +15,5 @@
 | [ADR 011](011-decomposed-model-persistence-and-git-integration.md) | Dekomponeret Model-Persistens (.kant) og Semantisk Git Model-Integration | `accepted` | 2026-09-27 |
 | [ADR 012](012-machine-readable-model-interchange.md) | Maskinlæsbar Modeludveksling via OMG UML 2.5 / XMI 2.1 og W3C SKOS/SHACL RDF | `accepted` | 2026-09-30 |
 | [ADR 013](013-windows-rendering-diagnostics-and-wgpu-restoration.md) | Evidensbaseret Rendering, Diagnostik og WGPU-genopretning på Windows | `accepted` | 2026-10-03 |
+| [ADR 014](014-windows-msix-packaging-and-microsoft-store-distribution.md) | Windows MSIX Packaging og Microsoft Store Distribution for Uafhængig Udvikler | `accepted` | 2026-10-15 |
 

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  IgnorableNamespaces="uap rescap desktop">
+
+  <Identity
+    Name="RolfMadsen.Kant"
+    Publisher="CN=6101A799-2390-4F81-88B1-08BC634BEC12"
+    Version="0.8.1.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Kant</DisplayName>
+    <PublisherDisplayName>Rolf Madsen</PublisherDisplayName>
+    <Logo>images\Square50x50Logo.png</Logo>
+    <Description>Kant er en moderne skrivebordsapplikation til FDA begrebs- og informationsmodellering bygget i Rust og Iced.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="x-default" />
+    <Resource Language="da-DK" />
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+  <Applications>
+    <Application
+      Id="Kant"
+      Executable="kant.exe"
+      EntryPoint="Windows.FullTrustApplication">
+
+      <uap:VisualElements
+        DisplayName="Kant"
+        Description="Kant er en moderne skrivebordsapplikation til FDA begrebs- og informationsmodellering bygget i Rust og Iced."
+        BackgroundColor="transparent"
+        Square150x150Logo="images\Square150x150Logo.png"
+        Square44x44Logo="images\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="images\Wide310x150Logo.png" />
+        <uap:SplashScreen Image="images\SplashScreen.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="kantfile">
+            <uap:SupportedFileTypes>
+              <uap:FileType>.kant</uap:FileType>
+            </uap:SupportedFileTypes>
+            <uap:DisplayName>Kant Modelprojekt</uap:DisplayName>
+            <uap:Logo>images\Square44x44Logo.png</uap:Logo>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
+
+    </Application>
+  </Applications>
+
+</Package>

@@ -106,6 +106,44 @@ jobs:
           $hash = (Get-FileHash -Algorithm SHA256 -Path "${{ matrix.archive_file }}").Hash.ToLower()
           "$hash  ${{ matrix.archive_file }}" | Out-File -Encoding ascii "${{ matrix.archive_file }}.sha256"
 
+          # --- Windows Store MSIX Packaging ---
+          Write-Host "Locating Windows SDK MakeAppx.exe..."
+          $sdkBins = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" | Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } | Sort-Object Name -Descending
+          $makeAppxPath = $null
+          foreach ($sdk in $sdkBins) {
+              $candidate = Join-Path $sdk.FullName "x64\makeappx.exe"
+              if (Test-Path $candidate) {
+                  $makeAppxPath = $candidate
+                  break
+              }
+          }
+          if (-not $makeAppxPath) {
+              throw "makeappx.exe was not found in Windows SDK directories on runner."
+          }
+          Write-Host "Found MakeAppx at: $makeAppxPath"
+
+          # Klargør MSIX staging layout
+          New-Item -ItemType Directory -Force -Path dist-msix
+          New-Item -ItemType Directory -Force -Path dist-msix/images
+          Copy-Item "target/${{ matrix.target }}/release/kant.exe" -Destination dist-msix/
+          Copy-Item "assets/windows/images/*" -Destination dist-msix/images/
+
+          # Tilpas version i AppxManifest (fx v0.8.1 -> 0.8.1.0)
+          $appVersion = "0.8.1.0"
+          if ("${{ github.ref }}" -match 'refs/tags/v?(\d+\.\d+\.\d+)') {
+              $appVersion = "$($Matches[1]).0"
+          }
+          $manifestContent = Get-Content "assets/windows/AppxManifest.xml" -Raw
+          $manifestContent = $manifestContent -replace 'Version="[^"]+"', "Version=`"$appVersion`""
+          $manifestContent | Set-Content -Encoding utf8 "dist-msix/AppxManifest.xml"
+
+          # Pak MSIX (uden validering af certifikat, da Store re-signerer)
+          $msixFile = "kant-windows-x86_64.msix"
+          & $makeAppxPath pack /d dist-msix /p $msixFile /nv
+          $msixHash = (Get-FileHash -Algorithm SHA256 -Path $msixFile).Hash.ToLower()
+          "$msixHash  $msixFile" | Out-File -Encoding ascii "$msixFile.sha256"
+          Write-Host "MSIX pakke oprettet: $msixFile (SHA256: $msixHash)"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -113,6 +151,8 @@ jobs:
           path: |
             ${{ matrix.archive_file }}
             ${{ matrix.archive_file }}.sha256
+            *.msix
+            *.msix.sha256
             *.deb
             *.deb.sha256
           if-no-files-found: ignore
