@@ -65,3 +65,95 @@ pub fn initialize_platform_defaults() {
         }
     }
 }
+
+/// Returnerer standard window settings for Kant med korrekt platform-identitet.
+///
+/// På Linux (Wayland og X11) er det afgørende, at `settings.platform_specific.application_id`
+/// er sat til `"kant"` (matchende `kant.desktop` og `StartupWMClass=kant`).
+/// Uden dette modtager Wayland-compositors (Mutter/GNOME, COSMIC `cosmic-comp`, KWin)
+/// en tom `app_id` og falder tilbage til standardikonet (det grå tandhjul).
+pub fn default_window_settings() -> iced::window::Settings {
+    let mut settings = iced::window::Settings {
+        size: iced::Size::new(1280.0, 800.0),
+        min_size: Some(iced::Size::new(800.0, 600.0)),
+        icon: crate::ui::app::load_window_icon(),
+        ..Default::default()
+    };
+    settings.platform_specific.application_id = "kant".to_string();
+    settings
+}
+
+/// Zero-privilege installation eller opdatering af Kants desktop-integration
+/// i brugerens personlige XDG-mapper (`~/.local/share/`).
+///
+/// Installerer:
+/// - `~/.local/share/applications/kant.desktop`
+/// - `~/.local/share/icons/hicolor/scalable/apps/kant.svg`
+/// - `~/.local/share/icons/hicolor/48x48/apps/kant.png`
+/// - `~/.local/share/icons/hicolor/128x128/apps/kant.png`
+/// - `~/.local/share/icons/hicolor/256x256/apps/kant.png`
+/// - `~/.local/share/pixmaps/kant.png`
+///
+/// Trigger derefter `update-desktop-database` og `gtk-update-icon-cache` hvis tilgængelige.
+pub fn install_user_desktop_entry() -> Result<Vec<std::path::PathBuf>, String> {
+    let home_dir = std::env::var("HOME").map_err(|_| "HOME miljøvariabel ikke fundet".to_string())?;
+    let home = std::path::Path::new(&home_dir);
+
+    let desktop_content = include_str!("../../assets/kant.desktop");
+    let svg_bytes = include_bytes!("../../assets/icons/kant.svg");
+    let png_48_bytes = include_bytes!("../../assets/icons/kant-48.png");
+    let png_128_bytes = include_bytes!("../../assets/icons/kant-128.png");
+    let png_256_bytes = include_bytes!("../../assets/icons/kant-256.png");
+
+    let mut written_files = Vec::new();
+
+    // 1. Applications directory
+    let apps_dir = home.join(".local/share/applications");
+    std::fs::create_dir_all(&apps_dir).map_err(|e| format!("Kunne ikke oprette {:?}: {}", apps_dir, e))?;
+    let desktop_target = apps_dir.join("kant.desktop");
+    std::fs::write(&desktop_target, desktop_content)
+        .map_err(|e| format!("Kunne ikke skrive {:?}: {}", desktop_target, e))?;
+    written_files.push(desktop_target);
+
+    // 2. Scalable icon
+    let scalable_dir = home.join(".local/share/icons/hicolor/scalable/apps");
+    std::fs::create_dir_all(&scalable_dir).map_err(|e| format!("Kunne ikke oprette {:?}: {}", scalable_dir, e))?;
+    let svg_target = scalable_dir.join("kant.svg");
+    std::fs::write(&svg_target, svg_bytes)
+        .map_err(|e| format!("Kunne ikke skrive {:?}: {}", svg_target, e))?;
+    written_files.push(svg_target);
+
+    // 3. Fixed size icons
+    let fixed_sizes: [(&str, &[u8]); 3] = [
+        ("48x48", png_48_bytes),
+        ("128x128", png_128_bytes),
+        ("256x256", png_256_bytes),
+    ];
+    for (size, bytes) in fixed_sizes {
+        let size_dir = home.join(format!(".local/share/icons/hicolor/{}/apps", size));
+        std::fs::create_dir_all(&size_dir).map_err(|e| format!("Kunne ikke oprette {:?}: {}", size_dir, e))?;
+        let png_target = size_dir.join("kant.png");
+        std::fs::write(&png_target, bytes)
+            .map_err(|e| format!("Kunne ikke skrive {:?}: {}", png_target, e))?;
+        written_files.push(png_target);
+    }
+
+    // 4. Pixmaps fallback (for Pop!_OS / COSMIC)
+    let pixmaps_dir = home.join(".local/share/pixmaps");
+    std::fs::create_dir_all(&pixmaps_dir).map_err(|e| format!("Kunne ikke oprette {:?}: {}", pixmaps_dir, e))?;
+    let pixmap_target = pixmaps_dir.join("kant.png");
+    std::fs::write(&pixmap_target, png_256_bytes)
+        .map_err(|e| format!("Kunne ikke skrive {:?}: {}", pixmap_target, e))?;
+    written_files.push(pixmap_target);
+
+    // 5. Opdater desktop database & icon cache hvis værktøjer er installeret
+    let _ = std::process::Command::new("update-desktop-database")
+        .arg(&apps_dir)
+        .output();
+    let _ = std::process::Command::new("gtk-update-icon-cache")
+        .args(["-f", "-t"])
+        .arg(home.join(".local/share/icons/hicolor"))
+        .output();
+
+    Ok(written_files)
+}

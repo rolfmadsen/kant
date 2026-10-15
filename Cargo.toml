@@ -24,6 +24,10 @@ assets = [
     ["target/release/kant", "usr/bin/kant", "755"],
     ["assets/kant.desktop", "usr/share/applications/kant.desktop", "644"],
     ["assets/icons/kant.svg", "usr/share/icons/hicolor/scalable/apps/kant.svg", "644"],
+    ["assets/icons/kant-48.png", "usr/share/icons/hicolor/48x48/apps/kant.png", "644"],
+    ["assets/icons/kant-128.png", "usr/share/icons/hicolor/128x128/apps/kant.png", "644"],
+    ["assets/icons/kant-256.png", "usr/share/icons/hicolor/256x256/apps/kant.png", "644"],
+    ["assets/icons/kant-256.png", "usr/share/pixmaps/kant.png", "644"],
 ]
 
 [dependencies]

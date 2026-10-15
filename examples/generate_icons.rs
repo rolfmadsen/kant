@@ -21,25 +21,42 @@ fn main() {
         .expect("skal kunne skrive assets/icons/kant-32.rgba");
     println!("Skrev assets/icons/kant-32.rgba ({} bytes)", rgba_32.len());
 
-    // 2. Generer multi-resolution ICO (16, 32, 48, 256)
-    let sizes = [16u32, 32, 48, 256];
+    // 2. Generer multi-resolution ICO (16, 32, 48, 256) samt standalone PNG ikoner
+    let sizes = [16u32, 32, 48, 128, 256];
     let mut png_blobs: Vec<(u32, Vec<u8>)> = Vec::new();
 
     for &s in &sizes {
         let pm = render_svg(&tree, s, s);
         let png_bytes = pm.encode_png().expect("skal kunne encode PNG");
-        png_blobs.push((s, png_bytes));
+        png_blobs.push((s, png_bytes.clone()));
+
+        if s == 48 || s == 128 || s == 256 {
+            let path = format!("assets/icons/kant-{}.png", s);
+            std::fs::write(&path, &png_bytes).expect("skal kunne skrive PNG");
+            println!("Skrev {} ({} bytes)", path, png_bytes.len());
+        }
+        if s == 256 {
+            std::fs::write("assets/icons/kant.png", &png_bytes).expect("skal kunne skrive kant.png");
+            println!("Skrev assets/icons/kant.png ({} bytes)", png_bytes.len());
+        }
     }
+
+    // Byg ICO med standardstørrelser (16, 32, 48, 256)
+    let ico_sizes = [16u32, 32, 48, 256];
+    let ico_blobs: Vec<_> = png_blobs
+        .iter()
+        .filter(|(s, _)| ico_sizes.contains(s))
+        .collect();
 
     let mut ico = Vec::new();
     // ICO Header
     ico.extend_from_slice(&[0x00, 0x00]); // Reserved
     ico.extend_from_slice(&[0x01, 0x00]); // Type 1 = Icon
-    ico.extend_from_slice(&(sizes.len() as u16).to_le_bytes()); // Number of images
+    ico.extend_from_slice(&(ico_blobs.len() as u16).to_le_bytes()); // Number of images
 
-    let mut offset = 6 + (sizes.len() * 16) as u32;
+    let mut offset = 6 + (ico_blobs.len() * 16) as u32;
 
-    for (s, png) in &png_blobs {
+    for (s, png) in &ico_blobs {
         let width_byte = if *s >= 256 { 0u8 } else { *s as u8 };
         let height_byte = if *s >= 256 { 0u8 } else { *s as u8 };
 
@@ -55,7 +72,7 @@ fn main() {
         offset += png.len() as u32;
     }
 
-    for (_, png) in &png_blobs {
+    for (_, png) in &ico_blobs {
         ico.extend_from_slice(png);
     }
 
