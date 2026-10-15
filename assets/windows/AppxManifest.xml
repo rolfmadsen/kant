@@ -9,7 +9,7 @@
   <Identity
     Name="RolfMadsen.Kant"
     Publisher="CN=6101A799-2390-4F81-88B1-08BC634BEC12"
-    Version="0.8.2.0"
+    Version="0.8.3.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
