@@ -6,9 +6,10 @@ fn get_repo_root() -> PathBuf {
 
 #[test]
 fn test_default_window_settings_has_linux_application_id() {
-    let settings = kant::ui::platform::default_window_settings();
+    let _settings = kant::ui::platform::default_window_settings();
+    #[cfg(target_os = "linux")]
     assert_eq!(
-        settings.platform_specific.application_id, "kant",
+        _settings.platform_specific.application_id, "kant",
         "settings.platform_specific.application_id skal være sat til 'kant' så Wayland og X11 matcher kant.desktop"
     );
 }

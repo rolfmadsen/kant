@@ -79,7 +79,10 @@ pub fn default_window_settings() -> iced::window::Settings {
         icon: crate::ui::app::load_window_icon(),
         ..Default::default()
     };
-    settings.platform_specific.application_id = "kant".to_string();
+    #[cfg(target_os = "linux")]
+    {
+        settings.platform_specific.application_id = "kant".to_string();
+    }
     settings
 }
 
