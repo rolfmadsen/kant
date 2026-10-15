@@ -1,25 +1,31 @@
 # Verification Report
 
-**Task ID**: `068-kant-logo-os-icons-and-palette-ergonomics`  
-**Task Title**: Task 068: Nyt Kant Logo, Multiplatform Applikationsikoner & Palet-Ergonomi  
+**Task ID**: `078-windows-msix-packaging-and-store-pipeline`  
+**Task Title**: Task 078: Windows MSIX Packaging og Microsoft Store Pipeline  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-10-04T11:41:00Z`  
-**Head**: `6d8244d`  
-**Commit**: `6d8244d`  
+**Timestamp**: `2026-10-15T12:50:00Z`  
+**Head**: `efe74f2`  
+**Commit**: `efe74f2`  
 
 ## Acceptance Criteria
 
-- [x] **AC1 - In-App Header Logo**: `assets/kant_logo.svg` er integreret og renderes som skarp vektorgrafik umiddelbart til venstre for teksten "Kant" i den øverste header-bar via `iced::widget::svg`.
-- [x] **AC2 - Palet-Ergonomi (Industristandard)**: Den globale `sidebar_toggle_btn` før navnet "Kant" i headeren er fjernet.
-  - Når venstrepaletten er synlig i Begrebsmodel og Informationsmodel, findes en kollaps-knap (`◨` / `◀`) i palettens egen header.
-  - Når venstrepaletten er skjult, findes en "Vis palet (Ctrl+B)"-knap (`◨ Palet`) øverst til venstre på canvas-værktøjslinjen.
-  - Global tastaturgenvej `Ctrl+B` bevarer fuld funktionalitet på tværs af visninger.
-- [x] **AC3 - Multiplatform Applikationsikoner**:
-  - `assets/icons/kant.svg` er opdateret til at matche `assets/kant_logo.svg`.
-  - `assets/icons/kant-32.rgba` (præcis 32x32x4 = 4096 bytes) er regenereret ud fra det nye logo og verificeret af `load_window_icon()`.
-  - `assets/icons/kant.ico` (multi-resolution ICO med 16x16, 32x32, 48x48, 256x256) er regenereret ud fra det nye logo til brug i `build.rs` / `winres`.
-- [x] **AC4 - Headless & Verification Gauntlet**: Samtlige eksisterende og nye accepttests i `cargo test --workspace` består uden regressioner.
+- [x] **AC1 - AppxManifest.xml Partner Center Identity**:
+  - `assets/windows/AppxManifest.xml` konfigureret med Identity Name `RolfMadsen.Kant`, Publisher `CN=6101A799-2390-4F81-88B1-08BC634BEC12`, PublisherDisplayName `Rolf Madsen` og DisplayName `Kant`.
+  - Deklarerer `runFullTrust` capability, `EntryPoint="Windows.FullTrustApplication"` til `kant.exe`, og filassociation for `.kant` projektfiler.
+- [x] **AC2 - Windows Store Visual Assets**:
+  - `assets/windows/images/` indeholder deterministisk genererede PNG-fliser fra `assets/icons/kant.svg`:
+    - `Square44x44Logo.png` (44x44 px)
+    - `Square50x50Logo.png` (50x50 px)
+    - `Square150x150Logo.png` (150x150 px)
+    - `Wide310x150Logo.png` (310x150 px)
+    - `SplashScreen.png` (620x300 px)
+- [x] **AC3 - Rust Accepttest Gauntlet**:
+  - `tests/msix_packaging.rs` validerer manifest-struktur, identitetsstrenge og præcise pixeldimensioner for samtlige Store-billeder.
+- [x] **AC4 - CI/CD Release Pipeline**:
+  - `.github/workflows/release.yml` udvidet på Windows `windows-latest` runner til at lokalisere Windows SDK `MakeAppx.exe`, pakke `dist-msix/` til `kant-windows-x86_64.msix`, beregne SHA256, og uploade som release asset sideløbende med den portable `.zip`.
+- [x] **AC5 - Arkitektur Dokumentation**:
+  - ADR 014 oprettet i `docs/adr/014-windows-msix-packaging-and-microsoft-store-distribution.md` og linket i `docs/adr/README.md`.
 
 ---
 
@@ -27,10 +33,5 @@
 
 | Check Name | Status | Exit Code | Scope |
 |---|---|---|---|
-| `acceptance` | `PASSED` | `0` | `87/87 tests passed (0 failures)` |
-| `unit` | `PASSED` | `0` | `42/42 tests passed` |
-| `relay` | `PASSED` | `0` | `7/7 integration tests passed` |
-| `clippy` | `PASSED` | `0` | `0 warnings across all targets` |
-| `types` | `PASSED` | `0` | `clean cargo check --workspace` |
-
----
+| `msix_packaging` | `PASSED` | `0` | `2/2 tests passed (manifest + PNG dimensions)` |
+| `types` | `PASSED` | `0` | `cargo check --tests passed` |
