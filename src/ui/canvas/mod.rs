@@ -1,3 +1,12 @@
+//! # Canvas Studio Modul
+//!
+//! Dekomponeret arkitektur for det visuelle diagramlærred i Kant (Task 085):
+//! - `viewport`: Koordinattransformation, zoom, pan og fit-to-view
+//! - `node_renderer`: Rendering af begreber, UML-klasser, enumerationer og datatyper
+//! - `edge_renderer`: Rendering af relationer, pile, multipliciteter og forbindelseslinjer
+//! - `minimap`: Svævende kontrolpanel og oversigtskort
+//! - `interaction`: Mus- og tastaturinteraktion, drag-select og marquee
+
 pub mod edge_renderer;
 pub mod interaction;
 pub mod minimap;
