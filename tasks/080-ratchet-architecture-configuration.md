@@ -26,11 +26,11 @@ Etablere xGauntlets deklarative arkitektur-gatekeeper i Kant, så arkitektonisk 
 4. Integrere arkitektur-kontrollen som et obligatorisk lag i Kants verifikations-gauntlet via `tests/architecture_test.rs` og `xgauntlet check-architecture`.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 (Konfigurer [architecture] i gauntlet.toml)**: `gauntlet.toml` konfigureres med `max_file_lines = 800` og `max_test_file_lines = 1000`.
-- [ ] **AC2 (Forbered forbidden_tokens)**: `forbidden_tokens = []` deklareres i `gauntlet.toml`, forberedt til Task 082 forbud mod rå RGB farvetokens uden om design systemet.
-- [ ] **AC3 (Ratchet spærrehage på eksisterende monolitter)**: `[[architecture.exemptions]]` etableres for samtlige 11 eksisterende filer over grænseværdierne med faglige begrundelser og faste ratchet lofter.
-- [ ] **AC4 (Architecture Verification Layer)**: Laget `architecture` (`command = ["xgauntlet", "check-architecture"]`) tilføjes til `[[layers]]` i `gauntlet.toml` som non-optional.
-- [ ] **AC5 (Verifikation)**: `tests/architecture_test.rs` oprettes og verificerer konfigurationen samt at `xgauntlet check-architecture` passerer fejlfrit.
+- [x] **AC1 (Konfigurer [architecture] i gauntlet.toml)**: `gauntlet.toml` konfigureres med `max_file_lines = 800` og `max_test_file_lines = 1000`.
+- [x] **AC2 (Forbered forbidden_tokens)**: `forbidden_tokens = []` deklareres i `gauntlet.toml`, forberedt til Task 082 forbud mod rå RGB farvetokens uden om design systemet.
+- [x] **AC3 (Ratchet spærrehage på eksisterende monolitter)**: `[[architecture.exemptions]]` etableres for samtlige 11 eksisterende filer over grænseværdierne med faglige begrundelser og faste ratchet lofter.
+- [x] **AC4 (Architecture Verification Layer)**: Laget `architecture` (`command = ["xgauntlet", "check-architecture"]`) tilføjes til `[[layers]]` i `gauntlet.toml` som non-optional.
+- [x] **AC5 (Verifikation)**: `tests/architecture_test.rs` oprettes og verificerer konfigurationen samt at `xgauntlet check-architecture` passerer fejlfrit.
 
 ## 🚫 Must NOT
 - Må IKKE hæve lofterne på `app.rs`, `acceptance.rs` eller øvrige undtagelser (spærrehagen må kun strammes, aldrig lempes).

@@ -10,6 +10,72 @@ spec_file = "spec.md"
 context_file = "CONTEXT.md"
 coding_standards_file = "CODING_STANDARDS.md"
 
+[architecture]
+max_file_lines = 800
+max_test_file_lines = 1000
+forbidden_tokens = []
+
+[[architecture.exemptions]]
+path = "src/ui/app.rs"
+reason = "Desktop app shell, state router og UI orchestrator; ratchet loft"
+max_lines = 11550
+
+[[architecture.exemptions]]
+path = "tests/acceptance.rs"
+reason = "Monolitisk multi-feature accepttest-suite; ratchet loft"
+max_lines = 12200
+
+[[architecture.exemptions]]
+path = "src/ui/diagram_canvas.rs"
+reason = "Interaktivt lærred til begrebs- og UML diagrammer; ratchet loft"
+max_lines = 2600
+
+[[architecture.exemptions]]
+path = "src/ui/information_model_view.rs"
+reason = "Informationsmodel visning og klasse-relation editor; ratchet loft"
+max_lines = 1950
+
+[[architecture.exemptions]]
+path = "src/features/information_model/mod.rs"
+reason = "Informationsmodel domænemodel, relationer og attributter; ratchet loft"
+max_lines = 1750
+
+[[architecture.exemptions]]
+path = "src/features/model/merge.rs"
+reason = "Semantisk 3-vejs model merge motor; ratchet loft"
+max_lines = 1200
+
+[[architecture.exemptions]]
+path = "src/features/git/service.rs"
+reason = "Git integrations- og synkroniseringsservice; ratchet loft"
+max_lines = 1000
+
+[[architecture.exemptions]]
+path = "src/ui/concept_model_view.rs"
+reason = "Begrebsmodel grafvisning og editor; ratchet loft"
+max_lines = 900
+
+[[architecture.exemptions]]
+path = "src/ui/concept_editor.rs"
+reason = "Begrebsliste modal editor og validering; ratchet loft"
+max_lines = 900
+
+[[architecture.exemptions]]
+path = "src/ui/edge_router.rs"
+reason = "Ortogonal Manhattan relation routing og port bundling; ratchet loft"
+max_lines = 900
+
+[[architecture.exemptions]]
+path = "src/features/concepts/excel.rs"
+reason = "Excel import, eksport og skabelongenerering; ratchet loft"
+max_lines = 850
+
+[[layers]]
+name = "architecture"
+command = ["xgauntlet", "check-architecture"]
+optional = false
+timeout_seconds = 30.0
+
 [[layers]]
 name = "spec"
 command = ["xgauntlet", "check-spec"]
@@ -39,4 +105,5 @@ name = "invariants"
 command = ["cargo", "test", "--", "proptest"]
 optional = false
 timeout_seconds = 120.0
+
 
