@@ -25,17 +25,6 @@ path = "tests/acceptance.rs"
 reason = "Monolitisk multi-feature accepttest-suite; ratchet loft"
 max_lines = 9500
 
-
-[[architecture.exemptions]]
-path = "src/ui/information_model_view.rs"
-reason = "Informationsmodel visning og klasse-relation editor; ratchet loft"
-max_lines = 1950
-
-[[architecture.exemptions]]
-path = "src/features/information_model/mod.rs"
-reason = "Informationsmodel domænemodel, relationer og attributter; ratchet loft"
-max_lines = 1750
-
 [[architecture.exemptions]]
 path = "src/features/model/merge.rs"
 reason = "Semantisk 3-vejs model merge motor; ratchet loft"
