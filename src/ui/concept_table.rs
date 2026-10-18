@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use crate::features::concepts::{BelongsToDomain, Concept, DefinitionLinter};
 use crate::ui::app::{
     Message, TOOLBAR_BTN_EXPORT_EXCEL, TOOLBAR_BTN_GUIDE, TOOLBAR_BTN_IMPORT_EXCEL,
@@ -8,7 +9,7 @@ use crate::ui::theme::{
     pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
 };
 use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
-use iced::{Alignment, Color, Element, Length};
+use iced::{Alignment, Element, Length};
 
 pub fn view<'a>(
     concepts: Vec<&'a Concept>,
@@ -275,14 +276,12 @@ pub fn view<'a>(
                     container(
                         text(format!("⚠️ {} FDA-bemærkning(er)", lint_issues.len()))
                             .size(10)
-                            .color(Color::from_rgb(0.75, 0.45, 0.05)),
+                            .color(ColorTokens::WARNING_TEXT.into_color()),
                     )
                     .style(|_| container::Style {
-                        background: Some(iced::Background::Color(Color::from_rgb(
-                            0.99, 0.97, 0.90,
-                        ))),
+                        background: Some(iced::Background::Color(ColorTokens::WARNING_BG.into_color())),
                         border: iced::Border {
-                            color: Color::from_rgb(0.92, 0.80, 0.50),
+                            color: ColorTokens::WARNING_BORDER.into_color(),
                             width: 0.5,
                             radius: 4.0.into(),
                         },

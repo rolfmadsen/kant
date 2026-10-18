@@ -20,6 +20,7 @@ use crate::ui::concept_table;
 use crate::ui::diagram_canvas::{CanvasEdge, CanvasNode};
 use crate::ui::focus::{FocusCycle, FocusTarget};
 use crate::ui::information_model_view;
+use crate::design_system::tokens::ColorTokens;
 use crate::ui::theme::{
     card_container_style, focused_button_style, modal_backdrop_style, modal_card_style,
     modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
@@ -7730,16 +7731,16 @@ impl App {
         let collab_header_badge: Element<Message> = if self.collab_state.is_active() {
             let (bg_color, dot_color) = match self.collab_connection_status {
                 crate::features::collab::ConnectionStatus::Connected => (
-                    iced::Color::from_rgb(0.92, 0.98, 0.94),
-                    iced::Color::from_rgb(0.12, 0.65, 0.35),
+                    ColorTokens::SUCCESS_BG.into_color(),
+                    ColorTokens::ACCENT_GREEN.into_color(),
                 ),
                 crate::features::collab::ConnectionStatus::Reconnecting => (
-                    iced::Color::from_rgb(1.0, 0.97, 0.88),
-                    iced::Color::from_rgb(0.85, 0.55, 0.10),
+                    ColorTokens::WARNING_AMBER_LIGHT.into_color(),
+                    ColorTokens::WARNING_AMBER.into_color(),
                 ),
                 _ => (
-                    iced::Color::from_rgb(0.95, 0.95, 0.96),
-                    iced::Color::from_rgb(0.55, 0.60, 0.68),
+                    ColorTokens::MUTED_BADGE_BG.into_color(),
+                    ColorTokens::MUTED_BADGE_DOT.into_color(),
                 ),
             };
 
@@ -8607,7 +8608,7 @@ impl App {
                         radius: 8.0.into(),
                     },
                     shadow: iced::Shadow {
-                        color: iced::Color::from_rgba(0.0, 0.0, 0.0, 0.12),
+                        color: ColorTokens::SLATE_900.with_alpha(0.12).into_color(),
                         offset: iced::Vector::new(0.0, 6.0),
                         blur_radius: 16.0,
                     },
@@ -8751,12 +8752,12 @@ impl App {
         let collab_status_widget: Element<Message> = if self.collab_state.is_active() {
             let dot_color = match self.collab_connection_status {
                 crate::features::collab::ConnectionStatus::Connected => {
-                    iced::Color::from_rgb(0.12, 0.65, 0.35)
+                    ColorTokens::ACCENT_GREEN.into_color()
                 }
                 crate::features::collab::ConnectionStatus::Reconnecting => {
-                    iced::Color::from_rgb(0.85, 0.55, 0.10)
+                    ColorTokens::WARNING_AMBER.into_color()
                 }
-                _ => iced::Color::from_rgb(0.55, 0.60, 0.68),
+                _ => ColorTokens::MUTED_BADGE_DOT.into_color(),
             };
             row![
                 text("•").size(12).color(dot_color),
@@ -8870,16 +8871,16 @@ impl App {
                     .align_y(Alignment::Center),
                 )
                 .style(move |_| container::Style {
-                    background: Some(iced::Background::Color(iced::Color::from_rgba(
-                        1.0, 1.0, 1.0, 0.94,
-                    ))),
+                    background: Some(iced::Background::Color(
+                        ColorTokens::SURFACE.with_alpha(0.94).into_color(),
+                    )),
                     border: iced::Border {
                         color: tag_color,
                         width: 1.5,
                         radius: 6.0.into(),
                     },
                     shadow: iced::Shadow {
-                        color: iced::Color::from_rgba(0.0, 0.0, 0.0, 0.15),
+                        color: ColorTokens::SLATE_900.with_alpha(0.15).into_color(),
                         offset: iced::Vector::new(2.0, 4.0),
                         blur_radius: 8.0,
                     },

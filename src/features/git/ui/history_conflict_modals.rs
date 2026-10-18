@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use crate::features::git::ui::state::{
     ConflictChoice, ConflictResolverModalState, ModelHistoryModalState,
 };
@@ -67,9 +68,7 @@ pub fn view_history_modal<'a>(
             .spacing(4),
         )
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(iced::Color::from_rgb(
-                0.96, 0.97, 0.99,
-            ))),
+            background: Some(iced::Background::Color(ColorTokens::SURFACE_BG.into_color())),
             border: iced::Border {
                 color: ThemeColors::SURFACE_BORDER,
                 width: 1.0,
@@ -101,12 +100,12 @@ pub fn view_history_modal<'a>(
             let mut events_col = column![].spacing(3);
             for ev in &commit.changes {
                 let (badge, color) = match ev.action {
-                    ChangeAction::Added => ("🟢 Oprettet", iced::Color::from_rgb(0.06, 0.72, 0.44)),
+                    ChangeAction::Added => ("🟢 Oprettet", ColorTokens::SUCCESS_TEXT.into_color()),
                     ChangeAction::Modified => {
-                        ("🟡 Opdateret", iced::Color::from_rgb(0.92, 0.60, 0.05))
+                        ("🟡 Opdateret", ColorTokens::WARNING_AMBER.into_color())
                     }
                     ChangeAction::Deleted => {
-                        ("🔴 Fjernet", iced::Color::from_rgb(0.92, 0.25, 0.25))
+                        ("🔴 Fjernet", ColorTokens::DANGER_TEXT.into_color())
                     }
                 };
                 events_col = events_col.push(
@@ -124,9 +123,7 @@ pub fn view_history_modal<'a>(
             let commit_card =
                 container(column![commit_header, Space::new().height(4), events_col].spacing(4))
                     .style(move |_| container::Style {
-                        background: Some(iced::Background::Color(iced::Color::from_rgb(
-                            0.98, 0.98, 0.99,
-                        ))),
+                        background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
                         border: iced::Border {
                             color: if is_card_focused {
                                 ThemeColors::FOCUS_RING
@@ -287,9 +284,7 @@ pub fn view_conflict_resolver_modal<'a>(
             .spacing(4),
         )
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(iced::Color::from_rgb(
-                0.98, 0.98, 0.99,
-            ))),
+            background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
             border: iced::Border {
                 color: ThemeColors::SURFACE_BORDER,
                 width: 1.0,

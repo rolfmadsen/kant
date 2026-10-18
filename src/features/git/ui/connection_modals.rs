@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use crate::features::git::ui::state::{
     GitCloneModalState, GitConnectionModalState, PublishModalState,
 };
@@ -86,9 +87,9 @@ pub fn view_publish_modal<'a>(
     } else {
         for event in &modal.preview_events {
             let (badge, color) = match event.action {
-                ChangeAction::Added => ("🟢 Oprettet", iced::Color::from_rgb(0.06, 0.72, 0.44)),
-                ChangeAction::Modified => ("🟡 Opdateret", iced::Color::from_rgb(0.92, 0.60, 0.05)),
-                ChangeAction::Deleted => ("🔴 Fjernet", iced::Color::from_rgb(0.92, 0.25, 0.25)),
+                ChangeAction::Added => ("🟢 Oprettet", ColorTokens::SUCCESS_TEXT.into_color()),
+                ChangeAction::Modified => ("🟡 Opdateret", ColorTokens::WARNING_AMBER.into_color()),
+                ChangeAction::Deleted => ("🔴 Fjernet", ColorTokens::DANGER_TEXT.into_color()),
             };
             let event_row = row![
                 text(badge).size(11).color(color),
@@ -104,9 +105,7 @@ pub fn view_publish_modal<'a>(
 
     let changes_box = container(changes_list)
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(iced::Color::from_rgb(
-                0.98, 0.98, 0.99,
-            ))),
+            background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
             border: iced::Border {
                 color: ThemeColors::SURFACE_BORDER,
                 width: 1.0,
@@ -208,19 +207,17 @@ pub fn view_publish_modal<'a>(
             column![
                 text("⚠️ Fejl ved overførsel til fjernlager:")
                     .size(12)
-                    .color(iced::Color::from_rgb(0.85, 0.2, 0.2)),
+                    .color(ColorTokens::DANGER_TEXT.into_color()),
                 text(err)
                     .size(11)
-                    .color(iced::Color::from_rgb(0.7, 0.1, 0.1)),
+                    .color(ColorTokens::DANGER_TEXT.into_color()),
             ]
             .spacing(2),
         )
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(iced::Color::from_rgb(
-                1.0, 0.94, 0.94,
-            ))),
+            background: Some(iced::Background::Color(ColorTokens::DANGER_BG.into_color())),
             border: iced::Border {
-                color: iced::Color::from_rgb(0.9, 0.4, 0.4),
+                color: ColorTokens::DANGER_BORDER.into_color(),
                 width: 1.0,
                 radius: 6.0.into(),
             },
@@ -371,14 +368,12 @@ pub fn view_git_connection_modal<'a>(
         let err_box = container(
             text(err)
                 .size(12)
-                .color(iced::Color::from_rgb(0.85, 0.2, 0.2)),
+                .color(ColorTokens::DANGER_TEXT.into_color()),
         )
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(iced::Color::from_rgb(
-                1.0, 0.94, 0.94,
-            ))),
+            background: Some(iced::Background::Color(ColorTokens::DANGER_BG.into_color())),
             border: iced::Border {
-                color: iced::Color::from_rgb(0.9, 0.4, 0.4),
+                color: ColorTokens::DANGER_BORDER.into_color(),
                 width: 1.0,
                 radius: 6.0.into(),
             },
@@ -399,17 +394,17 @@ pub fn view_git_connection_modal<'a>(
                     let base_border_color = if is_remove_focused {
                         ThemeColors::FOCUS_RING
                     } else {
-                        iced::Color::from_rgb(0.85, 0.2, 0.2)
+                        ColorTokens::DANGER_TEXT.into_color()
                     };
                     let base_border_width = if is_remove_focused { 1.5 } else { 1.0 };
                     button::Style {
                         background: match status {
                             button::Status::Hovered => Some(iced::Background::Color(
-                                iced::Color::from_rgb(1.0, 0.9, 0.9),
+                                ColorTokens::DANGER_BG.into_color(),
                             )),
                             _ => None,
                         },
-                        text_color: iced::Color::from_rgb(0.85, 0.2, 0.2),
+                        text_color: ColorTokens::DANGER_TEXT.into_color(),
                         border: iced::Border {
                             color: base_border_color,
                             width: base_border_width,
@@ -417,7 +412,7 @@ pub fn view_git_connection_modal<'a>(
                         },
                         shadow: if is_remove_focused {
                             iced::Shadow {
-                                color: iced::Color::from_rgba(0.92, 0.60, 0.05, 0.40),
+                                color: ColorTokens::FOCUS_RING.with_alpha(0.40).into_color(),
                                 offset: iced::Vector::new(0.0, 0.0),
                                 blur_radius: 4.0,
                             }
@@ -568,14 +563,12 @@ pub fn view_git_clone_modal<'a>(
         let err_box = container(
             text(err)
                 .size(12)
-                .color(iced::Color::from_rgb(0.85, 0.2, 0.2)),
+                .color(ColorTokens::DANGER_TEXT.into_color()),
         )
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(iced::Color::from_rgb(
-                1.0, 0.94, 0.94,
-            ))),
+            background: Some(iced::Background::Color(ColorTokens::DANGER_BG.into_color())),
             border: iced::Border {
-                color: iced::Color::from_rgb(0.9, 0.4, 0.4),
+                color: ColorTokens::DANGER_BORDER.into_color(),
                 width: 1.0,
                 radius: 6.0.into(),
             },

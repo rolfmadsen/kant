@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use crate::features::concept_model::{
     DiagramEdge, DiagramNode, NodeId, PortSide, RelationKind, GRID_SIZE,
 };
@@ -1298,7 +1299,7 @@ where
         frame.fill_rectangle(
             Point::ORIGIN,
             bounds.size(),
-            Color::from_rgb(0.985, 0.988, 0.992),
+            ColorTokens::CANVAS_BACKGROUND.into_color(),
         );
 
         // 1. Baggrundsgitter (dækker hele vinduet dynamisk ved resize og pan)
@@ -1307,9 +1308,9 @@ where
         let oy = self.viewport.pan().y.rem_euclid(step);
 
         let dot_color = if self.viewport.zoom() < 0.5 {
-            Color::from_rgba(0.65, 0.7, 0.78, 0.25)
+            ColorTokens::SLATE_400.with_alpha(0.25).into_color()
         } else {
-            Color::from_rgba(0.6, 0.65, 0.75, 0.45)
+            ColorTokens::SLATE_400.with_alpha(0.45).into_color()
         };
 
         let mut grid_builder = iced::widget::canvas::path::Builder::new();
@@ -1340,7 +1341,7 @@ where
                     Size::new(140.0, 60.0),
                     8.0.into(),
                 );
-                frame.fill(&preview_rect, Color::from_rgba(0.23, 0.51, 0.96, 0.12));
+                frame.fill(&preview_rect, ColorTokens::SELECTION_FILL.into_color());
                 frame.stroke(
                     &preview_rect,
                     Stroke::default()
@@ -1369,7 +1370,7 @@ where
             let edge_color = if is_selected_edge {
                 ThemeColors::PRIMARY
             } else {
-                Color::from_rgb(0.3, 0.3, 0.3)
+                ColorTokens::SLATE_600.into_color()
             };
             let edge_width = if is_selected_edge { 2.8 } else { 1.5 };
 
@@ -1509,7 +1510,7 @@ where
             let arrow_stroke_color = if is_selected_edge {
                 ThemeColors::PRIMARY
             } else {
-                Color::from_rgb(0.2, 0.2, 0.2)
+                ColorTokens::SLATE_800.into_color()
             };
             let arrow_stroke_width = if is_selected_edge { 2.2 } else { 1.5 };
 
@@ -1582,7 +1583,7 @@ where
                         Size::new(approx_w, 16.0),
                         4.0.into(),
                     );
-                    frame.fill(&pill, Color::from_rgba(1.0, 1.0, 1.0, 0.90));
+                    frame.fill(&pill, ColorTokens::SURFACE.with_alpha(0.90).into_color());
                     if is_selected_edge {
                         frame.stroke(
                             &pill,
@@ -1638,7 +1639,7 @@ where
             let h = max_y - min_y;
             if w > 0.0 && h > 0.0 {
                 let rect = Path::rectangle(Point::new(min_x, min_y), Size::new(w, h));
-                frame.fill(&rect, Color::from_rgba(0.23, 0.51, 0.96, 0.12));
+                frame.fill(&rect, ColorTokens::SELECTION_FILL.into_color());
                 frame.stroke(
                     &rect,
                     Stroke::default()
@@ -1663,14 +1664,14 @@ where
             panel_rect.size(),
             10.0.into(),
         );
-        overlay_frame.fill(&panel_shadow, Color::from_rgba(0.08, 0.12, 0.20, 0.12));
+        overlay_frame.fill(&panel_shadow, ColorTokens::SLATE_900.with_alpha(0.12).into_color());
 
         let panel_path = Path::rounded_rectangle(
             Point::new(panel_rect.x, panel_rect.y),
             panel_rect.size(),
             10.0.into(),
         );
-        overlay_frame.fill(&panel_path, Color::from_rgba(1.0, 1.0, 1.0, 0.92));
+        overlay_frame.fill(&panel_path, ColorTokens::SURFACE.with_alpha(0.92).into_color());
         overlay_frame.stroke(
             &panel_path,
             Stroke::default()
@@ -1684,11 +1685,11 @@ where
             minimap_rect.size(),
             6.0.into(),
         );
-        overlay_frame.fill(&minimap_bg, Color::from_rgba(0.96, 0.97, 0.985, 0.95));
+        overlay_frame.fill(&minimap_bg, ColorTokens::CANVAS_BACKGROUND.with_alpha(0.95).into_color());
         overlay_frame.stroke(
             &minimap_bg,
             Stroke::default()
-                .with_color(Color::from_rgba(0.85, 0.88, 0.92, 0.8))
+                .with_color(ColorTokens::SLATE_200.with_alpha(0.80).into_color())
                 .with_width(0.8),
         );
 
@@ -1708,7 +1709,7 @@ where
             let node_color = if is_selected {
                 ThemeColors::PRIMARY
             } else {
-                Color::from_rgb(0.55, 0.62, 0.72)
+                ColorTokens::SLATE_400.into_color()
             };
             overlay_frame.fill(&node_rect, node_color);
         }
@@ -1717,7 +1718,7 @@ where
         let vp_box = transform.viewport_rect(&self.viewport, bounds.size());
         let vp_path =
             Path::rounded_rectangle(Point::new(vp_box.x, vp_box.y), vp_box.size(), 2.0.into());
-        overlay_frame.fill(&vp_path, Color::from_rgba(0.23, 0.51, 0.96, 0.16));
+        overlay_frame.fill(&vp_path, ColorTokens::SELECTION_VIEWPORT.into_color());
         overlay_frame.stroke(
             &vp_path,
             Stroke::default()
@@ -1729,9 +1730,9 @@ where
         let draw_btn = |f: &mut Frame, r: Rectangle, label: &str, fsize: f32, is_accent: bool| {
             let btn_path = Path::rounded_rectangle(Point::new(r.x, r.y), r.size(), 5.0.into());
             let bg = if is_accent {
-                Color::from_rgba(0.23, 0.51, 0.96, 0.12)
+                ColorTokens::SELECTION_FILL.into_color()
             } else {
-                Color::from_rgba(0.93, 0.94, 0.96, 0.9)
+                ColorTokens::SLATE_100.with_alpha(0.90).into_color()
             };
             f.fill(&btn_path, bg);
             f.stroke(
@@ -1793,7 +1794,7 @@ fn render_multiplicity_label(frame: &mut Frame, text: &str, pos: Point, is_selec
         Size::new(approx_w, 14.0),
         3.0.into(),
     );
-    frame.fill(&pill, Color::from_rgba(1.0, 1.0, 1.0, 0.88));
+    frame.fill(&pill, ColorTokens::SURFACE.with_alpha(0.88).into_color());
     frame.fill_text(Text {
         content: text.to_string(),
         position: pos,
@@ -1822,7 +1823,7 @@ pub fn render_concept_node(
 
     let shadow_path =
         Path::rounded_rectangle(Point::new(node.x(), node.y() + 2.0), size, radius.into());
-    frame.fill(&shadow_path, Color::from_rgba(0.05, 0.1, 0.2, 0.07));
+    frame.fill(&shadow_path, ColorTokens::SHADOW_LIGHT.into_color());
 
     let node_path = Path::rounded_rectangle(top_left, size, radius.into());
 
@@ -1839,7 +1840,7 @@ pub fn render_concept_node(
     } else if node.is_local() {
         (ThemeColors::FDA_SAND_BORDER, 1.2)
     } else {
-        (Color::from_rgb(0.35, 0.65, 0.85), 1.2)
+        (ColorTokens::FDA_BORROWED_ACCENT.into_color(), 1.2)
     };
 
     frame.stroke(
@@ -1911,7 +1912,7 @@ pub fn render_uml_enumeration_node(
 
     let shadow_path =
         Path::rounded_rectangle(Point::new(node.x(), node.y() + 2.0), size, radius.into());
-    frame.fill(&shadow_path, Color::from_rgba(0.05, 0.1, 0.2, 0.07));
+    frame.fill(&shadow_path, ColorTokens::SHADOW_LIGHT.into_color());
 
     let node_path = Path::rounded_rectangle(top_left, size, radius.into());
     frame.fill(&node_path, ThemeColors::FDA_ENUM_GREEN);
@@ -1919,7 +1920,7 @@ pub fn render_uml_enumeration_node(
     let (border_color, border_width) = if is_selected {
         (ThemeColors::PRIMARY, 2.5)
     } else {
-        (Color::from_rgb(0.60, 0.82, 0.60), 1.2)
+        (ColorTokens::FDA_ENUM_ACCENT.into_color(), 1.2)
     };
 
     frame.stroke(
@@ -1957,7 +1958,7 @@ pub fn render_uml_enumeration_node(
     frame.stroke(
         &divider,
         Stroke::default()
-            .with_color(Color::from_rgb(0.70, 0.88, 0.70))
+            .with_color(ColorTokens::SUCCESS_BORDER.into_color())
             .with_width(1.0),
     );
 
@@ -1990,7 +1991,7 @@ pub fn render_uml_datatype_node(
 
     let shadow_path =
         Path::rounded_rectangle(Point::new(node.x(), node.y() + 2.0), size, radius.into());
-    frame.fill(&shadow_path, Color::from_rgba(0.05, 0.1, 0.2, 0.07));
+    frame.fill(&shadow_path, ColorTokens::SHADOW_LIGHT.into_color());
 
     let node_path = Path::rounded_rectangle(top_left, size, radius.into());
     frame.fill(&node_path, ThemeColors::FDA_DATA_TYPE_YELLOW);
@@ -1998,7 +1999,7 @@ pub fn render_uml_datatype_node(
     let (border_color, border_width) = if is_selected {
         (ThemeColors::PRIMARY, 2.5)
     } else {
-        (Color::from_rgb(0.85, 0.80, 0.50), 1.2)
+        (ColorTokens::FDA_SAND_ACCENT.into_color(), 1.2)
     };
 
     frame.stroke(
@@ -2036,7 +2037,7 @@ pub fn render_uml_datatype_node(
     frame.stroke(
         &divider,
         Stroke::default()
-            .with_color(Color::from_rgb(0.88, 0.84, 0.60))
+            .with_color(ColorTokens::WARNING_BORDER.into_color())
             .with_width(1.0),
     );
 
@@ -2083,7 +2084,7 @@ pub fn render_uml_class_node(
 
     let shadow_path =
         Path::rounded_rectangle(Point::new(node.x(), node.y() + 2.0), size, radius.into());
-    frame.fill(&shadow_path, Color::from_rgba(0.05, 0.1, 0.2, 0.07));
+    frame.fill(&shadow_path, ColorTokens::SHADOW_LIGHT.into_color());
 
     let node_path = Path::rounded_rectangle(top_left, size, radius.into());
 
@@ -2098,7 +2099,7 @@ pub fn render_uml_class_node(
     let (border_color, border_width) = if is_selected {
         (ThemeColors::PRIMARY, 2.5)
     } else if is_borrowed {
-        (Color::from_rgb(0.35, 0.65, 0.85), 1.2)
+        (ColorTokens::FDA_BORROWED_ACCENT.into_color(), 1.2)
     } else {
         (ThemeColors::FDA_SAND_BORDER, 1.2)
     };
@@ -2150,7 +2151,7 @@ pub fn render_uml_class_node(
     });
 
     let divider_color = if is_borrowed {
-        Color::from_rgb(0.55, 0.75, 0.90)
+        ColorTokens::INFO_BORDER.into_color()
     } else {
         ThemeColors::FDA_SAND_BORDER
     };

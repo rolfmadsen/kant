@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use iced::widget::{button, container, text_input};
 use iced::{Background, Border, Color, Shadow, Vector};
 
@@ -6,30 +7,30 @@ pub struct ThemeColors;
 
 impl ThemeColors {
     // Brand & Primary
-    pub const PRIMARY: Color = Color::from_rgb(0.08, 0.38, 0.74); // #1461BD FDA Danish Blue
-    pub const PRIMARY_HOVER: Color = Color::from_rgb(0.12, 0.45, 0.85);
-    pub const PRIMARY_ACTIVE: Color = Color::from_rgb(0.06, 0.30, 0.60);
-    pub const PRIMARY_LIGHT: Color = Color::from_rgb(0.92, 0.95, 0.99);
+    pub const PRIMARY: Color = ColorTokens::PRIMARY.into_color();
+    pub const PRIMARY_HOVER: Color = ColorTokens::PRIMARY_HOVER.into_color();
+    pub const PRIMARY_ACTIVE: Color = ColorTokens::PRIMARY_ACTIVE.into_color();
+    pub const PRIMARY_LIGHT: Color = ColorTokens::PRIMARY_LIGHT_BG.into_color();
 
     // Modern Slate Neutrals
-    pub const SLATE_50: Color = Color::from_rgb(0.976, 0.980, 0.988); // #F8FAFC
-    pub const SLATE_100: Color = Color::from_rgb(0.945, 0.957, 0.973); // #F1F5F9
-    pub const SLATE_200: Color = Color::from_rgb(0.886, 0.910, 0.941); // #E2E8F0
-    pub const SLATE_300: Color = Color::from_rgb(0.796, 0.835, 0.882); // #CBD5E1
-    pub const SLATE_400: Color = Color::from_rgb(0.576, 0.635, 0.722); // #94A3B8
-    pub const SLATE_500: Color = Color::from_rgb(0.392, 0.455, 0.545); // #64748B
-    pub const SLATE_600: Color = Color::from_rgb(0.278, 0.333, 0.412); // #475569
-    pub const SLATE_700: Color = Color::from_rgb(0.200, 0.255, 0.333); // #334155
-    pub const SLATE_800: Color = Color::from_rgb(0.118, 0.161, 0.231); // #1E293B
-    pub const SLATE_900: Color = Color::from_rgb(0.059, 0.090, 0.165); // #0F172A
+    pub const SLATE_50: Color = ColorTokens::SLATE_50.into_color();
+    pub const SLATE_100: Color = ColorTokens::SLATE_100.into_color();
+    pub const SLATE_200: Color = ColorTokens::SLATE_200.into_color();
+    pub const SLATE_300: Color = ColorTokens::SLATE_300.into_color();
+    pub const SLATE_400: Color = ColorTokens::SLATE_400.into_color();
+    pub const SLATE_500: Color = ColorTokens::SLATE_500.into_color();
+    pub const SLATE_600: Color = ColorTokens::SLATE_600.into_color();
+    pub const SLATE_700: Color = ColorTokens::SLATE_700.into_color();
+    pub const SLATE_800: Color = ColorTokens::SLATE_800.into_color();
+    pub const SLATE_900: Color = ColorTokens::SLATE_900.into_color();
 
     // Surfaces & Backgrounds
-    pub const SURFACE_BG: Color = Color::from_rgb(0.955, 0.965, 0.978); // Soft COSMIC canvas backdrop
-    pub const SURFACE_CARD: Color = Color::WHITE;
-    pub const SURFACE_HEADER: Color = Color::WHITE;
-    pub const SURFACE_ROW_HOVER: Color = Color::from_rgb(0.965, 0.975, 0.99);
-    pub const SURFACE_BORDER: Color = Self::SLATE_200;
-    pub const SURFACE_BORDER_LIGHT: Color = Color::from_rgb(0.92, 0.94, 0.96);
+    pub const SURFACE_BG: Color = ColorTokens::SURFACE_BG.into_color();
+    pub const SURFACE_CARD: Color = ColorTokens::SURFACE_CARD.into_color();
+    pub const SURFACE_HEADER: Color = ColorTokens::SURFACE_HEADER.into_color();
+    pub const SURFACE_ROW_HOVER: Color = ColorTokens::SURFACE_ROW_HOVER.into_color();
+    pub const SURFACE_BORDER: Color = ColorTokens::SLATE_200.into_color();
+    pub const SURFACE_BORDER_LIGHT: Color = ColorTokens::SURFACE_BORDER_LIGHT.into_color();
 
     // Legacy Aliases for backwards compatibility
     pub const BACKGROUND_LIGHT: Color = Self::SURFACE_BG;
@@ -41,24 +42,24 @@ impl ThemeColors {
     // Typography
     pub const TEXT_DARK: Color = Self::SLATE_900;
     pub const TEXT_MUTED: Color = Self::SLATE_500;
-    pub const TEXT_LIGHT: Color = Color::WHITE;
+    pub const TEXT_LIGHT: Color = ColorTokens::TEXT_INVERTED.into_color();
 
     // FDA Modelregler Anbefalede Farver (Kapitel 7.3)
-    pub const FDA_SAND: Color = Color::from_rgb(0.996, 0.980, 0.969); // #FEFAF7 - Egen klasse/lokalt begreb
-    pub const FDA_SAND_BORDER: Color = Color::from_rgb(0.91, 0.86, 0.80);
-    pub const FDA_BORROWED_BLUE: Color = Color::from_rgb(0.529, 0.804, 0.922); // #87CDEB - Indlånt/genbrugt klasse
-    pub const FDA_BORROWED_BLUE_BG: Color = Color::from_rgb(0.90, 0.96, 0.99);
-    pub const FDA_DATA_TYPE_YELLOW: Color = Color::from_rgb(0.984, 0.976, 0.776); // #FBF9C6 - Datatyper
-    pub const FDA_ENUM_GREEN: Color = Color::from_rgb(0.910, 0.992, 0.890); // #E8FDE3 - Enumerationer
+    pub const FDA_SAND: Color = ColorTokens::FDA_SAND_BG.into_color();
+    pub const FDA_SAND_BORDER: Color = ColorTokens::FDA_SAND_BORDER.into_color();
+    pub const FDA_BORROWED_BLUE: Color = ColorTokens::FDA_BORROWED_BLUE.into_color();
+    pub const FDA_BORROWED_BLUE_BG: Color = ColorTokens::FDA_BORROWED_BLUE_BG.into_color();
+    pub const FDA_DATA_TYPE_YELLOW: Color = ColorTokens::FDA_DATA_TYPE_YELLOW.into_color();
+    pub const FDA_ENUM_GREEN: Color = ColorTokens::FDA_ENUM_GREEN.into_color();
 
     // Status & Feedback
-    pub const ACCENT_GREEN: Color = Color::from_rgb(0.13, 0.65, 0.42);
-    pub const ACCENT_GREEN_LIGHT: Color = Color::from_rgb(0.91, 0.98, 0.93);
-    pub const ACCENT_RED: Color = Color::from_rgb(0.84, 0.22, 0.22);
-    pub const ACCENT_RED_LIGHT: Color = Color::from_rgb(0.99, 0.92, 0.92);
+    pub const ACCENT_GREEN: Color = ColorTokens::ACCENT_GREEN.into_color();
+    pub const ACCENT_GREEN_LIGHT: Color = ColorTokens::ACCENT_GREEN_LIGHT.into_color();
+    pub const ACCENT_RED: Color = ColorTokens::ACCENT_RED.into_color();
+    pub const ACCENT_RED_LIGHT: Color = ColorTokens::ACCENT_RED_LIGHT.into_color();
 
     // Focus Ring (tynd orange ligesom status pill i øverste højre hjørne af headeren)
-    pub const FOCUS_RING: Color = Color::from_rgb(0.92, 0.60, 0.05); // Amber/Orange
+    pub const FOCUS_RING: Color = ColorTokens::FOCUS_RING.into_color();
 }
 
 // -----------------------------------------------------------------------------
@@ -69,12 +70,12 @@ pub fn card_container_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
         background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
         border: Border {
-            color: Color::from_rgba(0.85, 0.88, 0.93, 0.85),
+            color: ColorTokens::SLATE_200.with_alpha(0.85).into_color(),
             width: 1.0,
             radius: 12.0.into(),
         },
         shadow: Shadow {
-            color: Color::from_rgba(0.06, 0.10, 0.18, 0.07),
+            color: ColorTokens::SLATE_900.with_alpha(0.07).into_color(),
             offset: Vector::new(0.0, 4.0),
             blur_radius: 16.0,
         },
@@ -86,12 +87,12 @@ pub fn floating_panel_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
         background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
         border: Border {
-            color: Color::from_rgba(0.84, 0.88, 0.93, 0.85),
+            color: ColorTokens::SLATE_200.with_alpha(0.85).into_color(),
             width: 1.0,
             radius: 14.0.into(),
         },
         shadow: Shadow {
-            color: Color::from_rgba(0.06, 0.10, 0.20, 0.10),
+            color: ColorTokens::SLATE_900.with_alpha(0.10).into_color(),
             offset: Vector::new(0.0, 6.0),
             blur_radius: 20.0,
         },
@@ -101,14 +102,14 @@ pub fn floating_panel_style(_theme: &iced::Theme) -> container::Style {
 
 pub fn pill_container_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(Color::from_rgba(0.93, 0.95, 0.98, 0.85))),
+        background: Some(Background::Color(ColorTokens::SLATE_100.with_alpha(0.85).into_color())),
         border: Border {
-            color: Color::from_rgba(0.82, 0.86, 0.92, 0.70),
+            color: ColorTokens::SLATE_300.with_alpha(0.70).into_color(),
             width: 1.0,
             radius: 18.0.into(),
         },
         shadow: Shadow {
-            color: Color::from_rgba(0.0, 0.0, 0.0, 0.03),
+            color: ColorTokens::SHADOW_SUBTLE.into_color(),
             offset: Vector::new(0.0, 1.0),
             blur_radius: 3.0,
         },
@@ -118,7 +119,7 @@ pub fn pill_container_style(_theme: &iced::Theme) -> container::Style {
 
 pub fn modal_backdrop_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(Color::from_rgba(0.05, 0.08, 0.15, 0.50))),
+        background: Some(Background::Color(ColorTokens::MODAL_BACKDROP.into_color())),
         ..Default::default()
     }
 }
@@ -127,12 +128,12 @@ pub fn modal_card_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
         background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
         border: Border {
-            color: Color::from_rgba(0.80, 0.84, 0.90, 0.80),
+            color: ColorTokens::SLATE_300.with_alpha(0.80).into_color(),
             width: 1.0,
             radius: 16.0.into(),
         },
         shadow: Shadow {
-            color: Color::from_rgba(0.0, 0.0, 0.0, 0.22),
+            color: ColorTokens::SHADOW_MODAL.into_color(),
             offset: Vector::new(0.0, 12.0),
             blur_radius: 32.0,
         },
@@ -154,7 +155,7 @@ pub fn primary_button_style(_theme: &iced::Theme, status: button::Status) -> but
                 ..Default::default()
             },
             shadow: Shadow {
-                color: Color::from_rgba(0.08, 0.38, 0.74, 0.22),
+                color: ColorTokens::PRIMARY.with_alpha(0.22).into_color(),
                 offset: Vector::new(0.0, 2.0),
                 blur_radius: 4.0,
             },
@@ -168,7 +169,7 @@ pub fn primary_button_style(_theme: &iced::Theme, status: button::Status) -> but
                 ..Default::default()
             },
             shadow: Shadow {
-                color: Color::from_rgba(0.08, 0.38, 0.74, 0.35),
+                color: ColorTokens::PRIMARY.with_alpha(0.35).into_color(),
                 offset: Vector::new(0.0, 4.0),
                 blur_radius: 10.0,
             },
@@ -200,15 +201,15 @@ pub fn primary_button_style(_theme: &iced::Theme, status: button::Status) -> but
 pub fn secondary_button_style(_theme: &iced::Theme, status: button::Status) -> button::Style {
     match status {
         button::Status::Active => button::Style {
-            background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.90))),
+            background: Some(Background::Color(ColorTokens::SURFACE.with_alpha(0.90).into_color())),
             text_color: ThemeColors::SLATE_700,
             border: Border {
-                color: Color::from_rgba(0.85, 0.88, 0.92, 0.85),
+                color: ColorTokens::SLATE_200.with_alpha(0.85).into_color(),
                 width: 1.0,
                 radius: 8.0.into(),
             },
             shadow: Shadow {
-                color: Color::from_rgba(0.0, 0.0, 0.0, 0.03),
+                color: ColorTokens::SHADOW_SUBTLE.into_color(),
                 offset: Vector::new(0.0, 1.0),
                 blur_radius: 2.0,
             },
@@ -223,7 +224,7 @@ pub fn secondary_button_style(_theme: &iced::Theme, status: button::Status) -> b
                 radius: 8.0.into(),
             },
             shadow: Shadow {
-                color: Color::from_rgba(0.0, 0.0, 0.0, 0.07),
+                color: ColorTokens::SHADOW_LIGHT.into_color(),
                 offset: Vector::new(0.0, 2.0),
                 blur_radius: 5.0,
             },
@@ -257,10 +258,10 @@ pub fn secondary_button_style(_theme: &iced::Theme, status: button::Status) -> b
 pub fn danger_button_style(_theme: &iced::Theme, status: button::Status) -> button::Style {
     match status {
         button::Status::Active => button::Style {
-            background: Some(Background::Color(Color::from_rgba(0.99, 0.92, 0.92, 0.90))),
+            background: Some(Background::Color(ColorTokens::DANGER_BG.with_alpha(0.90).into_color())),
             text_color: ThemeColors::ACCENT_RED,
             border: Border {
-                color: Color::from_rgba(0.84, 0.22, 0.22, 0.40),
+                color: ColorTokens::ACCENT_RED.with_alpha(0.40).into_color(),
                 width: 1.0,
                 radius: 8.0.into(),
             },
@@ -276,14 +277,14 @@ pub fn danger_button_style(_theme: &iced::Theme, status: button::Status) -> butt
                 radius: 8.0.into(),
             },
             shadow: Shadow {
-                color: Color::from_rgba(0.84, 0.22, 0.22, 0.30),
+                color: ColorTokens::ACCENT_RED.with_alpha(0.30).into_color(),
                 offset: Vector::new(0.0, 3.0),
                 blur_radius: 8.0,
             },
             ..Default::default()
         },
         button::Status::Pressed => button::Style {
-            background: Some(Background::Color(Color::from_rgb(0.70, 0.18, 0.18))),
+            background: Some(Background::Color(ColorTokens::ACCENT_RED_PRESSED.into_color())),
             text_color: ThemeColors::TEXT_LIGHT,
             border: Border {
                 color: ThemeColors::ACCENT_RED,
@@ -306,12 +307,12 @@ pub fn segmented_tab_button(
                 background: Some(Background::Color(Color::WHITE)),
                 text_color: ThemeColors::PRIMARY,
                 border: Border {
-                    color: Color::from_rgba(0.85, 0.88, 0.93, 0.80),
+                    color: ColorTokens::SLATE_200.with_alpha(0.80).into_color(),
                     width: 1.0,
                     radius: 14.0.into(),
                 },
                 shadow: Shadow {
-                    color: Color::from_rgba(0.08, 0.15, 0.28, 0.10),
+                    color: ColorTokens::SLATE_800.with_alpha(0.10).into_color(),
                     offset: Vector::new(0.0, 2.0),
                     blur_radius: 6.0,
                 },
@@ -320,21 +321,21 @@ pub fn segmented_tab_button(
         } else {
             match status {
                 button::Status::Hovered => button::Style {
-                    background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.65))),
+                    background: Some(Background::Color(ColorTokens::SURFACE.with_alpha(0.65).into_color())),
                     text_color: ThemeColors::SLATE_900,
                     border: Border {
                         radius: 14.0.into(),
                         ..Default::default()
                     },
                     shadow: Shadow {
-                        color: Color::from_rgba(0.0, 0.0, 0.0, 0.02),
+                        color: ColorTokens::SHADOW_SUBTLE.with_alpha(0.02).into_color(),
                         offset: Vector::new(0.0, 1.0),
                         blur_radius: 2.0,
                     },
                     ..Default::default()
                 },
                 button::Status::Pressed => button::Style {
-                    background: Some(Background::Color(Color::from_rgba(0.85, 0.88, 0.94, 0.80))),
+                    background: Some(Background::Color(ColorTokens::SLATE_200.with_alpha(0.80).into_color())),
                     text_color: ThemeColors::SLATE_900,
                     border: Border {
                         radius: 14.0.into(),
@@ -364,7 +365,7 @@ pub fn list_item_button(
     move |_theme, status| {
         if is_selected {
             button::Style {
-                background: Some(Background::Color(Color::from_rgba(0.91, 0.95, 0.99, 0.92))),
+                background: Some(Background::Color(ColorTokens::PRIMARY_LIGHT_BG.with_alpha(0.92).into_color())),
                 text_color: ThemeColors::PRIMARY,
                 border: Border {
                     color: ThemeColors::PRIMARY,
@@ -372,7 +373,7 @@ pub fn list_item_button(
                     radius: 8.0.into(),
                 },
                 shadow: Shadow {
-                    color: Color::from_rgba(0.08, 0.38, 0.74, 0.12),
+                    color: ColorTokens::PRIMARY.with_alpha(0.12).into_color(),
                     offset: Vector::new(0.0, 2.0),
                     blur_radius: 4.0,
                 },
@@ -389,7 +390,7 @@ pub fn list_item_button(
                         radius: 8.0.into(),
                     },
                     shadow: Shadow {
-                        color: Color::from_rgba(0.0, 0.0, 0.0, 0.04),
+                        color: ColorTokens::SHADOW_SUBTLE.into_color(),
                         offset: Vector::new(0.0, 1.0),
                         blur_radius: 3.0,
                     },
@@ -406,10 +407,10 @@ pub fn list_item_button(
                     ..Default::default()
                 },
                 _ => button::Style {
-                    background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.75))),
+                    background: Some(Background::Color(ColorTokens::SURFACE.with_alpha(0.75).into_color())),
                     text_color: ThemeColors::SLATE_800,
                     border: Border {
-                        color: Color::from_rgba(0.88, 0.91, 0.94, 0.75),
+                        color: ColorTokens::SLATE_200.with_alpha(0.75).into_color(),
                         width: 1.0,
                         radius: 8.0.into(),
                     },
@@ -424,14 +425,14 @@ pub fn list_item_container_style(is_selected: bool) -> impl Fn(&iced::Theme) -> 
     move |_theme| {
         if is_selected {
             container::Style {
-                background: Some(Background::Color(Color::from_rgba(0.91, 0.95, 0.99, 0.92))),
+                background: Some(Background::Color(ColorTokens::PRIMARY_LIGHT_BG.with_alpha(0.92).into_color())),
                 border: Border {
                     color: ThemeColors::PRIMARY,
                     width: 1.5,
                     radius: 8.0.into(),
                 },
                 shadow: Shadow {
-                    color: Color::from_rgba(0.08, 0.38, 0.74, 0.12),
+                    color: ColorTokens::PRIMARY.with_alpha(0.12).into_color(),
                     offset: Vector::new(0.0, 2.0),
                     blur_radius: 4.0,
                 },
@@ -439,14 +440,14 @@ pub fn list_item_container_style(is_selected: bool) -> impl Fn(&iced::Theme) -> 
             }
         } else {
             container::Style {
-                background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.85))),
+                background: Some(Background::Color(ColorTokens::SURFACE.with_alpha(0.85).into_color())),
                 border: Border {
-                    color: Color::from_rgba(0.88, 0.91, 0.94, 0.85),
+                    color: ColorTokens::SLATE_200.with_alpha(0.85).into_color(),
                     width: 1.0,
                     radius: 8.0.into(),
                 },
                 shadow: Shadow {
-                    color: Color::from_rgba(0.0, 0.0, 0.0, 0.02),
+                    color: ColorTokens::SHADOW_SUBTLE.with_alpha(0.02).into_color(),
                     offset: Vector::new(0.0, 1.0),
                     blur_radius: 2.0,
                 },
@@ -463,9 +464,9 @@ pub fn list_item_container_style(is_selected: bool) -> impl Fn(&iced::Theme) -> 
 pub fn modern_input_style(_theme: &iced::Theme, status: text_input::Status) -> text_input::Style {
     match status {
         text_input::Status::Active => text_input::Style {
-            background: Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.92)),
+            background: Background::Color(ColorTokens::SURFACE.with_alpha(0.92).into_color()),
             border: Border {
-                color: Color::from_rgba(0.85, 0.88, 0.92, 0.85),
+                color: ColorTokens::SLATE_200.with_alpha(0.85).into_color(),
                 width: 1.0,
                 radius: 8.0.into(),
             },
@@ -494,7 +495,7 @@ pub fn modern_input_style(_theme: &iced::Theme, status: text_input::Status) -> t
                 radius: 8.0.into(),
             },
             icon: ThemeColors::PRIMARY,
-            placeholder: Color::from_rgba(0.60, 0.65, 0.75, 0.60),
+            placeholder: ColorTokens::SLATE_400.with_alpha(0.60).into_color(),
             value: ThemeColors::SLATE_900,
             selection: ThemeColors::PRIMARY_LIGHT,
         },
@@ -526,7 +527,7 @@ pub fn focused_button_style(
                 radius: s.border.radius,
             };
             s.shadow = Shadow {
-                color: Color::from_rgba(0.92, 0.60, 0.05, 0.40),
+                color: ColorTokens::FOCUS_RING.with_alpha(0.40).into_color(),
                 offset: Vector::new(0.0, 0.0),
                 blur_radius: 4.0,
             };

@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use crate::features::collab::ui::state::{
     GuestEndedNoticeModalState, JoinSessionModalState, RelayServerPreset, StartSessionModalState,
     START_SESSION_BTN_CANCEL, START_SESSION_BTN_COPY, START_SESSION_BTN_PRESET,
@@ -238,7 +239,7 @@ pub fn view_join_session_modal<'a>(
             row![
                 text("✓")
                     .size(14)
-                    .color(iced::Color::from_rgb(0.12, 0.65, 0.35)),
+                    .color(ColorTokens::SUCCESS_TEXT.into_color()),
                 Space::new().width(6),
                 text(format!(
                     "Gyldig kode (Server: {} | Rum: {})",
@@ -246,7 +247,7 @@ pub fn view_join_session_modal<'a>(
                     ticket.room_id.as_str()
                 ))
                 .size(12)
-                .color(iced::Color::from_rgb(0.12, 0.65, 0.35)),
+                .color(ColorTokens::SUCCESS_TEXT.into_color()),
             ]
             .align_y(Alignment::Center),
         )
@@ -259,7 +260,7 @@ pub fn view_join_session_modal<'a>(
                 Space::new().width(6),
                 text(err)
                     .size(12)
-                    .color(iced::Color::from_rgb(0.85, 0.20, 0.20)),
+                    .color(ColorTokens::DANGER_TEXT.into_color()),
             ]
             .align_y(Alignment::Center),
         )

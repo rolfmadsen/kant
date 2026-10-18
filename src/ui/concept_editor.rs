@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use crate::features::concepts::{
     BelongsToDomain, Concept, ConceptValidator, DefinitionLinter, ValidationError,
 };
@@ -5,7 +6,7 @@ use crate::ui::app::Message;
 use crate::ui::focus::{FocusCycle, FocusTarget};
 use crate::ui::theme::ThemeColors;
 use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
-use iced::{Alignment, Color, Element, Length};
+use iced::{Alignment, Element, Length};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -555,22 +556,22 @@ impl ConceptEditorState {
         if !lint_issues.is_empty() {
             let mut issues_col = column![text("⚠️ FDA Vejledning (§20-§22):")
                 .size(11)
-                .color(Color::from_rgb(0.75, 0.45, 0.05))]
+                .color(ColorTokens::WARNING_TEXT.into_color())]
             .spacing(3);
 
             for issue in &lint_issues {
                 issues_col = issues_col.push(
                     text(format!("• {}", issue.message))
                         .size(11)
-                        .color(Color::from_rgb(0.70, 0.40, 0.05)),
+                        .color(ColorTokens::WARNING_TEXT.into_color()),
                 );
             }
 
             let issues_box = container(issues_col)
                 .style(|_| container::Style {
-                    background: Some(iced::Background::Color(Color::from_rgb(0.99, 0.97, 0.90))),
+                    background: Some(iced::Background::Color(ColorTokens::WARNING_BG.into_color())),
                     border: iced::Border {
-                        color: Color::from_rgb(0.92, 0.80, 0.50),
+                        color: ColorTokens::WARNING_BORDER.into_color(),
                         width: 1.0,
                         radius: 6.0.into(),
                     },
@@ -600,7 +601,7 @@ impl ConceptEditorState {
                 .style(|_| container::Style {
                     background: Some(iced::Background::Color(ThemeColors::ACCENT_GREEN_LIGHT)),
                     border: iced::Border {
-                        color: Color::from_rgb(0.70, 0.88, 0.75),
+                        color: ColorTokens::SUCCESS_BORDER.into_color(),
                         width: 1.0,
                         radius: 6.0.into(),
                     },

@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use crate::features::concept_model::{ConceptGraph, NodeId, RelationKind};
 use crate::features::concepts::Concept;
 use crate::ui::app::{Message, NodeOption, PaletteDragItem, RelationDialogState};
@@ -12,7 +13,7 @@ use iced::widget::{
     button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text, text_input,
     tooltip, Space,
 };
-use iced::{mouse, Alignment, Color, Element, Length};
+use iced::{mouse, Alignment, Element, Length};
 
 #[allow(clippy::too_many_arguments)]
 pub fn view<'a>(
@@ -367,9 +368,7 @@ pub fn view<'a>(
             toolbar,
             container(canvas_widget)
                 .style(|_| container::Style {
-                    background: Some(iced::Background::Color(Color::from_rgb(
-                        0.985, 0.988, 0.992
-                    ))),
+                    background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
                     border: iced::Border {
                         color: ThemeColors::SLATE_200,
                         width: 1.0,
@@ -390,9 +389,7 @@ pub fn view<'a>(
             toolbar,
             container(canvas_widget)
                 .style(|_| container::Style {
-                    background: Some(iced::Background::Color(Color::from_rgb(
-                        0.985, 0.988, 0.992
-                    ))),
+                    background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
                     border: iced::Border {
                         color: ThemeColors::SLATE_200,
                         width: 1.0,

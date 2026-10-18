@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::Concept;
 use crate::features::information_model::{
@@ -185,7 +186,7 @@ pub fn view<'a>(
                 container(
                     text("Indlånt")
                         .size(9)
-                        .color(Color::from_rgb(0.08, 0.35, 0.65)),
+                        .color(ColorTokens::PRIMARY_DARK_TEXT.into_color()),
                 )
                 .style(|_theme: &iced::Theme| container::Style {
                     background: Some(iced::Background::Color(ThemeColors::FDA_BORROWED_BLUE)),
@@ -309,7 +310,7 @@ pub fn view<'a>(
             container(
                 text("Enum")
                     .size(9)
-                    .color(Color::from_rgb(0.15, 0.45, 0.15)),
+                    .color(ColorTokens::SUCCESS_DARK_TEXT.into_color()),
             )
             .style(|_theme: &iced::Theme| container::Style {
                 background: Some(iced::Background::Color(ThemeColors::FDA_ENUM_GREEN)),
@@ -686,9 +687,7 @@ pub fn view<'a>(
             dialog_card,
             container(canvas_widget)
                 .style(|_| container::Style {
-                    background: Some(iced::Background::Color(Color::from_rgb(
-                        0.985, 0.988, 0.992
-                    ))),
+                    background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
                     border: iced::Border {
                         color: ThemeColors::SLATE_200,
                         width: 1.0,
@@ -707,9 +706,7 @@ pub fn view<'a>(
             toolbar,
             container(canvas_widget)
                 .style(|_| container::Style {
-                    background: Some(iced::Background::Color(Color::from_rgb(
-                        0.985, 0.988, 0.992
-                    ))),
+                    background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
                     border: iced::Border {
                         color: ThemeColors::SLATE_200,
                         width: 1.0,
@@ -980,7 +977,7 @@ pub fn view<'a>(
                         msg.push_str(&format!(" (Forslag: {})", fix));
                     }
                     label_col = label_col
-                        .push(text(msg).size(10.0).color(Color::from_rgb(0.85, 0.55, 0.1)));
+                        .push(text(msg).size(10.0).color(ColorTokens::WARNING_AMBER.into_color()));
                 }
             }
 
@@ -1065,7 +1062,7 @@ pub fn view<'a>(
                     msg.push_str(&format!(" (Forslag: {})", fix));
                 }
                 name_col =
-                    name_col.push(text(msg).size(10.5).color(Color::from_rgb(0.85, 0.55, 0.1)));
+                    name_col.push(text(msg).size(10.5).color(ColorTokens::WARNING_AMBER.into_color()));
             }
         }
 
@@ -1502,7 +1499,7 @@ pub fn view<'a>(
                         msg.push_str(&format!(" (Forslag: {})", fix));
                     }
                     attr_col =
-                        attr_col.push(text(msg).size(10.0).color(Color::from_rgb(0.85, 0.55, 0.1)));
+                        attr_col.push(text(msg).size(10.0).color(ColorTokens::WARNING_AMBER.into_color()));
                 }
             }
 
@@ -1625,7 +1622,7 @@ pub fn view<'a>(
         let badge_border = if is_local {
             ThemeColors::FDA_SAND_BORDER
         } else {
-            Color::from_rgb(0.35, 0.65, 0.85)
+            ColorTokens::FDA_BORROWED_ACCENT.into_color()
         };
         let badge_text = if is_local { "Klasse" } else { "Indlånt" };
 
@@ -1705,7 +1702,7 @@ pub fn view<'a>(
             Some((
                 "Enumeration",
                 ThemeColors::FDA_ENUM_GREEN,
-                Color::from_rgb(0.60, 0.82, 0.60),
+                ColorTokens::FDA_ENUM_ACCENT.into_color(),
             )),
             Some(Message::SelectInformationEnumeration(None)),
         );
@@ -1726,7 +1723,7 @@ pub fn view<'a>(
                     msg.push_str(&format!(" (Forslag: {})", fix));
                 }
                 name_col =
-                    name_col.push(text(msg).size(10.5).color(Color::from_rgb(0.85, 0.55, 0.1)));
+                    name_col.push(text(msg).size(10.5).color(ColorTokens::WARNING_AMBER.into_color()));
             }
         }
 
@@ -1847,7 +1844,7 @@ pub fn view<'a>(
                     msg.push_str(&format!(" (Forslag: {})", fix));
                 }
                 add_val_col =
-                    add_val_col.push(text(msg).size(10.0).color(Color::from_rgb(0.85, 0.55, 0.1)));
+                    add_val_col.push(text(msg).size(10.0).color(ColorTokens::WARNING_AMBER.into_color()));
             }
         }
 

@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use crate::features::git::RepoSyncStatus;
 use crate::ui::app::Message;
 use crate::ui::theme::ThemeColors;
@@ -10,28 +11,28 @@ pub fn view_git_status_badge<'a>(
 ) -> Element<'a, Message> {
     let (dot_color, bg_color) = match git_sync_status {
         RepoSyncStatus::Synced => (
-            iced::Color::from_rgb(0.06, 0.72, 0.44), // emerald green
-            iced::Color::from_rgb(0.92, 0.98, 0.94),
+            ColorTokens::SUCCESS_TEXT.into_color(), // emerald green
+            ColorTokens::SUCCESS_BG.into_color(),
         ),
         RepoSyncStatus::PendingChanges => (
-            iced::Color::from_rgb(0.92, 0.60, 0.05), // amber
-            iced::Color::from_rgb(1.0, 0.98, 0.88),
+            ColorTokens::WARNING_AMBER.into_color(), // amber
+            ColorTokens::WARNING_AMBER_LIGHT.into_color(),
         ),
         RepoSyncStatus::UnpublishedCommits(n) if *n > 0 => (
-            iced::Color::from_rgb(0.20, 0.50, 0.95), // blue
-            iced::Color::from_rgb(0.92, 0.95, 1.0),
+            ColorTokens::INFO_BLUE.into_color(), // blue
+            ColorTokens::INFO_BG.into_color(),
         ),
         RepoSyncStatus::IncomingCommits(_) => (
-            iced::Color::from_rgb(0.55, 0.35, 0.95), // purple
-            iced::Color::from_rgb(0.95, 0.92, 1.0),
+            ColorTokens::PURPLE_TEXT.into_color(), // purple
+            ColorTokens::PURPLE_BG.into_color(),
         ),
         RepoSyncStatus::Diverged { .. } => (
-            iced::Color::from_rgb(0.92, 0.25, 0.25), // red
-            iced::Color::from_rgb(1.0, 0.92, 0.92),
+            ColorTokens::DANGER_TEXT.into_color(), // red
+            ColorTokens::DANGER_BG.into_color(),
         ),
         _ => (
-            iced::Color::from_rgb(0.55, 0.60, 0.68), // slate
-            iced::Color::from_rgb(0.95, 0.95, 0.96),
+            ColorTokens::MUTED_BADGE_DOT.into_color(), // slate
+            ColorTokens::MUTED_BADGE_BG.into_color(),
         ),
     };
 
