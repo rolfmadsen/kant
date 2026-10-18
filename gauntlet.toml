@@ -1,7 +1,7 @@
 # xGauntlet Declarative Configuration
 stack = "rust"
 save_evidence = true
-evidence_file = "evidence.json"
+evidence_file = "verification-report.json"
 evidence_markdown_file = "evidence.md"
 
 [paths]

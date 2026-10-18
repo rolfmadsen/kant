@@ -31,7 +31,22 @@ tags: [specification, architecture, invariants]
 - `crates/kant-relay/`: Ultralet, in-memory, blind Axum WebSocket pub/sub relay.
 - `src/ui/`: Iced shell, faner, tema og præsentationslogik.
 - `tasks/`: Eksekverbare opgavepakker med acceptkriterier.
-- `docs/adr/`: Arkitektoniske beslutningsreferater.
+- `docs/adr/`: Arkitektoniske beslutningsreferater:
+  - [ADR 001: Iced Desktop GUI Framework](docs/adr/001-iced-architecture.md)
+  - [ADR 002: Begrebsliste CRUD & Domænemodel](docs/adr/002-concept-list-crud.md)
+  - [ADR 003: Projektpersistens & Autosave](docs/adr/003-project-persistence-and-autosave.md)
+  - [ADR 004: Interaktiv Begrebsmodel Canvas](docs/adr/004-concept-graph-canvas.md)
+  - [ADR 005: Ortogonal Manhattan Routing & Port-Bus](docs/adr/005-orthogonal-edge-routing-and-port-bus.md)
+  - [ADR 006: Informationsmodel & Begrebssporing](docs/adr/006-information-model-and-concept-traceability.md)
+  - [ADR 007: Canvas Studio Paradigmet & UML Klassediagram](docs/adr/007-canvas-studio-paradigm-and-uml-class-canvas.md)
+  - [ADR 008: E2EE Realtids-kollaborering & Relay](docs/adr/008-e2ee-realtime-collaboration-and-stateless-relay.md)
+  - [ADR 009: Rebranding fra Edge til Kant](docs/adr/009-rebranding-from-edge-to-kant.md)
+  - [ADR 010: Cross-Platform Native Fildialoger](docs/adr/010-cross-platform-native-dialogs-and-os-packaging.md)
+  - [ADR 011: Dekomponeret Model-Persistens & Git](docs/adr/011-decomposed-model-persistence-and-git-integration.md)
+  - [ADR 012: Maskinlæsbar Modeludveksling XMI & RDF](docs/adr/012-machine-readable-model-interchange.md)
+  - [ADR 013: Rendering Diagnostics & WGPU på Windows](docs/adr/013-windows-rendering-diagnostics-and-wgpu-restoration.md)
+  - [ADR 014: Windows MSIX Packaging & Store Distribution](docs/adr/014-windows-msix-packaging-and-microsoft-store-distribution.md)
+  - [ADR Template: Ny beslutningsskabelon](docs/adr/template.md)
 
 ## 🚫 Must NOT (System Invariants)
 - Må IKKE introducere skjulte runtime-afhængigheder eller udokumenterede baggrundsprocesser (Zero-Daemon).

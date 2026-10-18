@@ -1,4 +1,4 @@
-# Agent Guidelines: edge
+# Agent Guidelines: Kant
 
 Dette repository følger **Evidence-First Development & Clean Craftsmanship** metodikken.
 

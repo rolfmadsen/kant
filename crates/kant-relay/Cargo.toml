@@ -1,9 +1,9 @@
 [package]
 name = "kant-relay"
-version = "0.2.1"
-edition = "2021"
-authors = ["Rolf Madsen"]
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
 description = "Ultralet, in-memory, blind Axum WebSocket pub/sub relay for Kant E2EE kollaborering"
 
 [dependencies]
