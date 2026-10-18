@@ -763,3 +763,60 @@ fn test_task_077_stationary_double_click_on_node_emits_double_clicked() {
         "Nodepositioner må IKKE ændres ved stillestående dobbeltklik"
     );
 }
+
+#[test]
+fn test_task_085_canvas_studio_decomposition_modular_architecture_and_bounds() {
+    use kant::ui::canvas::edge_renderer::distance_to_segment;
+    use kant::ui::canvas::interaction::ClickRecord;
+    use kant::ui::canvas::minimap::MinimapTransform;
+    use kant::ui::canvas::node_renderer::concept_stereotype_text;
+    use kant::ui::canvas::viewport::CanvasViewport;
+    use kant::ui::canvas::{DiagramCanvas, DiagramCanvasState};
+    use std::path::PathBuf;
+
+    // 1. Verificer at dekomponerede moduler og typer fungerer
+    let vp = CanvasViewport::default();
+    assert_eq!(vp.zoom(), 1.0);
+    let world_pt = vp.to_world(Point::new(100.0, 100.0));
+    assert_eq!(world_pt, Point::new(100.0, 100.0));
+    let snapped = CanvasViewport::snap_to_grid(Point::new(23.4, 38.9), 20.0);
+    assert_eq!(snapped, Point::new(20.0, 40.0));
+
+    let stereotype = concept_stereotype_text();
+    assert_eq!(stereotype, "«FDA Begreb»");
+
+    let dist = distance_to_segment(Point::new(10.0, 5.0), Point::new(0.0, 0.0), Point::new(20.0, 0.0));
+    assert_eq!(dist, 5.0);
+
+    // 2. Verificer modulgrænser og ratchet linjelofter jf. AC1-AC4
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let limits = [
+        ("src/ui/canvas/viewport.rs", 400),
+        ("src/ui/canvas/node_renderer.rs", 600),
+        ("src/ui/canvas/edge_renderer.rs", 500),
+        ("src/ui/canvas/minimap.rs", 300),
+        ("src/ui/canvas/interaction.rs", 600),
+        ("src/ui/canvas/mod.rs", 800),
+        ("src/ui/diagram_canvas.rs", 800),
+    ];
+
+    for (rel_path, max_lines) in limits {
+        let path = repo_root.join(rel_path);
+        assert!(
+            path.exists(),
+            "Dekomponeret modul '{}' skal eksistere",
+            rel_path
+        );
+        let content = std::fs::read_to_string(&path)
+            .unwrap_or_else(|_| panic!("Kunne ikke læse {}", rel_path));
+        let lines = content.lines().count();
+        assert!(
+            lines <= max_lines,
+            "Filen '{}' har {} linjer, hvilket overstiger grænsen på {}",
+            rel_path,
+            lines,
+            max_lines
+        );
+    }
+}
+
