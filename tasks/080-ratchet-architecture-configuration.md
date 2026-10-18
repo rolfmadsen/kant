@@ -2,7 +2,7 @@
 type: Task Package
 title: "Task 080: Declarative Ratchet Architecture Configuration"
 description: "Etablering af deklarativ [architecture] konfiguration i gauntlet.toml med forbud mod rå styling og ratchet spærrehage på app.rs og acceptance.rs"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-16T21:52:00Z" }
 tags: [architecture, ratchet, gauntlet-toml, linter, limits, tokens]
 scope:
@@ -14,7 +14,7 @@ test_refs:
 
 # Task 080: Declarative Ratchet Architecture Configuration
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: `🚀 NEW FEATURE`  
 **Oprettet**: `2026-10-16`  
 

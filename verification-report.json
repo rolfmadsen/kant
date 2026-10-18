@@ -4,90 +4,100 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "066-startup-latency-profiling-and-windows-dx12-fastpath",
-    "task_title": "Task 066: Startup Latency Profiling & Windows DX12 Fast-Path",
-    "task_digest": "cc397b9fb56cd7744a297e24f8e972c6e21501841eb16c5e90c66cd72428ec31",
+    "task_id": "080-ratchet-architecture-configuration",
+    "task_title": "Task 080: Declarative Ratchet Architecture Configuration",
+    "task_digest": "0f9a3a2f5e1256fc7045a25bc5d2dc2272c25e146cdb5a554576da9bea1f46ba",
     "acceptance_criteria": [
-      "**AC1 - Relativ tidsstempling i log**: Alle loglinjer i `kant.log` og log-bufferen indeholder relativ tid siden processtart formateret som `[+Xms]`.",
-      "**AC2 - WGPU DX12 Fast-Path på Windows**: `resolve_default_wgpu_backend(is_windows: bool, existing: Option<&str>)` returnerer `Some(\"dx12\")` når `is_windows == true` og ingen backend er sat, og `None` hvis en eksisterende overstyring findes eller på ikke-Windows.",
-      "**AC3 - Opstartsprofilering i Diagnostics**: `SystemDiagnostics` opfanger opstartstids-milepæle og rapporterer total opstartstid til første frame i diagnostik-rapporten.",
-      "**AC4 - Regression & Acceptance Tests**: Automatiserede accepttests i `tests/acceptance.rs` verificerer relativ tidsstempling, backend-resolution for WGPU og milepælsregistrering."
+      "**AC1 (Konfigurer [architecture] i gauntlet.toml)**: `gauntlet.toml` konfigureres med `max_file_lines = 800` og `max_test_file_lines = 1000`.",
+      "**AC2 (Forbered forbidden_tokens)**: `forbidden_tokens = []` deklareres i `gauntlet.toml`, forberedt til Task 082 forbud mod rå RGB farvetokens uden om design systemet.",
+      "**AC3 (Ratchet spærrehage på eksisterende monolitter)**: `[[architecture.exemptions]]` etableres for samtlige 11 eksisterende filer over grænseværdierne med faglige begrundelser og faste ratchet lofter.",
+      "**AC4 (Architecture Verification Layer)**: Laget `architecture` (`command = [\"xgauntlet\", \"check-architecture\"]`) tilføjes til `[[layers]]` i `gauntlet.toml` som non-optional.",
+      "**AC5 (Verifikation)**: `tests/architecture_test.rs` oprettes og verificerer konfigurationen samt at `xgauntlet check-architecture` passerer fejlfrit."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "cb31e1cbba4499fb3eca20308252a7ee92c6f15dfbd939043b9fe212bf078ee8",
-    "source_manifest_digest_pre": "b0d34bd7d2330a8b8f4cd422cd6c59012284a85ff81a20a4c4733525d4fe9d33",
-    "source_manifest_digest_post": "b0d34bd7d2330a8b8f4cd422cd6c59012284a85ff81a20a4c4733525d4fe9d33",
-    "config_digest": "2d621e65c66f37d557c5ba19992b3a2c0f048d8cb123d1e2c3a38708793ba745",
-    "task_digest": "cc397b9fb56cd7744a297e24f8e972c6e21501841eb16c5e90c66cd72428ec31",
-    "policy_digest": "e0c429cf3079964fb23a93295081a320e1c98690dacc1877579368587805dcdf",
-    "check_definitions_digest": "dd50656a3cb4808ad5a7096762f6729b2503e0d6f90c203a5819983ef61167c2",
-    "included_files_count": 142,
+    "source_content_digest": "5e664246a438808ad086d6ee40ee692c3466c078689cebc6031f67d1e42dd246",
+    "source_manifest_digest_pre": "0cea592ce6144cb047cc450487bddb0df7db741717f9c3e241dd693aff8e375c",
+    "source_manifest_digest_post": "0cea592ce6144cb047cc450487bddb0df7db741717f9c3e241dd693aff8e375c",
+    "config_digest": "1c1e281386ca73332058b16c90b6f90b37df677087aeb885b8fc32e5cb495d41",
+    "task_digest": "0f9a3a2f5e1256fc7045a25bc5d2dc2272c25e146cdb5a554576da9bea1f46ba",
+    "policy_digest": "5eab527c5b03712624f6c20e202b92d52cf587c89b75d81a7009d2d2dc0be6e1",
+    "check_definitions_digest": "7ac9f4a75d7c84442ecaa2a4c1e0c06c1940bf2e1f0c017e60b1fe20c38e97c4",
+    "included_files_count": 191,
     "vcs": {
       "type": "git",
-      "head": "35605ad",
-      "commit": "35605ad",
+      "head": "2f71f8f",
+      "commit": "2f71f8f",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-03T11:40:47Z",
-    "finished_at": "2026-10-03T11:40:51Z",
-    "total_duration_seconds": 4.446233977,
+    "started_at": "2026-10-18T14:50:00Z",
+    "finished_at": "2026-10-18T14:50:06Z",
+    "total_duration_seconds": 5.586032537,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
       "platform": "linux",
-      "version": "0.7.2"
+      "version": "0.8.5"
     }
   },
   "checks": [
     {
+      "name": "architecture",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_seconds": 0.037674035,
+      "optional": false,
+      "passed": true,
+      "log_digest": "45cc5e24a50f4b455cc62261cb5ab2ef3f9581e8f1bccb5dfc8a974fcd78cbdf"
+    },
+    {
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.023968647,
+      "duration_seconds": 0.03774092,
       "optional": false,
       "passed": true,
-      "log_digest": "bb99eecf7da47bb699e08b5414193ade3c049ead245334b322a8ca6aff367842"
+      "log_digest": "7fc315ba9b70f089fe236085988a0af3a273b43b449acc33a958747a9ab2c5e4"
     },
     {
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.724439525,
+      "duration_seconds": 0.950247898,
       "optional": true,
       "passed": true,
-      "log_digest": "cad3ac996c3483cb04aa75e45aa4f9e9ef54b17ad89e0cba115b8245ff87eeb5"
+      "log_digest": "7e4ee911773b4cc4d8a15f2d095ffd3a958708b589cefed939e1d269b87c9f0a"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.569604923,
+      "duration_seconds": 0.671233554,
       "optional": true,
       "passed": true,
-      "log_digest": "e1287b45cb75c1eba597824d272e771d3794f300410e022e4cf3375cd72c7e1c"
+      "log_digest": "a518d8bf61aaec5f9885e35e346fc0e42dcd7ce8b6c90d89fb6713423caea5f1"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 2.5543550809999997,
+      "duration_seconds": 3.216289659,
       "optional": false,
       "passed": true,
-      "log_digest": "2d4717bd244aaff456b975db6f93fb6536bf7234999463852a52c5f2879f9c72"
+      "log_digest": "9e5a5c3fb86d604b9710d6fbde91bd51503a63fbbbeb61c255863fa0b2d78572"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.555838419,
+      "duration_seconds": 0.630863853,
       "optional": false,
       "passed": true,
-      "log_digest": "5365c0844a61a7cef66fd5199f03a5d09f498d30b1c9428670ba917af176aae2"
+      "log_digest": "e61400fd2cb59a9564bff4fb93cb827f1bce0a5ef7f9d545c6ed6dc5930bfefb"
     }
   ],
   "diagnostics": []

@@ -1,37 +1,33 @@
 # Verification Report
 
-**Task ID**: `078-windows-msix-packaging-and-store-pipeline`  
-**Task Title**: Task 078: Windows MSIX Packaging og Microsoft Store Pipeline  
+**Task ID**: `080-ratchet-architecture-configuration`  
+**Task Title**: Task 080: Declarative Ratchet Architecture Configuration  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-10-15T12:50:00Z`  
-**Head**: `efe74f2`  
-**Commit**: `efe74f2`  
+**Source Manifest Digest**: `0cea592ce6144cb047cc450487bddb0df7db741717f9c3e241dd693aff8e375c`  
+**Timestamp**: `2026-10-18T14:50:06Z`  
+**Head**: `2f71f8f`  
+**Commit**: `2f71f8f`  
 
 ## Acceptance Criteria
 
-- [x] **AC1 - AppxManifest.xml Partner Center Identity**:
-  - `assets/windows/AppxManifest.xml` konfigureret med Identity Name `RolfMadsen.Kant`, Publisher `CN=6101A799-2390-4F81-88B1-08BC634BEC12`, PublisherDisplayName `Rolf Madsen` og DisplayName `Kant`.
-  - Deklarerer `runFullTrust` capability, `EntryPoint="Windows.FullTrustApplication"` til `kant.exe`, og filassociation for `.kant` projektfiler.
-- [x] **AC2 - Windows Store Visual Assets**:
-  - `assets/windows/images/` indeholder deterministisk genererede PNG-fliser fra `assets/icons/kant.svg`:
-    - `Square44x44Logo.png` (44x44 px)
-    - `Square50x50Logo.png` (50x50 px)
-    - `Square150x150Logo.png` (150x150 px)
-    - `Wide310x150Logo.png` (310x150 px)
-    - `SplashScreen.png` (620x300 px)
-- [x] **AC3 - Rust Accepttest Gauntlet**:
-  - `tests/msix_packaging.rs` validerer manifest-struktur, identitetsstrenge og præcise pixeldimensioner for samtlige Store-billeder.
-- [x] **AC4 - CI/CD Release Pipeline**:
-  - `.github/workflows/release.yml` udvidet på Windows `windows-latest` runner til at lokalisere Windows SDK `MakeAppx.exe`, pakke `dist-msix/` til `kant-windows-x86_64.msix`, beregne SHA256, og uploade som release asset sideløbende med den portable `.zip`.
-- [x] **AC5 - Arkitektur Dokumentation**:
-  - ADR 014 oprettet i `docs/adr/014-windows-msix-packaging-and-microsoft-store-distribution.md` og linket i `docs/adr/README.md`.
+- [x] **AC1 (Konfigurer [architecture] i gauntlet.toml)**: `gauntlet.toml` konfigureres med `max_file_lines = 800` og `max_test_file_lines = 1000`.
+- [x] **AC2 (Forbered forbidden_tokens)**: `forbidden_tokens = []` deklareres i `gauntlet.toml`, forberedt til Task 082 forbud mod rå RGB farvetokens uden om design systemet.
+- [x] **AC3 (Ratchet spærrehage på eksisterende monolitter)**: `[[architecture.exemptions]]` etableres for samtlige 11 eksisterende filer over grænseværdierne med faglige begrundelser og faste ratchet lofter.
+- [x] **AC4 (Architecture Verification Layer)**: Laget `architecture` (`command = ["xgauntlet", "check-architecture"]`) tilføjes til `[[layers]]` i `gauntlet.toml` som non-optional.
+- [x] **AC5 (Verifikation)**: `tests/architecture_test.rs` oprettes og verificerer konfigurationen samt at `xgauntlet check-architecture` passerer fejlfrit.
 
 ---
 
 ## Verification Checks
 
-| Check Name | Status | Exit Code | Scope |
+| Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `msix_packaging` | `PASSED` | `0` | `2/2 tests passed (manifest + PNG dimensions)` |
-| `types` | `PASSED` | `0` | `cargo check --tests passed` |
+| `architecture` | `PASSED` | `0` | `0.038s` |
+| `spec` | `PASSED` | `0` | `0.038s` |
+| `lint` | `PASSED` | `0` | `0.950s` |
+| `types` | `PASSED` | `0` | `0.671s` |
+| `unit` | `PASSED` | `0` | `3.216s` |
+| `invariants` | `PASSED` | `0` | `0.631s` |
+
+---
