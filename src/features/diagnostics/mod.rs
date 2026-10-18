@@ -1,5 +1,8 @@
 //! Diagnostik og logning for platform, rendering og runtime evidens (ADR 013 & Task 066).
 
+pub mod ui;
+pub use ui::*;
+
 use std::collections::VecDeque;
 use std::fs::{self, OpenOptions};
 use std::io::Write;

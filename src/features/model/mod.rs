@@ -11,8 +11,10 @@ pub mod decomposed;
 pub mod merge;
 pub mod recent;
 pub mod storage;
+pub mod ui;
 
 pub use recent::RecentStore;
+pub use ui::*;
 
 /// Hjælpefunktion til at returnere aktuel dato i ISO-8601 YYYY-MM-DD format uden eksterne afhængigheder.
 pub fn current_date_iso() -> String {
