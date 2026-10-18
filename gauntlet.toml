@@ -35,26 +35,6 @@ path = "src/features/git/service.rs"
 reason = "Git integrations- og synkroniseringsservice; ratchet loft"
 max_lines = 1000
 
-[[architecture.exemptions]]
-path = "src/ui/concept_model_view.rs"
-reason = "Begrebsmodel grafvisning og editor; ratchet loft"
-max_lines = 900
-
-[[architecture.exemptions]]
-path = "src/ui/concept_editor.rs"
-reason = "Begrebsliste modal editor og validering; ratchet loft"
-max_lines = 900
-
-[[architecture.exemptions]]
-path = "src/ui/edge_router.rs"
-reason = "Ortogonal Manhattan relation routing og port bundling; ratchet loft"
-max_lines = 900
-
-[[architecture.exemptions]]
-path = "src/features/concepts/excel.rs"
-reason = "Excel import, eksport og skabelongenerering; ratchet loft"
-max_lines = 850
-
 [[layers]]
 name = "architecture"
 command = ["xgauntlet", "check-architecture"]

@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 pub mod excel;
 pub mod linter;
+pub mod ui;
 pub use linter::{
     AristotleBreakdown, DefinitionIssueKind, DefinitionLintIssue, DefinitionLinter,
     DefinitionSeverity,

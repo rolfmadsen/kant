@@ -136,4 +136,3 @@ fn test_task_087_concept_app_tab_navigation() {
     let _ = app.update(Message::SelectTab(Tab::ConceptModel));
     assert_eq!(app.active_tab(), Tab::ConceptModel);
 }
-

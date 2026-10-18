@@ -38,10 +38,6 @@ fn test_gauntlet_toml_architecture_configuration() {
         ("tests/acceptance.rs", 9500),
         ("src/features/model/merge.rs", 1200),
         ("src/features/git/service.rs", 1000),
-        ("src/ui/concept_model_view.rs", 900),
-        ("src/ui/concept_editor.rs", 900),
-        ("src/ui/edge_router.rs", 900),
-        ("src/features/concepts/excel.rs", 850),
     ];
 
     for (path, ceiling) in required_exemptions {

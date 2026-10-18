@@ -2,6 +2,8 @@ use crate::features::concepts::Concept;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub mod ui;
+
 pub type NodeId = Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
