@@ -2,20 +2,21 @@
 type: Task Package
 title: "Task 082: Typed Design System Tokens Implementation"
 description: "Etablering af src/design_system/tokens.rs i Kant med type-sikre farver, typografi og afstande samt matematiske beviser for WAI 2.0 / WCAG AA >= 4.5:1 kontrast"
-status: todo
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-10-16T21:53:00Z" }
 tags: [design-tokens, ui, iced, accessibility, wcag-aa, math-proof, tokens]
 scope:
   - "src/design_system/**"
   - "src/lib.rs"
   - "src/main.rs"
+  - "src/ui/inspector_panel.rs"
 test_refs:
   - "tests/design_tokens_contrast_test.rs"
 ---
 
 # Task 082: Typed Design System Tokens Implementation
 
-**Status**: `TODO`  
+**Status**: `ACTIVE`  
 **Intent**: `🚀 NEW FEATURE`  
 **Oprettet**: `2026-10-16`  
 
