@@ -4,39 +4,39 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "081-adr-015-accessible-design-tokens-and-decomposed-slices",
-    "task_title": "Task 081: ADR 015 Accessible Design Tokens & Decomposed UI Slices",
-    "task_digest": "ca28e1b448a7cbfca2f01c1d129b1e6e7bdc7a0bee564f5698140eeed31da33c",
+    "task_id": "082-design-system-tokens-implementation",
+    "task_title": "Task 082: Typed Design System Tokens Implementation",
+    "task_digest": "6cf45cdca41e0350d9f6c035c892fcbc98b5e582c17e558b07a268587e5080e1",
     "acceptance_criteria": [
-      "**AC1 (Formulering af ADR 015)**: Opret `docs/adr/015-accessible-design-tokens-and-decomposed-ui-slices.md` med OKF v0.2 frontmatter, status `Accepted`, og klar kontekst, beslutning og konsekvenser.",
-      "**AC2 (WCAG AA Invariant)**: ADR 015 fastlægger formelt, at alle tekstfarver og interaktive kontrolelementer skal have $\\ge 4.5:1$ kontrast ratio mod deres baggrund.",
-      "**AC3 (Modulopdelings-standard)**: ADR 015 fastlægger `Package-by-Feature` princippet for UI: view- og update-logik flyttes til `src/features/<feature>/ui/`, mens `src/ui/app.rs` reduceres til en tynd overordnet shell/routing.",
-      "**AC4 (Dokumentationssynkronisering)**: ADR 015 refereres i `README.md`, `spec.md` og `docs/adr/README.md`.",
-      "**AC5 (ADR Coverage Validering)**: `xgauntlet check-release` bekræfter 100% ADR-dækning og reference-integritet."
+      "**AC1 (Etablering af Design System Modul)**: Opret `src/design_system/tokens.rs` med typed tokens for farver (`ColorTokens`), typografi (`TypographyTokens`) og afstande (`SpacingTokens`).",
+      "**AC2 (WCAG AA Matematisk Kontrast-beregning)**: Implementer funktion til beregning af relativ luminans og kontrastforhold jf. WCAG 2.1 formlen: `(L1 + 0.05) / (L2 + 0.05)`.",
+      "**AC3 (Kontrast Acceptance Tests)**: Opret `tests/design_tokens_contrast_test.rs`, der asserter, at:",
+      "**AC4 (Iced Kompatibilitet)**: Design tokens konverterer problemfrit til `iced::Color` uden runtime overhead.",
+      "**AC5 (Pilot Migrering)**: Mindst én eksisterende UI-komponent migreres fra rå RGB til de nye tokens for at validere ergonomi."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "6a31c41b32feda0b4a240355f5c9c634d1db9cc4f25da60989647d2b261154a3",
-    "source_manifest_digest_pre": "c2cf736d66c6b1cdb515f5bca21214d3805276f6baf7acded2a1af7fae7eb6e1",
-    "source_manifest_digest_post": "c2cf736d66c6b1cdb515f5bca21214d3805276f6baf7acded2a1af7fae7eb6e1",
+    "source_content_digest": "06b1655076c851278cacbf952ffc6c0fef04b9956867a3f41f181f315b93c573",
+    "source_manifest_digest_pre": "3572a8616d114a71ee6013bb5a5281a0e08e4b28fcd68f98f288a67f721375d7",
+    "source_manifest_digest_post": "3572a8616d114a71ee6013bb5a5281a0e08e4b28fcd68f98f288a67f721375d7",
     "config_digest": "1c1e281386ca73332058b16c90b6f90b37df677087aeb885b8fc32e5cb495d41",
-    "task_digest": "ca28e1b448a7cbfca2f01c1d129b1e6e7bdc7a0bee564f5698140eeed31da33c",
+    "task_digest": "6cf45cdca41e0350d9f6c035c892fcbc98b5e582c17e558b07a268587e5080e1",
     "policy_digest": "779d592d4e19033524124ee6f7d07808c5009b4be93da24680090f900905208e",
     "check_definitions_digest": "7ac9f4a75d7c84442ecaa2a4c1e0c06c1940bf2e1f0c017e60b1fe20c38e97c4",
-    "included_files_count": 193,
+    "included_files_count": 196,
     "vcs": {
       "type": "git",
-      "head": "dbac331",
-      "commit": "dbac331",
+      "head": "907fda6",
+      "commit": "907fda6",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-18T14:59:34Z",
-    "finished_at": "2026-10-18T14:59:40Z",
-    "total_duration_seconds": 5.564866086,
+    "started_at": "2026-10-18T15:09:35Z",
+    "finished_at": "2026-10-18T15:09:40Z",
+    "total_duration_seconds": 5.551724754,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -49,16 +49,16 @@
       "name": "architecture",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.042072906,
+      "duration_seconds": 0.05901259,
       "optional": false,
       "passed": true,
-      "log_digest": "3bab65f6005e2c4908cdd2e4b7f6e21cf54fb4c0c5eedb2bb5e6a454049685d5"
+      "log_digest": "2a804b1955ab7fd93bf9abcb1ca9fc0a5425aa8e67f6d9ef49f14db58c081d5f"
     },
     {
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.037223146,
+      "duration_seconds": 0.038313865,
       "optional": false,
       "passed": true,
       "log_digest": "7fc315ba9b70f089fe236085988a0af3a273b43b449acc33a958747a9ab2c5e4"
@@ -67,37 +67,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.881681721,
+      "duration_seconds": 0.869386578,
       "optional": true,
       "passed": true,
-      "log_digest": "49abc915221e5a2951ba6121d563247dab0b26d66bd6cd36ad95dda32b844ea6"
+      "log_digest": "a2cd09708382c403f288c37f0d9a771b4dd7e87677ac53fc4216ab8afda58df5"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.702898321,
+      "duration_seconds": 0.656392863,
       "optional": true,
       "passed": true,
-      "log_digest": "8915aa12bbc4634cd30c737b1fa729fd817050ffa62fc52da5de3fc2bb28d597"
+      "log_digest": "a518d8bf61aaec5f9885e35e346fc0e42dcd7ce8b6c90d89fb6713423caea5f1"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 3.268350608,
+      "duration_seconds": 3.271115061,
       "optional": false,
       "passed": true,
-      "log_digest": "14f6964225cac8bdf7e18c136c78d387e627907c426d3a14c65bbc41548e8ab2"
+      "log_digest": "e108818fa77e17ab580e53c08f15426d3159f4cf446a06fbf166c5c4b4ec3335"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.602794099,
+      "duration_seconds": 0.606595786,
       "optional": false,
       "passed": true,
-      "log_digest": "68548ad7b5d37c35a162e46b7de2e041329bd5bdb7aca8f4f9e0832c78c84c39"
+      "log_digest": "de707b44a3515b1a322fd1dea2e11c8b883889b6e4eca6b523bad03eac13d8d5"
     }
   ],
   "diagnostics": []

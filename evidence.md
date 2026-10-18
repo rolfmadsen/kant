@@ -1,21 +1,21 @@
 # Verification Report
 
-**Task ID**: `081-adr-015-accessible-design-tokens-and-decomposed-slices`  
-**Task Title**: Task 081: ADR 015 Accessible Design Tokens & Decomposed UI Slices  
+**Task ID**: `082-design-system-tokens-implementation`  
+**Task Title**: Task 082: Typed Design System Tokens Implementation  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `c2cf736d66c6b1cdb515f5bca21214d3805276f6baf7acded2a1af7fae7eb6e1`  
-**Timestamp**: `2026-10-18T14:59:40Z`  
-**Head**: `dbac331`  
-**Commit**: `dbac331`  
+**Source Manifest Digest**: `3572a8616d114a71ee6013bb5a5281a0e08e4b28fcd68f98f288a67f721375d7`  
+**Timestamp**: `2026-10-18T15:09:40Z`  
+**Head**: `907fda6`  
+**Commit**: `907fda6`  
 
 ## Acceptance Criteria
 
-- [x] **AC1 (Formulering af ADR 015)**: Opret `docs/adr/015-accessible-design-tokens-and-decomposed-ui-slices.md` med OKF v0.2 frontmatter, status `Accepted`, og klar kontekst, beslutning og konsekvenser.
-- [x] **AC2 (WCAG AA Invariant)**: ADR 015 fastlægger formelt, at alle tekstfarver og interaktive kontrolelementer skal have $\ge 4.5:1$ kontrast ratio mod deres baggrund.
-- [x] **AC3 (Modulopdelings-standard)**: ADR 015 fastlægger `Package-by-Feature` princippet for UI: view- og update-logik flyttes til `src/features/<feature>/ui/`, mens `src/ui/app.rs` reduceres til en tynd overordnet shell/routing.
-- [x] **AC4 (Dokumentationssynkronisering)**: ADR 015 refereres i `README.md`, `spec.md` og `docs/adr/README.md`.
-- [x] **AC5 (ADR Coverage Validering)**: `xgauntlet check-release` bekræfter 100% ADR-dækning og reference-integritet.
+- [x] **AC1 (Etablering af Design System Modul)**: Opret `src/design_system/tokens.rs` med typed tokens for farver (`ColorTokens`), typografi (`TypographyTokens`) og afstande (`SpacingTokens`).
+- [x] **AC2 (WCAG AA Matematisk Kontrast-beregning)**: Implementer funktion til beregning af relativ luminans og kontrastforhold jf. WCAG 2.1 formlen: `(L1 + 0.05) / (L2 + 0.05)`.
+- [x] **AC3 (Kontrast Acceptance Tests)**: Opret `tests/design_tokens_contrast_test.rs`, der asserter, at:
+- [x] **AC4 (Iced Kompatibilitet)**: Design tokens konverterer problemfrit til `iced::Color` uden runtime overhead.
+- [x] **AC5 (Pilot Migrering)**: Mindst én eksisterende UI-komponent migreres fra rå RGB til de nye tokens for at validere ergonomi.
 
 ---
 
@@ -23,11 +23,11 @@
 
 | Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `architecture` | `PASSED` | `0` | `0.042s` |
-| `spec` | `PASSED` | `0` | `0.037s` |
-| `lint` | `PASSED` | `0` | `0.882s` |
-| `types` | `PASSED` | `0` | `0.703s` |
-| `unit` | `PASSED` | `0` | `3.268s` |
-| `invariants` | `PASSED` | `0` | `0.603s` |
+| `architecture` | `PASSED` | `0` | `0.059s` |
+| `spec` | `PASSED` | `0` | `0.038s` |
+| `lint` | `PASSED` | `0` | `0.869s` |
+| `types` | `PASSED` | `0` | `0.656s` |
+| `unit` | `PASSED` | `0` | `3.271s` |
+| `invariants` | `PASSED` | `0` | `0.607s` |
 
 ---
