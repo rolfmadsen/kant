@@ -2,7 +2,7 @@
 type: Task Package
 title: "Task 081: ADR 015 Accessible Design Tokens & Decomposed UI Slices"
 description: "Formulering og godkendelse af arkitekturbeslutning ADR 015 for Kants tilgængelige design-system og feature-opdeling jf. WAI 2.0 / WCAG AA"
-status: todo
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-10-16T21:52:30Z" }
 tags: [adr, adr-015, design-tokens, accessibility, wcag-aa, decomposition, architecture]
 scope:
@@ -15,7 +15,7 @@ test_refs:
 
 # Task 081: ADR 015 Accessible Design Tokens & Decomposed UI Slices
 
-**Status**: `TODO`  
+**Status**: `ACTIVE`  
 **Intent**: `🚀 NEW FEATURE`  
 **Oprettet**: `2026-10-16`  
 
