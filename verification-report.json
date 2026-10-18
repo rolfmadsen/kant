@@ -4,39 +4,40 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "086-information-model-decomposition",
-    "task_title": "Task 086: Information Model Decomposition",
-    "task_digest": "2b6cf05a14acb77baf21b1ce8eef7ecd756e18de9159e0af7a22f5bcd3f7c26c",
+    "task_id": "087-concept-studio-and-model-decomposition",
+    "task_title": "Task 087: Concept Studio and Model Decomposition",
+    "task_digest": "d02006171e9bfcae4c10e0447470086d314c8a53f00d7682d178eb96a6e9c967",
     "acceptance_criteria": [
-      "**AC1 (Domænemodel Dekomponering)**: Dekomponer `src/features/information_model/mod.rs` i `models.rs` ($\\le 600$ linjer), `validation.rs` ($\\le 500$ linjer) og `lineage.rs` ($\\le 400$ linjer) med ren facade i `mod.rs`.",
-      "**AC2 (UI Modul: Klasseliste & Metadata)**: Opret `src/features/information_model/ui/class_list.rs` ($\\le 500$ linjer) og `class_detail.rs` ($\\le 500$ linjer) til navigation og klasse-metadata.",
-      "**AC3 (UI Modul: Attributter & Associationer)**: Opret `src/features/information_model/ui/attribute_editor.rs` ($\\le 600$ linjer) med lineage-vælger samt `association_editor.rs` ($\\le 500$ linjer) til UML-relationer.",
-      "**AC4 (Fjernelse af Undtagelser i gauntlet.toml)**: Da alle dekomponerede filer er under 800 linjer, fjernes undtagelserne for `src/ui/information_model_view.rs` og `src/features/information_model/mod.rs` fra `gauntlet.toml`.",
-      "**AC5 (Regression & Verifikation)**: Samtlige enheds- og accepttests i workspace passerer uden fejl, og `xgauntlet check-architecture` rapporterer 0 overtrædelser."
+      "**AC1 (Begrebsliste Editor Dekomponering)**: Dekomponer `src/ui/concept_editor.rs` i modulære UI-komponenter under `src/features/concepts/ui/` (`modal.rs`, `form.rs` osv. $\\le 500$ linjer) med tynd facade $\\le 400$ linjer.",
+      "**AC2 (Excel Import & Eksport Dekomponering)**: Dekomponer `src/features/concepts/excel.rs` i `importer.rs`, `exporter.rs`, `template.rs` under `src/features/concepts/excel/` ($\\le 500$ linjer hver) med ren facade i `mod.rs`.",
+      "**AC3 (Begrebsmodel Studio Dekomponering)**: Dekomponer `src/ui/concept_model_view.rs` i palet, inspektør og view under `src/features/concept_model/ui/` ($\\le 500$ linjer hver) med tynd facade $\\le 400$ linjer.",
+      "**AC4 (Edge Router Dekomponering)**: Dekomponer `src/ui/edge_router.rs` i modulære routing-enheder (`routing.rs`, `bus.rs`, `geometry.rs` $\\le 500$ linjer hver) med facade $\\le 400$ linjer.",
+      "**AC5 (Fjernelse af 4 Undtagelser i gauntlet.toml)**: Fjern undtagelserne for `concept_editor.rs`, `excel.rs`, `concept_model_view.rs` og `edge_router.rs` fra `gauntlet.toml` og opdater `tests/architecture_test.rs`.",
+      "**AC6 (Regression & Verifikation)**: Samtlige enheds- og accepttests i workspace passerer uden fejl, og `xgauntlet check-architecture` rapporterer 0 overtrædelser."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "62591af537e64aa96d72512abb4778b2668a51bd056ccdb59d8e04b183754007",
-    "source_manifest_digest_pre": "48f2ed44321d587713f96e22a1bb478cd017c89d7b968753a8aa30e3db8afc79",
-    "source_manifest_digest_post": "48f2ed44321d587713f96e22a1bb478cd017c89d7b968753a8aa30e3db8afc79",
-    "config_digest": "2552eeefbabd971cd17846f094838d413dd9d30d30cbd112d167f22a9c58eba1",
-    "task_digest": "2b6cf05a14acb77baf21b1ce8eef7ecd756e18de9159e0af7a22f5bcd3f7c26c",
-    "policy_digest": "779d592d4e19033524124ee6f7d07808c5009b4be93da24680090f900905208e",
+    "source_content_digest": "28ac68db740bb872b3025b8bd544c974399ca09a332ffbf425273ed39f9fbf38",
+    "source_manifest_digest_pre": "b9d0fd2fd6d7ab93f62d785425e32851f082c33efcbca804b2373a629aa9ad5e",
+    "source_manifest_digest_post": "b9d0fd2fd6d7ab93f62d785425e32851f082c33efcbca804b2373a629aa9ad5e",
+    "config_digest": "61599b1f18ea258932f640cc874b1feb2bac6d7e8f9b5c9f27555aeed0fafeed",
+    "task_digest": "d02006171e9bfcae4c10e0447470086d314c8a53f00d7682d178eb96a6e9c967",
+    "policy_digest": "b79843c5f8b4274a74d5505a911213c35b724d57bfff0eb15912eb540e71a357",
     "check_definitions_digest": "7ac9f4a75d7c84442ecaa2a4c1e0c06c1940bf2e1f0c017e60b1fe20c38e97c4",
-    "included_files_count": 235,
+    "included_files_count": 252,
     "vcs": {
       "type": "git",
-      "head": "c9ae01b",
-      "commit": "c9ae01b",
+      "head": "e6a6ac2",
+      "commit": "e6a6ac2",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-18T19:32:22Z",
-    "finished_at": "2026-10-18T19:32:24Z",
-    "total_duration_seconds": 2.615740504,
+    "started_at": "2026-10-18T20:12:44Z",
+    "finished_at": "2026-10-18T20:12:52Z",
+    "total_duration_seconds": 8.713717316,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -49,16 +50,16 @@
       "name": "architecture",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.063284986,
+      "duration_seconds": 0.050732664,
       "optional": false,
       "passed": true,
-      "log_digest": "370f1eea102ee75183cb4e0c1824805d97f17705c37a31796e714ffbdf255ae2"
+      "log_digest": "aba2c4dccdd762da034381ae279f1af1c3f3cfea6c549639944c1ffe8e0f46db"
     },
     {
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.031057487,
+      "duration_seconds": 0.028988098,
       "optional": false,
       "passed": true,
       "log_digest": "7fc315ba9b70f089fe236085988a0af3a273b43b449acc33a958747a9ab2c5e4"
@@ -67,37 +68,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.237286949,
+      "duration_seconds": 2.192336799,
       "optional": true,
       "passed": true,
-      "log_digest": "d7dae192715495fa89ccbe279af3efb9792c1dae1768228e369035e68a1df673"
+      "log_digest": "dc87740bfe0a4433657a79750f97a93f9ae590707fddba39aafc0b3ed64a3d8c"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.220034032,
+      "duration_seconds": 0.901052008,
       "optional": true,
       "passed": true,
-      "log_digest": "732186322402325172940531d8d6d7cfac85dc902585b2bef6715ad6839dacfd"
+      "log_digest": "6f62a8d9b9c765668a9f9c4781a60f4cbedca0f497582dead02afe0809240874"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 1.370530218,
+      "duration_seconds": 4.840995798,
       "optional": false,
       "passed": true,
-      "log_digest": "c9f6afda98b77b380308a88c29f47bdef71a687a45505da59b724375044154e0"
+      "log_digest": "521496c5bbc703e8dcc5b4312bf2fe08ca23bfe9b2ef5fb44d931fd80cbba2ba"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.631568097,
+      "duration_seconds": 0.651525834,
       "optional": false,
       "passed": true,
-      "log_digest": "ca8231a3c1ffa69f62508f279656b3817b356ed50055b660203e5cf7016c9431"
+      "log_digest": "f59585c307503165fd81fb20f001d69b52b05968f5aa59f4229fb474e5df5ad4"
     }
   ],
   "diagnostics": []

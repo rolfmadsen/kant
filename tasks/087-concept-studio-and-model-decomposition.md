@@ -2,7 +2,7 @@
 type: Task Package
 title: "Task 087: Concept Studio and Model Decomposition"
 description: "Dekomponering af concept_editor.rs (879 l), excel.rs (833 l), concept_model_view.rs (889 l) og edge_router.rs (866 l) i Package-by-Feature slices under 800 linjer samt fjernelse af 4 undtagelser i gauntlet.toml"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-18T22:00:00Z" }
 tags: [refactor, concepts, concept-model, decomposition, modularity, architecture, ratchet]
 scope:
@@ -21,7 +21,7 @@ test_refs:
 
 # Task 087: Concept Studio and Model Decomposition
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: `🔄 REFACTOR`  
 **Oprettet**: `2026-10-18`  
 
@@ -34,12 +34,12 @@ Dekomponere de 4 store monolitter inden for Begrebslisten (Fase 1) og Begrebsmod
 5. Fjerne alle 4 undtagelser fra `gauntlet.toml`, så kun 4 undtagelser resterer i hele systemet.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 (Begrebsliste Editor Dekomponering)**: Dekomponer `src/ui/concept_editor.rs` i modulære UI-komponenter under `src/features/concepts/ui/` (`modal.rs`, `form.rs` osv. $\le 500$ linjer) med tynd facade $\le 400$ linjer.
-- [ ] **AC2 (Excel Import & Eksport Dekomponering)**: Dekomponer `src/features/concepts/excel.rs` i `importer.rs`, `exporter.rs`, `template.rs` under `src/features/concepts/excel/` ($\le 500$ linjer hver) med ren facade i `mod.rs`.
-- [ ] **AC3 (Begrebsmodel Studio Dekomponering)**: Dekomponer `src/ui/concept_model_view.rs` i palet, inspektør og view under `src/features/concept_model/ui/` ($\le 500$ linjer hver) med tynd facade $\le 400$ linjer.
-- [ ] **AC4 (Edge Router Dekomponering)**: Dekomponer `src/ui/edge_router.rs` i modulære routing-enheder (`routing.rs`, `bus.rs`, `geometry.rs` $\le 500$ linjer hver) med facade $\le 400$ linjer.
-- [ ] **AC5 (Fjernelse af 4 Undtagelser i gauntlet.toml)**: Fjern undtagelserne for `concept_editor.rs`, `excel.rs`, `concept_model_view.rs` og `edge_router.rs` fra `gauntlet.toml` og opdater `tests/architecture_test.rs`.
-- [ ] **AC6 (Regression & Verifikation)**: Samtlige enheds- og accepttests i workspace passerer uden fejl, og `xgauntlet check-architecture` rapporterer 0 overtrædelser.
+- [x] **AC1 (Begrebsliste Editor Dekomponering)**: Dekomponer `src/ui/concept_editor.rs` i modulære UI-komponenter under `src/features/concepts/ui/` (`modal.rs`, `form.rs` osv. $\le 500$ linjer) med tynd facade $\le 400$ linjer.
+- [x] **AC2 (Excel Import & Eksport Dekomponering)**: Dekomponer `src/features/concepts/excel.rs` i `importer.rs`, `exporter.rs`, `template.rs` under `src/features/concepts/excel/` ($\le 500$ linjer hver) med ren facade i `mod.rs`.
+- [x] **AC3 (Begrebsmodel Studio Dekomponering)**: Dekomponer `src/ui/concept_model_view.rs` i palet, inspektør og view under `src/features/concept_model/ui/` ($\le 500$ linjer hver) med tynd facade $\le 400$ linjer.
+- [x] **AC4 (Edge Router Dekomponering)**: Dekomponer `src/ui/edge_router.rs` i modulære routing-enheder (`routing.rs`, `bus.rs`, `geometry.rs` $\le 500$ linjer hver) med facade $\le 400$ linjer.
+- [x] **AC5 (Fjernelse af 4 Undtagelser i gauntlet.toml)**: Fjern undtagelserne for `concept_editor.rs`, `excel.rs`, `concept_model_view.rs` og `edge_router.rs` fra `gauntlet.toml` og opdater `tests/architecture_test.rs`.
+- [x] **AC6 (Regression & Verifikation)**: Samtlige enheds- og accepttests i workspace passerer uden fejl, og `xgauntlet check-architecture` rapporterer 0 overtrædelser.
 
 ## 🚫 Must NOT
 - Må IKKE ændre FDA begrebsmodellens valideringsregler, Aristoteles-linter eller Excel-import-/eksportformater (frosne assertions).
@@ -49,6 +49,7 @@ Dekomponere de 4 store monolitter inden for Begrebslisten (Fase 1) og Begrebsmod
 
 ## 📝 Revisions
 - 2026-10-18: Oprettet opgavepakke Task 087 til dekomponering af Begrebslisten og Begrebsmodellens monolitter.
+- 2026-10-18: Implementeret dekomponering i slices under 500 linjer, fjernet 4 undtagelser i gauntlet.toml, bestået alle accepttests og verificeret arkitektur.
 
 ## 🧪 Verifikation
 - `cargo test --workspace`
