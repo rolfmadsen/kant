@@ -2,7 +2,7 @@
 type: Task Package
 title: "Task 083: Decouple Acceptance Tests & App Monolith"
 description: "Dekomponering af monolitterne tests/acceptance.rs (12.181 linjer) og src/ui/app.rs (11.520 linjer) i isolerede feature-slices under faste linjegrænser"
-status: todo
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-10-16T21:53:30Z" }
 tags: [refactor, decomposition, modularity, architecture, ratchet]
 scope:
@@ -16,7 +16,7 @@ test_refs:
 
 # Task 083: Decouple Acceptance Tests & App Monolith
 
-**Status**: `TODO`  
+**Status**: `ACTIVE`  
 **Intent**: `🔄 REFACTOR`  
 **Oprettet**: `2026-10-16`  
 
