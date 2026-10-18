@@ -28,8 +28,8 @@ fn test_gauntlet_toml_architecture_configuration() {
         "gauntlet.toml skal deklarere max_test_file_lines = 1000"
     );
     assert!(
-        content.contains("forbidden_tokens"),
-        "gauntlet.toml skal deklarere forbidden_tokens"
+        content.contains(r#"forbidden_tokens = ["Color::from_rgb", "Color::from_rgba"]"#),
+        "gauntlet.toml skal have forbidden_tokens = [\"Color::from_rgb\", \"Color::from_rgba\"]"
     );
 
     // 2. Ratchet-undtagelser for monolitterne

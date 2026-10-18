@@ -13,7 +13,7 @@ coding_standards_file = "CODING_STANDARDS.md"
 [architecture]
 max_file_lines = 800
 max_test_file_lines = 1000
-forbidden_tokens = []
+forbidden_tokens = ["Color::from_rgb", "Color::from_rgba"]
 
 [[architecture.exemptions]]
 path = "src/ui/app.rs"
