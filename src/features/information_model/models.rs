@@ -14,6 +14,7 @@ pub enum PrimitiveType {
     Uri,
 }
 
+#[rustfmt::skip]
 impl PrimitiveType {
     pub const ALL: &'static [PrimitiveType] = &[
         Self::CharacterString, Self::Integer, Self::Decimal, Self::Boolean,
@@ -46,6 +47,7 @@ pub struct Multiplicity {
     upper: Option<u32>,
 }
 
+#[rustfmt::skip]
 impl Multiplicity {
     pub const PRESETS: &'static [Multiplicity] = &[
         Multiplicity { lower: 1, upper: Some(1) },
@@ -84,23 +86,28 @@ pub enum InformationDataType {
     Structured { structured_id: Uuid },
 }
 
+#[rustfmt::skip]
 impl From<PrimitiveType> for InformationDataType {
     fn from(p: PrimitiveType) -> Self { Self::Primitive(p) }
 }
 impl Default for InformationDataType {
-    fn default() -> Self { Self::Primitive(PrimitiveType::CharacterString) }
-}
-impl PartialEq<PrimitiveType> for InformationDataType {
-    fn eq(&self, other: &PrimitiveType) -> bool {
-        match self { Self::Primitive(p) => p == other, _ => false }
+    fn default() -> Self {
+        Self::Primitive(PrimitiveType::CharacterString)
     }
 }
+#[rustfmt::skip]
+impl PartialEq<PrimitiveType> for InformationDataType {
+    fn eq(&self, other: &PrimitiveType) -> bool { match self { Self::Primitive(p) => p == other, _ => false } }
+}
+#[rustfmt::skip]
 impl PartialEq<InformationDataType> for PrimitiveType {
     fn eq(&self, other: &InformationDataType) -> bool { other == self }
 }
+#[rustfmt::skip]
 impl PartialEq<PrimitiveType> for &InformationDataType {
     fn eq(&self, other: &PrimitiveType) -> bool { *self == other }
 }
+#[rustfmt::skip]
 impl PartialEq<&InformationDataType> for PrimitiveType {
     fn eq(&self, other: &&InformationDataType) -> bool { *other == self }
 }
@@ -139,6 +146,7 @@ pub struct InformationEnumeration {
     values: Vec<String>,
 }
 
+#[rustfmt::skip]
 impl InformationEnumeration {
     pub fn new(name: impl Into<String>, values: Vec<String>) -> Self {
         Self::new_with_id(Uuid::new_v4(), name, values)
@@ -176,6 +184,7 @@ pub struct StructuredDataType {
     attributes: Vec<Attribute>,
 }
 
+#[rustfmt::skip]
 impl StructuredDataType {
     pub fn new(name: impl Into<String>) -> Self {
         Self::new_with_id(Uuid::new_v4(), name)
@@ -209,6 +218,7 @@ pub struct Attribute {
     concept_ids: Vec<Uuid>,
 }
 
+#[rustfmt::skip]
 impl Attribute {
     pub fn new(
         name: impl Into<String>,
@@ -244,7 +254,9 @@ impl Attribute {
     pub fn clear_concept_ids(&mut self) { self.concept_ids.clear(); }
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InformationClass {
@@ -263,6 +275,7 @@ pub struct InformationClass {
     origin_model: Option<String>,
 }
 
+#[rustfmt::skip]
 impl InformationClass {
     pub fn new(name: impl Into<String>) -> Self {
         Self::new_with_id(Uuid::new_v4(), name)
@@ -346,6 +359,7 @@ pub struct ClassRelation {
     target_multiplicity: Option<Multiplicity>,
 }
 
+#[rustfmt::skip]
 impl ClassRelation {
     pub fn new(from_class: Uuid, to_class: Uuid, kind: RelationKind, label: Option<String>) -> Self {
         Self {
@@ -433,6 +447,7 @@ pub struct InformationModel {
     relations: Vec<ClassRelation>,
 }
 
+#[rustfmt::skip]
 impl InformationModel {
     pub fn new() -> Self {
         Self {

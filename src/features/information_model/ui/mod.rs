@@ -4,6 +4,7 @@ pub mod association_editor;
 pub mod attribute_editor;
 pub mod class_detail;
 pub mod class_list;
+pub mod enum_detail;
 
 use crate::features::information_model::models::InformationDataType;
 

@@ -187,9 +187,7 @@ fn test_task_086_ui_model_and_relations_interaction() {
     let id2 = app.project_mut().information_model_mut().add_class(cls2);
 
     let rel = ClassRelation::new(id1, id2, RelationKind::Association, None);
-    app.project_mut()
-        .information_model_mut()
-        .add_relation(rel);
+    app.project_mut().information_model_mut().add_relation(rel);
 
     assert_eq!(app.project().information_model().classes().len(), 2);
     assert_eq!(app.project().information_model().relations().len(), 1);

@@ -1,7 +1,5 @@
 use crate::features::concept_model::{NodeId, PortSide, RelationKind, GRID_SIZE};
-use crate::features::information_model::models::{
-    ClassRelation, InformationModel, Multiplicity,
-};
+use crate::features::information_model::models::{ClassRelation, InformationModel, Multiplicity};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -40,12 +38,24 @@ impl ClassDiagramNode {
         }
     }
 
-    pub fn id(&self) -> NodeId { self.id }
-    pub fn class_id(&self) -> Uuid { self.class_id }
-    pub fn x(&self) -> f32 { self.x }
-    pub fn y(&self) -> f32 { self.y }
-    pub fn width(&self) -> f32 { self.width }
-    pub fn height(&self) -> f32 { (self.height / GRID_SIZE).ceil() * GRID_SIZE }
+    pub fn id(&self) -> NodeId {
+        self.id
+    }
+    pub fn class_id(&self) -> Uuid {
+        self.class_id
+    }
+    pub fn x(&self) -> f32 {
+        self.x
+    }
+    pub fn y(&self) -> f32 {
+        self.y
+    }
+    pub fn width(&self) -> f32 {
+        self.width
+    }
+    pub fn height(&self) -> f32 {
+        (self.height / GRID_SIZE).ceil() * GRID_SIZE
+    }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
         self.x = x;
@@ -92,7 +102,11 @@ impl ClassDiagramEdge {
             label,
             source_port: None,
             target_port: None,
-            directed: if kind == RelationKind::Association { Some(true) } else { None },
+            directed: if kind == RelationKind::Association {
+                Some(true)
+            } else {
+                None
+            },
             source_multiplicity: None,
             target_multiplicity: None,
         }
@@ -113,7 +127,11 @@ impl ClassDiagramEdge {
             label,
             source_port,
             target_port,
-            directed: if kind == RelationKind::Association { Some(true) } else { None },
+            directed: if kind == RelationKind::Association {
+                Some(true)
+            } else {
+                None
+            },
             source_multiplicity: None,
             target_multiplicity: None,
         }
@@ -166,32 +184,62 @@ impl ClassDiagramEdge {
         }
     }
 
-    pub fn from(&self) -> NodeId { self.from }
-    pub fn to(&self) -> NodeId { self.to }
-    pub fn kind(&self) -> RelationKind { self.kind }
+    pub fn from(&self) -> NodeId {
+        self.from
+    }
+    pub fn to(&self) -> NodeId {
+        self.to
+    }
+    pub fn kind(&self) -> RelationKind {
+        self.kind
+    }
     pub fn set_kind(&mut self, kind: RelationKind) {
         self.kind = kind;
         if kind == RelationKind::Association && self.directed.is_none() {
             self.directed = Some(true);
         }
     }
-    pub fn label(&self) -> Option<&str> { self.label.as_deref() }
-    pub fn set_label(&mut self, label: Option<String>) { self.label = label; }
-    pub fn source_port(&self) -> Option<PortSide> { self.source_port }
-    pub fn target_port(&self) -> Option<PortSide> { self.target_port }
+    pub fn label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+    pub fn set_label(&mut self, label: Option<String>) {
+        self.label = label;
+    }
+    pub fn source_port(&self) -> Option<PortSide> {
+        self.source_port
+    }
+    pub fn target_port(&self) -> Option<PortSide> {
+        self.target_port
+    }
     pub fn set_ports(&mut self, source_port: Option<PortSide>, target_port: Option<PortSide>) {
         self.source_port = source_port;
         self.target_port = target_port;
     }
     pub fn is_directed(&self) -> bool {
-        if self.kind == RelationKind::Association { self.directed.unwrap_or(true) } else { false }
+        if self.kind == RelationKind::Association {
+            self.directed.unwrap_or(true)
+        } else {
+            false
+        }
     }
-    pub fn directed(&self) -> Option<bool> { self.directed }
-    pub fn set_directed(&mut self, directed: bool) { self.directed = Some(directed); }
-    pub fn source_multiplicity(&self) -> Option<Multiplicity> { self.source_multiplicity }
-    pub fn set_source_multiplicity(&mut self, mult: Option<Multiplicity>) { self.source_multiplicity = mult; }
-    pub fn target_multiplicity(&self) -> Option<Multiplicity> { self.target_multiplicity }
-    pub fn set_target_multiplicity(&mut self, mult: Option<Multiplicity>) { self.target_multiplicity = mult; }
+    pub fn directed(&self) -> Option<bool> {
+        self.directed
+    }
+    pub fn set_directed(&mut self, directed: bool) {
+        self.directed = Some(directed);
+    }
+    pub fn source_multiplicity(&self) -> Option<Multiplicity> {
+        self.source_multiplicity
+    }
+    pub fn set_source_multiplicity(&mut self, mult: Option<Multiplicity>) {
+        self.source_multiplicity = mult;
+    }
+    pub fn target_multiplicity(&self) -> Option<Multiplicity> {
+        self.target_multiplicity
+    }
+    pub fn set_target_multiplicity(&mut self, mult: Option<Multiplicity>) {
+        self.target_multiplicity = mult;
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
@@ -208,19 +256,39 @@ impl ClassGraph {
         }
     }
 
-    pub fn nodes(&self) -> &[ClassDiagramNode] { &self.nodes }
-    pub fn nodes_mut(&mut self) -> &mut Vec<ClassDiagramNode> { &mut self.nodes }
-    pub fn edges(&self) -> &[ClassDiagramEdge] { &self.edges }
-    pub fn edges_mut(&mut self) -> &mut Vec<ClassDiagramEdge> { &mut self.edges }
-    pub fn node_count(&self) -> usize { self.nodes.len() }
-    pub fn edge_count(&self) -> usize { self.edges.len() }
-    pub fn find_node(&self, id: NodeId) -> Option<&ClassDiagramNode> { self.nodes.iter().find(|n| n.id() == id) }
-    pub fn find_node_mut(&mut self, id: NodeId) -> Option<&mut ClassDiagramNode> { self.nodes.iter_mut().find(|n| n.id() == id) }
-    pub fn find_node_by_class(&self, class_id: Uuid) -> Option<&ClassDiagramNode> { self.nodes.iter().find(|n| n.class_id() == class_id) }
+    pub fn nodes(&self) -> &[ClassDiagramNode] {
+        &self.nodes
+    }
+    pub fn nodes_mut(&mut self) -> &mut Vec<ClassDiagramNode> {
+        &mut self.nodes
+    }
+    pub fn edges(&self) -> &[ClassDiagramEdge] {
+        &self.edges
+    }
+    pub fn edges_mut(&mut self) -> &mut Vec<ClassDiagramEdge> {
+        &mut self.edges
+    }
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
+    pub fn find_node(&self, id: NodeId) -> Option<&ClassDiagramNode> {
+        self.nodes.iter().find(|n| n.id() == id)
+    }
+    pub fn find_node_mut(&mut self, id: NodeId) -> Option<&mut ClassDiagramNode> {
+        self.nodes.iter_mut().find(|n| n.id() == id)
+    }
+    pub fn find_node_by_class(&self, class_id: Uuid) -> Option<&ClassDiagramNode> {
+        self.nodes.iter().find(|n| n.class_id() == class_id)
+    }
     pub fn find_node_by_class_mut(&mut self, class_id: Uuid) -> Option<&mut ClassDiagramNode> {
         self.nodes.iter_mut().find(|n| n.class_id() == class_id)
     }
-    pub fn is_class_on_diagram(&self, class_id: Uuid) -> bool { self.nodes.iter().any(|n| n.class_id() == class_id) }
+    pub fn is_class_on_diagram(&self, class_id: Uuid) -> bool {
+        self.nodes.iter().any(|n| n.class_id() == class_id)
+    }
 
     pub fn add_node(&mut self, class_id: Uuid, attr_count: usize) -> NodeId {
         if let Some(existing) = self.find_node_by_class(class_id) {
@@ -248,7 +316,8 @@ impl ClassGraph {
 
     pub fn remove_node(&mut self, node_id: NodeId) {
         self.nodes.retain(|n| n.id() != node_id);
-        self.edges.retain(|e| e.from() != node_id && e.to() != node_id);
+        self.edges
+            .retain(|e| e.from() != node_id && e.to() != node_id);
     }
 
     pub fn remove_class_node(&mut self, class_id: Uuid) {
@@ -258,7 +327,13 @@ impl ClassGraph {
         }
     }
 
-    pub fn add_relation(&mut self, from: NodeId, to: NodeId, kind: RelationKind, label: Option<String>) {
+    pub fn add_relation(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        kind: RelationKind,
+        label: Option<String>,
+    ) {
         self.add_relation_with_multiplicities(from, to, kind, label, None, None);
     }
 
@@ -274,7 +349,10 @@ impl ClassGraph {
         if from != to
             && self.find_node(from).is_some()
             && self.find_node(to).is_some()
-            && !self.edges.iter().any(|e| e.from() == from && e.to() == to && e.kind() == kind)
+            && !self
+                .edges
+                .iter()
+                .any(|e| e.from() == from && e.to() == to && e.kind() == kind)
         {
             let mut edge = ClassDiagramEdge::new(from, to, kind, label);
             edge.set_source_multiplicity(source_multiplicity);
@@ -292,7 +370,9 @@ impl ClassGraph {
     }
 
     pub fn find_edge_mut(&mut self, from: NodeId, to: NodeId) -> Option<&mut ClassDiagramEdge> {
-        self.edges.iter_mut().find(|e| e.from() == from && e.to() == to)
+        self.edges
+            .iter_mut()
+            .find(|e| e.from() == from && e.to() == to)
     }
 
     pub fn update_edge_kind(&mut self, from: NodeId, to: NodeId, kind: RelationKind) -> bool {
@@ -337,7 +417,12 @@ impl ClassGraph {
         }
     }
 
-    pub fn update_edge_source_multiplicity(&mut self, from: NodeId, to: NodeId, mult: Option<Multiplicity>) -> bool {
+    pub fn update_edge_source_multiplicity(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        mult: Option<Multiplicity>,
+    ) -> bool {
         if let Some(edge) = self.find_edge_mut(from, to) {
             edge.set_source_multiplicity(mult);
             true
@@ -346,7 +431,12 @@ impl ClassGraph {
         }
     }
 
-    pub fn update_edge_target_multiplicity(&mut self, from: NodeId, to: NodeId, mult: Option<Multiplicity>) -> bool {
+    pub fn update_edge_target_multiplicity(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        mult: Option<Multiplicity>,
+    ) -> bool {
         if let Some(edge) = self.find_edge_mut(from, to) {
             edge.set_target_multiplicity(mult);
             true
@@ -356,7 +446,11 @@ impl ClassGraph {
     }
 
     pub fn reverse_relation(&mut self, from: NodeId, to: NodeId) -> bool {
-        if let Some(pos) = self.edges.iter().position(|e| e.from() == from && e.to() == to) {
+        if let Some(pos) = self
+            .edges
+            .iter()
+            .position(|e| e.from() == from && e.to() == to)
+        {
             let mut edge = self.edges.remove(pos);
             let old_from = edge.from;
             let old_to = edge.to;
@@ -395,7 +489,8 @@ impl ClassGraph {
         let mut valid_entity_ids: Vec<Uuid> = info_model.classes().iter().map(|c| c.id()).collect();
         valid_entity_ids.extend(info_model.enumerations().iter().map(|e| e.id()));
         valid_entity_ids.extend(info_model.structured_types().iter().map(|st| st.id()));
-        self.nodes.retain(|n| valid_entity_ids.contains(&n.class_id()));
+        self.nodes
+            .retain(|n| valid_entity_ids.contains(&n.class_id()));
 
         for node in &mut self.nodes {
             if node.id != node.class_id {
@@ -403,8 +498,12 @@ impl ClassGraph {
                 let new_id = node.class_id;
                 node.id = new_id;
                 for edge in &mut self.edges {
-                    if edge.from == old_id { edge.from = new_id; }
-                    if edge.to == old_id { edge.to = new_id; }
+                    if edge.from == old_id {
+                        edge.from = new_id;
+                    }
+                    if edge.to == old_id {
+                        edge.to = new_id;
+                    }
                 }
             }
         }
@@ -460,7 +559,8 @@ impl ClassGraph {
         if info_model.relations().is_empty() && !self.edges.is_empty() {
             let valid_node_ids: std::collections::HashSet<NodeId> =
                 self.nodes.iter().map(|n| n.id()).collect();
-            self.edges.retain(|e| valid_node_ids.contains(&e.from()) && valid_node_ids.contains(&e.to()));
+            self.edges
+                .retain(|e| valid_node_ids.contains(&e.from()) && valid_node_ids.contains(&e.to()));
         } else {
             self.edges = expected_edges;
         }
@@ -469,8 +569,14 @@ impl ClassGraph {
     pub fn migrate_edges_to_model(&self, info_model: &mut InformationModel) {
         if info_model.relations().is_empty() && !self.edges.is_empty() {
             for edge in &self.edges {
-                let from_class = self.find_node(edge.from()).map(|n| n.class_id()).unwrap_or(edge.from());
-                let to_class = self.find_node(edge.to()).map(|n| n.class_id()).unwrap_or(edge.to());
+                let from_class = self
+                    .find_node(edge.from())
+                    .map(|n| n.class_id())
+                    .unwrap_or(edge.from());
+                let to_class = self
+                    .find_node(edge.to())
+                    .map(|n| n.class_id())
+                    .unwrap_or(edge.to());
                 let rel = ClassRelation::with_multiplicities(
                     from_class,
                     to_class,

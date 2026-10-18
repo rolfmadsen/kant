@@ -4,9 +4,7 @@
 //! classes, attributes, multiplicities and relations.
 
 use crate::features::information_model::linter::{NamingIssue, NamingLinter};
-use crate::features::information_model::models::{
-    InformationDataType, InformationModel,
-};
+use crate::features::information_model::models::{InformationDataType, InformationModel};
 use std::collections::HashSet;
 use thiserror::Error;
 use uuid::Uuid;
@@ -31,7 +29,9 @@ pub enum ValidationError {
         attribute_name: String,
     },
 
-    #[error("Attributnavn '{attribute_name}' på klasse '{class_name}' overtræder FDA navnekonvention")]
+    #[error(
+        "Attributnavn '{attribute_name}' på klasse '{class_name}' overtræder FDA navnekonvention"
+    )]
     InvalidAttributeNaming {
         class_name: String,
         attribute_name: String,
@@ -80,7 +80,9 @@ impl InformationModelValidator {
             } else {
                 let normalized = trimmed_name.to_lowercase();
                 if !class_names.insert(normalized) {
-                    errors.push(ValidationError::DuplicateClassName(trimmed_name.to_string()));
+                    errors.push(ValidationError::DuplicateClassName(
+                        trimmed_name.to_string(),
+                    ));
                 }
 
                 if let Some(issue) = NamingLinter::check_class_name(trimmed_name) {
@@ -225,7 +227,9 @@ mod tests {
         let res = model.validate();
         assert!(res.is_err());
         let errors = res.unwrap_err();
-        assert!(errors.iter().any(|e| matches!(e, ValidationError::DuplicateClassName(_))));
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::DuplicateClassName(_))));
     }
 
     #[test]
@@ -235,11 +239,18 @@ mod tests {
         let cid = model.add_class(class);
 
         let dangling_id = Uuid::new_v4();
-        model.add_relation(ClassRelation::new(cid, dangling_id, RelationKind::Association, None));
+        model.add_relation(ClassRelation::new(
+            cid,
+            dangling_id,
+            RelationKind::Association,
+            None,
+        ));
 
         let res = model.validate();
         assert!(res.is_err());
         let errors = res.unwrap_err();
-        assert!(errors.iter().any(|e| matches!(e, ValidationError::InvalidRelationEndpoint { .. })));
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidRelationEndpoint { .. })));
     }
 }

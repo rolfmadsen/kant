@@ -6,17 +6,10 @@
 use crate::design_system::tokens::ColorTokens;
 use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::Concept;
-use crate::features::information_model::{
-    ClassGraph, InformationModel, Multiplicity,
-};
 pub use crate::features::information_model::ui::DataTypeOption;
-use crate::features::information_model::ui::{
-    association_editor, class_detail, class_list,
-};
-use crate::ui::app::{
-    ConceptOption, Message, NodeOption,
-    RelationDialogState,
-};
+use crate::features::information_model::ui::{association_editor, class_detail, class_list};
+use crate::features::information_model::{ClassGraph, InformationModel, Multiplicity};
+use crate::ui::app::{ConceptOption, Message, NodeOption, RelationDialogState};
 use crate::ui::diagram_canvas::{
     render_uml_class_node, render_uml_datatype_node, render_uml_enumeration_node, CanvasViewport,
     DiagramCanvas,
@@ -25,9 +18,7 @@ use crate::ui::theme::{
     card_container_style, modern_input_style, primary_button_style, secondary_button_style,
     ThemeColors,
 };
-use iced::widget::{
-    button, column, container, pick_list, row, text, text_input, tooltip, Space,
-};
+use iced::widget::{button, column, container, pick_list, row, text, text_input, tooltip, Space};
 use iced::{Alignment, Element, Length};
 use uuid::Uuid;
 

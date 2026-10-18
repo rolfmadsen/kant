@@ -272,8 +272,7 @@ pub fn view<'a>(
             }
         }
 
-        let is_del_focused =
-            inspector_focused_button == Some(crate::ui::app::INFO_EDGE_BTN_DELETE);
+        let is_del_focused = inspector_focused_button == Some(crate::ui::app::INFO_EDGE_BTN_DELETE);
         let actions = row![button(text("🗑️ Slet relation").size(11))
             .style(focused_button_style(danger_button_style, is_del_focused))
             .on_press(Message::DeleteClassRelation(from_id, to_id))

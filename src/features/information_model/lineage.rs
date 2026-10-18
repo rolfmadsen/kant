@@ -124,7 +124,11 @@ mod tests {
         assert_eq!(model.classes_for_concept(cid).len(), 1);
 
         let class = model.get_class_mut(class_id).unwrap();
-        let mut attr = Attribute::new("kundenummer", PrimitiveType::Integer, Multiplicity::exactly_one());
+        let mut attr = Attribute::new(
+            "kundenummer",
+            PrimitiveType::Integer,
+            Multiplicity::exactly_one(),
+        );
         attr.add_concept_id(cid);
         class.add_attribute(attr);
 
@@ -147,7 +151,9 @@ mod tests {
         let mut class = InformationClass::new("Kunde");
         let attr = Attribute::new(
             "status",
-            InformationDataType::Enumeration { enumeration_id: enum_id },
+            InformationDataType::Enumeration {
+                enumeration_id: enum_id,
+            },
             Multiplicity::exactly_one(),
         );
         class.add_attribute(attr);
