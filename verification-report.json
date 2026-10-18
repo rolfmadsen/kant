@@ -4,39 +4,39 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "082-design-system-tokens-implementation",
-    "task_title": "Task 082: Typed Design System Tokens Implementation",
-    "task_digest": "6cf45cdca41e0350d9f6c035c892fcbc98b5e582c17e558b07a268587e5080e1",
+    "task_id": "083-decouple-acceptance-tests-and-app-monolith",
+    "task_title": "Task 083: Decouple Acceptance Tests & App Monolith",
+    "task_digest": "e1995e7e81f8a482fa0bb7aee653b9f7896f8d033b291b3cc68c6d9991201c95",
     "acceptance_criteria": [
-      "**AC1 (Etablering af Design System Modul)**: Opret `src/design_system/tokens.rs` med typed tokens for farver (`ColorTokens`), typografi (`TypographyTokens`) og afstande (`SpacingTokens`).",
-      "**AC2 (WCAG AA Matematisk Kontrast-beregning)**: Implementer funktion til beregning af relativ luminans og kontrastforhold jf. WCAG 2.1 formlen: `(L1 + 0.05) / (L2 + 0.05)`.",
-      "**AC3 (Kontrast Acceptance Tests)**: Opret `tests/design_tokens_contrast_test.rs`, der asserter, at:",
-      "**AC4 (Iced Kompatibilitet)**: Design tokens konverterer problemfrit til `iced::Color` uden runtime overhead.",
-      "**AC5 (Pilot Migrering)**: Mindst én eksisterende UI-komponent migreres fra rå RGB til de nye tokens for at validere ergonomi."
+      "**AC1 (Dekomponering af Accepttests)**: Identificer mindst 3 sammenhængende test-domæner i `tests/acceptance.rs` og udskil dem til separate testfiler under `tests/features/<feature>_acceptance_test.rs` (hver under 1.000 linjer). (Udført: 4 domæner udskilt: export 539l, collab 872l, canvas 765l, git 893l).",
+      "**AC2 (Dekomponering af UI View & State)**: Udskil de tilsvarende view-komponenter og update-grene fra `src/ui/app.rs` til `src/features/<feature>/ui/mod.rs` (hver under 800 linjer). (Udført: git/ui, collab/ui, export/ui, model/ui, diagnostics/ui, samtlige filer $\\le 800$l).",
+      "**AC3 (Ratchet Spærrehage Stramning)**: Reducer linjetallet i `tests/acceptance.rs` og `src/ui/app.rs` med mindst 20%, og opdater `max_lines` lofterne i `gauntlet.toml` tilsvarende. (Udført: app.rs 9.007l $\\le 9.200$l [-21.8%], acceptance.rs 9.010l $\\le 9.500$l [-26.0%]).",
+      "**AC4 (Ingen Adfærdsændringer / Regressioner)**: Samtlige eksisterende accepttests og enhedstests kører og består uden funktionelle regressionsfejl.",
+      "**AC5 (Arkitektur & Gauntlet Verifikation)**: `xgauntlet check-architecture` og `xgauntlet verify` passerer 100%."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "06b1655076c851278cacbf952ffc6c0fef04b9956867a3f41f181f315b93c573",
-    "source_manifest_digest_pre": "3572a8616d114a71ee6013bb5a5281a0e08e4b28fcd68f98f288a67f721375d7",
-    "source_manifest_digest_post": "3572a8616d114a71ee6013bb5a5281a0e08e4b28fcd68f98f288a67f721375d7",
-    "config_digest": "1c1e281386ca73332058b16c90b6f90b37df677087aeb885b8fc32e5cb495d41",
-    "task_digest": "6cf45cdca41e0350d9f6c035c892fcbc98b5e582c17e558b07a268587e5080e1",
+    "source_content_digest": "916ffd9075ec5b6a318df595563fa7c43f354bcfb1829846e18209dfee5fbe72",
+    "source_manifest_digest_pre": "6363e0ff00b5dbb9becec1336409f33a5d30c07f13d882dbc002d9e9bd031d19",
+    "source_manifest_digest_post": "6363e0ff00b5dbb9becec1336409f33a5d30c07f13d882dbc002d9e9bd031d19",
+    "config_digest": "751240ef119227d111e35a4e6a0f9fb62f91ec8b0867de305acee046ce4dcbc3",
+    "task_digest": "e1995e7e81f8a482fa0bb7aee653b9f7896f8d033b291b3cc68c6d9991201c95",
     "policy_digest": "779d592d4e19033524124ee6f7d07808c5009b4be93da24680090f900905208e",
     "check_definitions_digest": "7ac9f4a75d7c84442ecaa2a4c1e0c06c1940bf2e1f0c017e60b1fe20c38e97c4",
-    "included_files_count": 196,
+    "included_files_count": 215,
     "vcs": {
       "type": "git",
-      "head": "907fda6",
-      "commit": "907fda6",
+      "head": "1b99e29",
+      "commit": "1b99e29",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-18T15:09:35Z",
-    "finished_at": "2026-10-18T15:09:40Z",
-    "total_duration_seconds": 5.551724754,
+    "started_at": "2026-10-18T15:49:02Z",
+    "finished_at": "2026-10-18T15:49:05Z",
+    "total_duration_seconds": 2.843114125,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -49,16 +49,16 @@
       "name": "architecture",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.05901259,
+      "duration_seconds": 0.034028608,
       "optional": false,
       "passed": true,
-      "log_digest": "2a804b1955ab7fd93bf9abcb1ca9fc0a5425aa8e67f6d9ef49f14db58c081d5f"
+      "log_digest": "9d9b7d7907be33888b1861fa258acc37e3c5cbd34282b658225c3d61d167e00f"
     },
     {
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.038313865,
+      "duration_seconds": 0.024065256,
       "optional": false,
       "passed": true,
       "log_digest": "7fc315ba9b70f089fe236085988a0af3a273b43b449acc33a958747a9ab2c5e4"
@@ -67,37 +67,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.869386578,
+      "duration_seconds": 0.226591192,
       "optional": true,
       "passed": true,
-      "log_digest": "a2cd09708382c403f288c37f0d9a771b4dd7e87677ac53fc4216ab8afda58df5"
+      "log_digest": "d7dae192715495fa89ccbe279af3efb9792c1dae1768228e369035e68a1df673"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.656392863,
+      "duration_seconds": 0.226375074,
       "optional": true,
       "passed": true,
-      "log_digest": "a518d8bf61aaec5f9885e35e346fc0e42dcd7ce8b6c90d89fb6713423caea5f1"
+      "log_digest": "732186322402325172940531d8d6d7cfac85dc902585b2bef6715ad6839dacfd"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 3.271115061,
+      "duration_seconds": 1.656959829,
       "optional": false,
       "passed": true,
-      "log_digest": "e108818fa77e17ab580e53c08f15426d3159f4cf446a06fbf166c5c4b4ec3335"
+      "log_digest": "e8d83cecc8aa4f4841092fec3c1e430288b304f233ef9f0e2f57001d5a5611b9"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.606595786,
+      "duration_seconds": 0.641150221,
       "optional": false,
       "passed": true,
-      "log_digest": "de707b44a3515b1a322fd1dea2e11c8b883889b6e4eca6b523bad03eac13d8d5"
+      "log_digest": "2a91d308066d84fcf06e330144900ba53b69d8c6701f12d5f30904162a113348"
     }
   ],
   "diagnostics": []
