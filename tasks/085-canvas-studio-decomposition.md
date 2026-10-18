@@ -2,7 +2,7 @@
 type: Task Package
 title: "Task 085: Canvas Studio Decomposition"
 description: "Dekomponering af monolitten src/ui/diagram_canvas.rs (2.568 linjer) i modulære canvas-komponenter under 800 linjer og stramning af ratchet spærrehage"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-18T18:00:30Z" }
 tags: [refactor, canvas, decomposition, modularity, architecture, ratchet]
 scope:
@@ -18,7 +18,7 @@ test_refs:
 
 # Task 085: Canvas Studio Decomposition
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: `🔄 REFACTOR`  
 **Oprettet**: `2026-10-18`  
 
@@ -30,11 +30,11 @@ Dekomponere Kants største visuelle monolit `src/ui/diagram_canvas.rs` (2.568 li
 4. Reducere eller helt fjerne undtagelsen for `diagram_canvas.rs` i `gauntlet.toml`.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 (Viewport & Geometri Modul)**: Opret `src/ui/canvas/viewport.rs` ($\le 400$ linjer), der indkapsler koordinatsystem, zoom-niveauer, pan-offset og synlige skærm-bounds.
-- [ ] **AC2 (Node & Edge Renderers)**: Opret `src/ui/canvas/node_renderer.rs` ($\le 600$ linjer) til tegning af FDA begrebskasser og `src/ui/canvas/edge_renderer.rs` ($\le 500$ linjer) til tegning af relationer, pile og multipliciteter.
-- [ ] **AC3 (Minimap & Interaktion)**: Udskil minimap rendering til `src/ui/canvas/minimap.rs` ($\le 300$ linjer) og mus/tastatur event-håndtering til `src/ui/canvas/interaction.rs` ($\le 600$ linjer).
-- [ ] **AC4 (Canvas Shell & Ratchet Opdatering)**: Hovedmodulet `src/ui/canvas/mod.rs` orkestrerer Iced Canvas `Program`-traitet under 800 linjer, og undtagelsen for `src/ui/diagram_canvas.rs` slettes eller strammes til under 800 linjer i `gauntlet.toml`.
-- [ ] **AC5 (Regression & Verifikation)**: Samtlige canvas-accepttests i `tests/features/canvas_acceptance_test.rs` og `tests/acceptance.rs` består uændret, og `xgauntlet check-architecture` godkender modulet uden overtrædelser.
+- [x] **AC1 (Viewport & Geometri Modul)**: Opret `src/ui/canvas/viewport.rs` ($\le 400$ linjer), der indkapsler koordinatsystem, zoom-niveauer, pan-offset og synlige skærm-bounds.
+- [x] **AC2 (Node & Edge Renderers)**: Opret `src/ui/canvas/node_renderer.rs` ($\le 600$ linjer) til tegning af FDA begrebskasser og `src/ui/canvas/edge_renderer.rs` ($\le 500$ linjer) til tegning af relationer, pile og multipliciteter.
+- [x] **AC3 (Minimap & Interaktion)**: Udskil minimap rendering til `src/ui/canvas/minimap.rs` ($\le 300$ linjer) og mus/tastatur event-håndtering til `src/ui/canvas/interaction.rs` ($\le 600$ linjer).
+- [x] **AC4 (Canvas Shell & Ratchet Opdatering)**: Hovedmodulet `src/ui/canvas/mod.rs` orkestrerer Iced Canvas `Program`-traitet under 800 linjer, og undtagelsen for `src/ui/diagram_canvas.rs` slettes eller strammes til under 800 linjer i `gauntlet.toml`.
+- [x] **AC5 (Regression & Verifikation)**: Samtlige canvas-accepttests i `tests/features/canvas_acceptance_test.rs` og `tests/acceptance.rs` består uændret, og `xgauntlet check-architecture` godkender modulet uden overtrædelser.
 
 ## 🚫 Must NOT
 - Må IKKE ændre eksisterende canvas-adfærd, rendering af FDA diagrammer eller tastaturgenveje (frosne assertions).
@@ -43,6 +43,7 @@ Dekomponere Kants største visuelle monolit `src/ui/diagram_canvas.rs` (2.568 li
 
 ## 📝 Revisions
 - 2026-10-18: Oprettet opgavepakke til dekomponering af diagram_canvas.rs.
+- 2026-10-18: Dekomponeret diagram_canvas.rs til src/ui/canvas/{viewport,node_renderer,edge_renderer,minimap,interaction,mod}.rs, slettet ratchet exemption i gauntlet.toml og verificeret med 100% test-pass rate.
 
 ## 🧪 Verifikation
 - `cargo test --test canvas_acceptance`

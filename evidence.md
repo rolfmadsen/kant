@@ -1,21 +1,21 @@
 # Verification Report
 
-**Task ID**: `084-full-design-system-migration-and-token-enforcement`  
-**Task Title**: Task 084: Full Design System Migration & Token Enforcement  
+**Task ID**: `085-canvas-studio-decomposition`  
+**Task Title**: Task 085: Canvas Studio Decomposition  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `900142ee79a3ef0841534862a28b80c7e6f8b32f4a3c5762c5f92b7118cbc636`  
-**Timestamp**: `2026-10-18T16:22:13Z`  
-**Head**: `7cce67f`  
-**Commit**: `7cce67f`  
+**Source Manifest Digest**: `429a7f84a113ea466acf9f49d577fa849334a933a1c53dd40bf0f3bdbd26740c`  
+**Timestamp**: `2026-10-18T19:05:14Z`  
+**Head**: `c101195`  
+**Commit**: `c101195`  
 
 ## Acceptance Criteria
 
-- [x] **AC1 (ThemeColors Harmonering)**: `src/ui/theme.rs` omskrives så alle konstanter (`PRIMARY`, `SLATE_*`, `SURFACE_*`, `FDA_*` mv.) viderestiller direkte til `ColorTokens` fra `src/design_system/tokens.rs`, hvilket eliminerer 105 rå RGB-instanser.
-- [x] **AC2 (Resterende UI Migrering)**: Samtlige resterende rå `Color::from_rgb` og `Color::from_rgba` i `diagram_canvas.rs`, `app.rs`, `concept_editor.rs`, `concept_table.rs`, `concept_model_view.rs`, `information_model_view.rs` samt `features/*/ui/` erstattes med semantiske `ColorTokens`.
-- [x] **AC3 (Forbidden Tokens Lås i gauntlet.toml)**: `forbidden_tokens = ["Color::from_rgb", "Color::from_rgba"]` aktiveres i `[architecture]` sektionen i `gauntlet.toml`.
-- [x] **AC4 (Arkitektur-test Opdatering)**: `tests/architecture_test.rs` opdateres til at verificere, at `gauntlet.toml` deklarerer de forbudte tokens, og at `xgauntlet check-architecture` passerer med 0 overtrædelser.
-- [x] **AC5 (Verifikation & Nul Regressioner)**: `xgauntlet check-architecture`, `cargo test --workspace` og `xgauntlet verify` passerer 100% uden visuelle eller funktionelle regressioner.
+- [x] **AC1 (Viewport & Geometri Modul)**: Opret `src/ui/canvas/viewport.rs` ($\le 400$ linjer), der indkapsler koordinatsystem, zoom-niveauer, pan-offset og synlige skærm-bounds.
+- [x] **AC2 (Node & Edge Renderers)**: Opret `src/ui/canvas/node_renderer.rs` ($\le 600$ linjer) til tegning af FDA begrebskasser og `src/ui/canvas/edge_renderer.rs` ($\le 500$ linjer) til tegning af relationer, pile og multipliciteter.
+- [x] **AC3 (Minimap & Interaktion)**: Udskil minimap rendering til `src/ui/canvas/minimap.rs` ($\le 300$ linjer) og mus/tastatur event-håndtering til `src/ui/canvas/interaction.rs` ($\le 600$ linjer).
+- [x] **AC4 (Canvas Shell & Ratchet Opdatering)**: Hovedmodulet `src/ui/canvas/mod.rs` orkestrerer Iced Canvas `Program`-traitet under 800 linjer, og undtagelsen for `src/ui/diagram_canvas.rs` slettes eller strammes til under 800 linjer i `gauntlet.toml`.
+- [x] **AC5 (Regression & Verifikation)**: Samtlige canvas-accepttests i `tests/features/canvas_acceptance_test.rs` og `tests/acceptance.rs` består uændret, og `xgauntlet check-architecture` godkender modulet uden overtrædelser.
 
 ---
 
@@ -23,11 +23,11 @@
 
 | Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `architecture` | `PASSED` | `0` | `0.044s` |
-| `spec` | `PASSED` | `0` | `0.034s` |
-| `lint` | `PASSED` | `0` | `0.254s` |
-| `types` | `PASSED` | `0` | `0.211s` |
-| `unit` | `PASSED` | `0` | `1.412s` |
-| `invariants` | `PASSED` | `0` | `0.635s` |
+| `architecture` | `PASSED` | `0` | `0.053s` |
+| `spec` | `PASSED` | `0` | `0.035s` |
+| `lint` | `PASSED` | `0` | `1.034s` |
+| `types` | `PASSED` | `0` | `0.768s` |
+| `unit` | `PASSED` | `0` | `4.428s` |
+| `invariants` | `PASSED` | `0` | `0.664s` |
 
 ---

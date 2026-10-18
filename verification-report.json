@@ -4,39 +4,39 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "084-full-design-system-migration-and-token-enforcement",
-    "task_title": "Task 084: Full Design System Migration & Token Enforcement",
-    "task_digest": "5146af75770a88fb63386b78c895202b3657424223c6a5031d2d9df6f657a1e2",
+    "task_id": "085-canvas-studio-decomposition",
+    "task_title": "Task 085: Canvas Studio Decomposition",
+    "task_digest": "31a0e8224dcb9ea34be323dc6c02a7a20e17a70710cc90e429644a5e5179e4f4",
     "acceptance_criteria": [
-      "**AC1 (ThemeColors Harmonering)**: `src/ui/theme.rs` omskrives så alle konstanter (`PRIMARY`, `SLATE_*`, `SURFACE_*`, `FDA_*` mv.) viderestiller direkte til `ColorTokens` fra `src/design_system/tokens.rs`, hvilket eliminerer 105 rå RGB-instanser.",
-      "**AC2 (Resterende UI Migrering)**: Samtlige resterende rå `Color::from_rgb` og `Color::from_rgba` i `diagram_canvas.rs`, `app.rs`, `concept_editor.rs`, `concept_table.rs`, `concept_model_view.rs`, `information_model_view.rs` samt `features/*/ui/` erstattes med semantiske `ColorTokens`.",
-      "**AC3 (Forbidden Tokens Lås i gauntlet.toml)**: `forbidden_tokens = [\"Color::from_rgb\", \"Color::from_rgba\"]` aktiveres i `[architecture]` sektionen i `gauntlet.toml`.",
-      "**AC4 (Arkitektur-test Opdatering)**: `tests/architecture_test.rs` opdateres til at verificere, at `gauntlet.toml` deklarerer de forbudte tokens, og at `xgauntlet check-architecture` passerer med 0 overtrædelser.",
-      "**AC5 (Verifikation & Nul Regressioner)**: `xgauntlet check-architecture`, `cargo test --workspace` og `xgauntlet verify` passerer 100% uden visuelle eller funktionelle regressioner."
+      "**AC1 (Viewport & Geometri Modul)**: Opret `src/ui/canvas/viewport.rs` ($\\le 400$ linjer), der indkapsler koordinatsystem, zoom-niveauer, pan-offset og synlige skærm-bounds.",
+      "**AC2 (Node & Edge Renderers)**: Opret `src/ui/canvas/node_renderer.rs` ($\\le 600$ linjer) til tegning af FDA begrebskasser og `src/ui/canvas/edge_renderer.rs` ($\\le 500$ linjer) til tegning af relationer, pile og multipliciteter.",
+      "**AC3 (Minimap & Interaktion)**: Udskil minimap rendering til `src/ui/canvas/minimap.rs` ($\\le 300$ linjer) og mus/tastatur event-håndtering til `src/ui/canvas/interaction.rs` ($\\le 600$ linjer).",
+      "**AC4 (Canvas Shell & Ratchet Opdatering)**: Hovedmodulet `src/ui/canvas/mod.rs` orkestrerer Iced Canvas `Program`-traitet under 800 linjer, og undtagelsen for `src/ui/diagram_canvas.rs` slettes eller strammes til under 800 linjer i `gauntlet.toml`.",
+      "**AC5 (Regression & Verifikation)**: Samtlige canvas-accepttests i `tests/features/canvas_acceptance_test.rs` og `tests/acceptance.rs` består uændret, og `xgauntlet check-architecture` godkender modulet uden overtrædelser."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "8e2fd39b4ee6b7595961cb8db946e6ac8dd1f6ef4112ff2bf840b0b250d8974b",
-    "source_manifest_digest_pre": "900142ee79a3ef0841534862a28b80c7e6f8b32f4a3c5762c5f92b7118cbc636",
-    "source_manifest_digest_post": "900142ee79a3ef0841534862a28b80c7e6f8b32f4a3c5762c5f92b7118cbc636",
-    "config_digest": "bb1901490e51b2797d0aca3019bbc21eafdc284cd1e3b6f953a1d3bc32d230a9",
-    "task_digest": "5146af75770a88fb63386b78c895202b3657424223c6a5031d2d9df6f657a1e2",
+    "source_content_digest": "a8813fb77d21adebf4030f456a6302715ff1a98a5aec5962fc14dc63a24d1a13",
+    "source_manifest_digest_pre": "429a7f84a113ea466acf9f49d577fa849334a933a1c53dd40bf0f3bdbd26740c",
+    "source_manifest_digest_post": "429a7f84a113ea466acf9f49d577fa849334a933a1c53dd40bf0f3bdbd26740c",
+    "config_digest": "a992ab98eec3a1765b82b9f3b7733d9f6e5b6d24d9dbe09822e5b2b76c7ea83e",
+    "task_digest": "31a0e8224dcb9ea34be323dc6c02a7a20e17a70710cc90e429644a5e5179e4f4",
     "policy_digest": "779d592d4e19033524124ee6f7d07808c5009b4be93da24680090f900905208e",
     "check_definitions_digest": "7ac9f4a75d7c84442ecaa2a4c1e0c06c1940bf2e1f0c017e60b1fe20c38e97c4",
-    "included_files_count": 218,
+    "included_files_count": 224,
     "vcs": {
       "type": "git",
-      "head": "7cce67f",
-      "commit": "7cce67f",
+      "head": "c101195",
+      "commit": "c101195",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-18T16:22:10Z",
-    "finished_at": "2026-10-18T16:22:13Z",
-    "total_duration_seconds": 2.619460242,
+    "started_at": "2026-10-18T19:05:07Z",
+    "finished_at": "2026-10-18T19:05:14Z",
+    "total_duration_seconds": 7.021161528,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -49,16 +49,16 @@
       "name": "architecture",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.043541292,
+      "duration_seconds": 0.053050258,
       "optional": false,
       "passed": true,
-      "log_digest": "9d9b7d7907be33888b1861fa258acc37e3c5cbd34282b658225c3d61d167e00f"
+      "log_digest": "be3ca50d91e5b0be5628f88074b6f9ca655870ef56833a2711a3517455753c2a"
     },
     {
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.034435662,
+      "duration_seconds": 0.034880633,
       "optional": false,
       "passed": true,
       "log_digest": "7fc315ba9b70f089fe236085988a0af3a273b43b449acc33a958747a9ab2c5e4"
@@ -67,37 +67,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.253859439,
+      "duration_seconds": 1.033925372,
       "optional": true,
       "passed": true,
-      "log_digest": "732186322402325172940531d8d6d7cfac85dc902585b2bef6715ad6839dacfd"
+      "log_digest": "031ff624e930546810238519e255a38616c5c459d3777c30ef16f0c92e24ae1c"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.210639533,
+      "duration_seconds": 0.767785621,
       "optional": true,
       "passed": true,
-      "log_digest": "d7dae192715495fa89ccbe279af3efb9792c1dae1768228e369035e68a1df673"
+      "log_digest": "780e437426a554acc49f8f841bf16dba841e8257d33ced81dcb8a02c579ae996"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 1.4116448,
+      "duration_seconds": 4.427544117,
       "optional": false,
       "passed": true,
-      "log_digest": "2fcb7b3c06c804de0a57b1ce487954820969f9fde373ef99279e93a0cd502540"
+      "log_digest": "5424d88acbd3ee3d7210658d254877178589dc91927d51a00a864efd2babaa4d"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.635140597,
+      "duration_seconds": 0.664204785,
       "optional": false,
       "passed": true,
-      "log_digest": "3ccaf9f2dc4289987f1199991cc0705dec94869d80934fecd3de2d15d9d1a357"
+      "log_digest": "4c63867ebecc49b7164164df4061a4750ace7adabb1e063765fadd6eed7de35b"
     }
   ],
   "diagnostics": []
