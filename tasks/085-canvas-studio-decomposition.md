@@ -2,13 +2,15 @@
 type: Task Package
 title: "Task 085: Canvas Studio Decomposition"
 description: "Dekomponering af monolitten src/ui/diagram_canvas.rs (2.568 linjer) i modulære canvas-komponenter under 800 linjer og stramning af ratchet spærrehage"
-status: todo
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-10-18T18:00:30Z" }
 tags: [refactor, canvas, decomposition, modularity, architecture, ratchet]
 scope:
   - "src/ui/diagram_canvas.rs"
   - "src/ui/canvas/**"
+  - "src/ui/mod.rs"
   - "gauntlet.toml"
+  - "tests/architecture_test.rs"
 test_refs:
   - "tests/features/canvas_acceptance_test.rs"
   - "tests/architecture_test.rs"
@@ -16,7 +18,7 @@ test_refs:
 
 # Task 085: Canvas Studio Decomposition
 
-**Status**: `TODO`  
+**Status**: `ACTIVE`  
 **Intent**: `🔄 REFACTOR`  
 **Oprettet**: `2026-10-18`  
 
