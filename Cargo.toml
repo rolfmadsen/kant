@@ -81,3 +81,7 @@ path = "tests/features/canvas_acceptance_test.rs"
 [[test]]
 name = "git_acceptance"
 path = "tests/features/git_acceptance_test.rs"
+
+[[test]]
+name = "information_model_acceptance"
+path = "tests/features/information_model_acceptance_test.rs"
