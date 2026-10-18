@@ -4,39 +4,39 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "085-canvas-studio-decomposition",
-    "task_title": "Task 085: Canvas Studio Decomposition",
-    "task_digest": "31a0e8224dcb9ea34be323dc6c02a7a20e17a70710cc90e429644a5e5179e4f4",
+    "task_id": "086-information-model-decomposition",
+    "task_title": "Task 086: Information Model Decomposition",
+    "task_digest": "2b6cf05a14acb77baf21b1ce8eef7ecd756e18de9159e0af7a22f5bcd3f7c26c",
     "acceptance_criteria": [
-      "**AC1 (Viewport & Geometri Modul)**: Opret `src/ui/canvas/viewport.rs` ($\\le 400$ linjer), der indkapsler koordinatsystem, zoom-niveauer, pan-offset og synlige skærm-bounds.",
-      "**AC2 (Node & Edge Renderers)**: Opret `src/ui/canvas/node_renderer.rs` ($\\le 600$ linjer) til tegning af FDA begrebskasser og `src/ui/canvas/edge_renderer.rs` ($\\le 500$ linjer) til tegning af relationer, pile og multipliciteter.",
-      "**AC3 (Minimap & Interaktion)**: Udskil minimap rendering til `src/ui/canvas/minimap.rs` ($\\le 300$ linjer) og mus/tastatur event-håndtering til `src/ui/canvas/interaction.rs` ($\\le 600$ linjer).",
-      "**AC4 (Canvas Shell & Ratchet Opdatering)**: Hovedmodulet `src/ui/canvas/mod.rs` orkestrerer Iced Canvas `Program`-traitet under 800 linjer, og undtagelsen for `src/ui/diagram_canvas.rs` slettes eller strammes til under 800 linjer i `gauntlet.toml`.",
-      "**AC5 (Regression & Verifikation)**: Samtlige canvas-accepttests i `tests/features/canvas_acceptance_test.rs` og `tests/acceptance.rs` består uændret, og `xgauntlet check-architecture` godkender modulet uden overtrædelser."
+      "**AC1 (Domænemodel Dekomponering)**: Dekomponer `src/features/information_model/mod.rs` i `models.rs` ($\\le 600$ linjer), `validation.rs` ($\\le 500$ linjer) og `lineage.rs` ($\\le 400$ linjer) med ren facade i `mod.rs`.",
+      "**AC2 (UI Modul: Klasseliste & Metadata)**: Opret `src/features/information_model/ui/class_list.rs` ($\\le 500$ linjer) og `class_detail.rs` ($\\le 500$ linjer) til navigation og klasse-metadata.",
+      "**AC3 (UI Modul: Attributter & Associationer)**: Opret `src/features/information_model/ui/attribute_editor.rs` ($\\le 600$ linjer) med lineage-vælger samt `association_editor.rs` ($\\le 500$ linjer) til UML-relationer.",
+      "**AC4 (Fjernelse af Undtagelser i gauntlet.toml)**: Da alle dekomponerede filer er under 800 linjer, fjernes undtagelserne for `src/ui/information_model_view.rs` og `src/features/information_model/mod.rs` fra `gauntlet.toml`.",
+      "**AC5 (Regression & Verifikation)**: Samtlige enheds- og accepttests i workspace passerer uden fejl, og `xgauntlet check-architecture` rapporterer 0 overtrædelser."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "a8813fb77d21adebf4030f456a6302715ff1a98a5aec5962fc14dc63a24d1a13",
-    "source_manifest_digest_pre": "429a7f84a113ea466acf9f49d577fa849334a933a1c53dd40bf0f3bdbd26740c",
-    "source_manifest_digest_post": "429a7f84a113ea466acf9f49d577fa849334a933a1c53dd40bf0f3bdbd26740c",
-    "config_digest": "a992ab98eec3a1765b82b9f3b7733d9f6e5b6d24d9dbe09822e5b2b76c7ea83e",
-    "task_digest": "31a0e8224dcb9ea34be323dc6c02a7a20e17a70710cc90e429644a5e5179e4f4",
+    "source_content_digest": "62591af537e64aa96d72512abb4778b2668a51bd056ccdb59d8e04b183754007",
+    "source_manifest_digest_pre": "48f2ed44321d587713f96e22a1bb478cd017c89d7b968753a8aa30e3db8afc79",
+    "source_manifest_digest_post": "48f2ed44321d587713f96e22a1bb478cd017c89d7b968753a8aa30e3db8afc79",
+    "config_digest": "2552eeefbabd971cd17846f094838d413dd9d30d30cbd112d167f22a9c58eba1",
+    "task_digest": "2b6cf05a14acb77baf21b1ce8eef7ecd756e18de9159e0af7a22f5bcd3f7c26c",
     "policy_digest": "779d592d4e19033524124ee6f7d07808c5009b4be93da24680090f900905208e",
     "check_definitions_digest": "7ac9f4a75d7c84442ecaa2a4c1e0c06c1940bf2e1f0c017e60b1fe20c38e97c4",
-    "included_files_count": 224,
+    "included_files_count": 235,
     "vcs": {
       "type": "git",
-      "head": "c101195",
-      "commit": "c101195",
+      "head": "c9ae01b",
+      "commit": "c9ae01b",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-18T19:05:07Z",
-    "finished_at": "2026-10-18T19:05:14Z",
-    "total_duration_seconds": 7.021161528,
+    "started_at": "2026-10-18T19:32:22Z",
+    "finished_at": "2026-10-18T19:32:24Z",
+    "total_duration_seconds": 2.615740504,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -49,16 +49,16 @@
       "name": "architecture",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.053050258,
+      "duration_seconds": 0.063284986,
       "optional": false,
       "passed": true,
-      "log_digest": "be3ca50d91e5b0be5628f88074b6f9ca655870ef56833a2711a3517455753c2a"
+      "log_digest": "370f1eea102ee75183cb4e0c1824805d97f17705c37a31796e714ffbdf255ae2"
     },
     {
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.034880633,
+      "duration_seconds": 0.031057487,
       "optional": false,
       "passed": true,
       "log_digest": "7fc315ba9b70f089fe236085988a0af3a273b43b449acc33a958747a9ab2c5e4"
@@ -67,37 +67,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 1.033925372,
+      "duration_seconds": 0.237286949,
       "optional": true,
       "passed": true,
-      "log_digest": "031ff624e930546810238519e255a38616c5c459d3777c30ef16f0c92e24ae1c"
+      "log_digest": "d7dae192715495fa89ccbe279af3efb9792c1dae1768228e369035e68a1df673"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.767785621,
+      "duration_seconds": 0.220034032,
       "optional": true,
       "passed": true,
-      "log_digest": "780e437426a554acc49f8f841bf16dba841e8257d33ced81dcb8a02c579ae996"
+      "log_digest": "732186322402325172940531d8d6d7cfac85dc902585b2bef6715ad6839dacfd"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 4.427544117,
+      "duration_seconds": 1.370530218,
       "optional": false,
       "passed": true,
-      "log_digest": "5424d88acbd3ee3d7210658d254877178589dc91927d51a00a864efd2babaa4d"
+      "log_digest": "c9f6afda98b77b380308a88c29f47bdef71a687a45505da59b724375044154e0"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.664204785,
+      "duration_seconds": 0.631568097,
       "optional": false,
       "passed": true,
-      "log_digest": "4c63867ebecc49b7164164df4061a4750ace7adabb1e063765fadd6eed7de35b"
+      "log_digest": "ca8231a3c1ffa69f62508f279656b3817b356ed50055b660203e5cf7016c9431"
     }
   ],
   "diagnostics": []

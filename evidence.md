@@ -1,21 +1,21 @@
 # Verification Report
 
-**Task ID**: `085-canvas-studio-decomposition`  
-**Task Title**: Task 085: Canvas Studio Decomposition  
+**Task ID**: `086-information-model-decomposition`  
+**Task Title**: Task 086: Information Model Decomposition  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `429a7f84a113ea466acf9f49d577fa849334a933a1c53dd40bf0f3bdbd26740c`  
-**Timestamp**: `2026-10-18T19:05:14Z`  
-**Head**: `c101195`  
-**Commit**: `c101195`  
+**Source Manifest Digest**: `48f2ed44321d587713f96e22a1bb478cd017c89d7b968753a8aa30e3db8afc79`  
+**Timestamp**: `2026-10-18T19:32:24Z`  
+**Head**: `c9ae01b`  
+**Commit**: `c9ae01b`  
 
 ## Acceptance Criteria
 
-- [x] **AC1 (Viewport & Geometri Modul)**: Opret `src/ui/canvas/viewport.rs` ($\le 400$ linjer), der indkapsler koordinatsystem, zoom-niveauer, pan-offset og synlige skærm-bounds.
-- [x] **AC2 (Node & Edge Renderers)**: Opret `src/ui/canvas/node_renderer.rs` ($\le 600$ linjer) til tegning af FDA begrebskasser og `src/ui/canvas/edge_renderer.rs` ($\le 500$ linjer) til tegning af relationer, pile og multipliciteter.
-- [x] **AC3 (Minimap & Interaktion)**: Udskil minimap rendering til `src/ui/canvas/minimap.rs` ($\le 300$ linjer) og mus/tastatur event-håndtering til `src/ui/canvas/interaction.rs` ($\le 600$ linjer).
-- [x] **AC4 (Canvas Shell & Ratchet Opdatering)**: Hovedmodulet `src/ui/canvas/mod.rs` orkestrerer Iced Canvas `Program`-traitet under 800 linjer, og undtagelsen for `src/ui/diagram_canvas.rs` slettes eller strammes til under 800 linjer i `gauntlet.toml`.
-- [x] **AC5 (Regression & Verifikation)**: Samtlige canvas-accepttests i `tests/features/canvas_acceptance_test.rs` og `tests/acceptance.rs` består uændret, og `xgauntlet check-architecture` godkender modulet uden overtrædelser.
+- [x] **AC1 (Domænemodel Dekomponering)**: Dekomponer `src/features/information_model/mod.rs` i `models.rs` ($\le 600$ linjer), `validation.rs` ($\le 500$ linjer) og `lineage.rs` ($\le 400$ linjer) med ren facade i `mod.rs`.
+- [x] **AC2 (UI Modul: Klasseliste & Metadata)**: Opret `src/features/information_model/ui/class_list.rs` ($\le 500$ linjer) og `class_detail.rs` ($\le 500$ linjer) til navigation og klasse-metadata.
+- [x] **AC3 (UI Modul: Attributter & Associationer)**: Opret `src/features/information_model/ui/attribute_editor.rs` ($\le 600$ linjer) med lineage-vælger samt `association_editor.rs` ($\le 500$ linjer) til UML-relationer.
+- [x] **AC4 (Fjernelse af Undtagelser i gauntlet.toml)**: Da alle dekomponerede filer er under 800 linjer, fjernes undtagelserne for `src/ui/information_model_view.rs` og `src/features/information_model/mod.rs` fra `gauntlet.toml`.
+- [x] **AC5 (Regression & Verifikation)**: Samtlige enheds- og accepttests i workspace passerer uden fejl, og `xgauntlet check-architecture` rapporterer 0 overtrædelser.
 
 ---
 
@@ -23,11 +23,11 @@
 
 | Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `architecture` | `PASSED` | `0` | `0.053s` |
-| `spec` | `PASSED` | `0` | `0.035s` |
-| `lint` | `PASSED` | `0` | `1.034s` |
-| `types` | `PASSED` | `0` | `0.768s` |
-| `unit` | `PASSED` | `0` | `4.428s` |
-| `invariants` | `PASSED` | `0` | `0.664s` |
+| `architecture` | `PASSED` | `0` | `0.063s` |
+| `spec` | `PASSED` | `0` | `0.031s` |
+| `lint` | `PASSED` | `0` | `0.237s` |
+| `types` | `PASSED` | `0` | `0.220s` |
+| `unit` | `PASSED` | `0` | `1.371s` |
+| `invariants` | `PASSED` | `0` | `0.632s` |
 
 ---

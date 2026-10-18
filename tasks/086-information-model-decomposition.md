@@ -2,7 +2,7 @@
 type: Task Package
 title: "Task 086: Information Model Decomposition"
 description: "Dekomponering af src/ui/information_model_view.rs (1.923 linjer) og src/features/information_model/mod.rs (1.719 linjer) i modulære feature-slices under 800 linjer"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-18T18:01:00Z" }
 tags: [refactor, information-model, decomposition, modularity, architecture, ratchet]
 scope:
@@ -17,7 +17,7 @@ test_refs:
 
 # Task 086: Information Model Decomposition
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: `🔄 REFACTOR`  
 **Oprettet**: `2026-10-18`  
 
@@ -28,11 +28,11 @@ Dekomponere de to store monolitter i informationsmodel-domænet, så samtlige fi
 3. Fjerne begge undtagelser fra `gauntlet.toml`, da alle berørte filer overholder grænsen på $\le 800$ linjer.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 (Domænemodel Dekomponering)**: Dekomponer `src/features/information_model/mod.rs` i `models.rs` ($\le 600$ linjer), `validation.rs` ($\le 500$ linjer) og `lineage.rs` ($\le 400$ linjer) med ren facade i `mod.rs`.
-- [ ] **AC2 (UI Modul: Klasseliste & Metadata)**: Opret `src/features/information_model/ui/class_list.rs` ($\le 500$ linjer) og `class_detail.rs` ($\le 500$ linjer) til navigation og klasse-metadata.
-- [ ] **AC3 (UI Modul: Attributter & Associationer)**: Opret `src/features/information_model/ui/attribute_editor.rs` ($\le 600$ linjer) med lineage-vælger samt `association_editor.rs` ($\le 500$ linjer) til UML-relationer.
-- [ ] **AC4 (Fjernelse af Undtagelser i gauntlet.toml)**: Da alle dekomponerede filer er under 800 linjer, fjernes undtagelserne for `src/ui/information_model_view.rs` og `src/features/information_model/mod.rs` fra `gauntlet.toml`.
-- [ ] **AC5 (Regression & Verifikation)**: Samtlige enheds- og accepttests i workspace passerer uden fejl, og `xgauntlet check-architecture` rapporterer 0 overtrædelser.
+- [x] **AC1 (Domænemodel Dekomponering)**: Dekomponer `src/features/information_model/mod.rs` i `models.rs` ($\le 600$ linjer), `validation.rs` ($\le 500$ linjer) og `lineage.rs` ($\le 400$ linjer) med ren facade i `mod.rs`.
+- [x] **AC2 (UI Modul: Klasseliste & Metadata)**: Opret `src/features/information_model/ui/class_list.rs` ($\le 500$ linjer) og `class_detail.rs` ($\le 500$ linjer) til navigation og klasse-metadata.
+- [x] **AC3 (UI Modul: Attributter & Associationer)**: Opret `src/features/information_model/ui/attribute_editor.rs` ($\le 600$ linjer) med lineage-vælger samt `association_editor.rs` ($\le 500$ linjer) til UML-relationer.
+- [x] **AC4 (Fjernelse af Undtagelser i gauntlet.toml)**: Da alle dekomponerede filer er under 800 linjer, fjernes undtagelserne for `src/ui/information_model_view.rs` og `src/features/information_model/mod.rs` fra `gauntlet.toml`.
+- [x] **AC5 (Regression & Verifikation)**: Samtlige enheds- og accepttests i workspace passerer uden fejl, og `xgauntlet check-architecture` rapporterer 0 overtrædelser.
 
 ## 🚫 Must NOT
 - Må IKKE ændre FDA informationsmodellens logik, valideringsregler eller serialiseringsformat.
@@ -41,6 +41,7 @@ Dekomponere de to store monolitter i informationsmodel-domænet, så samtlige fi
 
 ## 📝 Revisions
 - 2026-10-18: Oprettet opgavepakke til dekomponering af informationsmodel visning og domænelag.
+- 2026-10-18: Dekomponeret information_model til modular Package-by-Feature arkitektur (models.rs, validation.rs, lineage.rs, diagram.rs, ui/{class_list,class_detail,enum_detail,attribute_editor,association_editor}.rs), fjernet undtagelser fra gauntlet.toml, og verificeret med 100% test-pass rate.
 
 ## 🧪 Verifikation
 - `cargo test --workspace`
