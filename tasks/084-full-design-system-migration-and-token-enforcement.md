@@ -2,7 +2,7 @@
 type: Task Package
 title: "Task 084: Full Design System Migration & Token Enforcement"
 description: "Fuld udfasning af rå Color::from_rgb/rgba i produktionskode, harmonisering af theme.rs med ColorTokens og aktivering af forbidden_tokens i gauntlet.toml jf. ADR 015"
-status: todo
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-10-18T18:00:00Z" }
 tags: [design-system, tokens, accessibility, wcag-aa, architecture, forbidden-tokens, theme]
 scope:
@@ -24,7 +24,7 @@ test_refs:
 
 # Task 084: Full Design System Migration & Token Enforcement
 
-**Status**: `TODO`  
+**Status**: `ACTIVE`  
 **Intent**: `🔄 REFACTOR`  
 **Oprettet**: `2026-10-18`  
 
