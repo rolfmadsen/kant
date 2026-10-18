@@ -1664,14 +1664,20 @@ where
             panel_rect.size(),
             10.0.into(),
         );
-        overlay_frame.fill(&panel_shadow, ColorTokens::SLATE_900.with_alpha(0.12).into_color());
+        overlay_frame.fill(
+            &panel_shadow,
+            ColorTokens::SLATE_900.with_alpha(0.12).into_color(),
+        );
 
         let panel_path = Path::rounded_rectangle(
             Point::new(panel_rect.x, panel_rect.y),
             panel_rect.size(),
             10.0.into(),
         );
-        overlay_frame.fill(&panel_path, ColorTokens::SURFACE.with_alpha(0.92).into_color());
+        overlay_frame.fill(
+            &panel_path,
+            ColorTokens::SURFACE.with_alpha(0.92).into_color(),
+        );
         overlay_frame.stroke(
             &panel_path,
             Stroke::default()
@@ -1685,7 +1691,10 @@ where
             minimap_rect.size(),
             6.0.into(),
         );
-        overlay_frame.fill(&minimap_bg, ColorTokens::CANVAS_BACKGROUND.with_alpha(0.95).into_color());
+        overlay_frame.fill(
+            &minimap_bg,
+            ColorTokens::CANVAS_BACKGROUND.with_alpha(0.95).into_color(),
+        );
         overlay_frame.stroke(
             &minimap_bg,
             Stroke::default()

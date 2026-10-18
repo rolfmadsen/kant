@@ -279,7 +279,9 @@ pub fn view<'a>(
                             .color(ColorTokens::WARNING_TEXT.into_color()),
                     )
                     .style(|_| container::Style {
-                        background: Some(iced::Background::Color(ColorTokens::WARNING_BG.into_color())),
+                        background: Some(iced::Background::Color(
+                            ColorTokens::WARNING_BG.into_color(),
+                        )),
                         border: iced::Border {
                             color: ColorTokens::WARNING_BORDER.into_color(),
                             width: 0.5,

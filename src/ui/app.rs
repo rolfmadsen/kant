@@ -1,3 +1,4 @@
+use crate::design_system::tokens::ColorTokens;
 use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
 use crate::features::export::{
@@ -20,7 +21,6 @@ use crate::ui::concept_table;
 use crate::ui::diagram_canvas::{CanvasEdge, CanvasNode};
 use crate::ui::focus::{FocusCycle, FocusTarget};
 use crate::ui::information_model_view;
-use crate::design_system::tokens::ColorTokens;
 use crate::ui::theme::{
     card_container_style, focused_button_style, modal_backdrop_style, modal_card_style,
     modern_input_style, pill_container_style, primary_button_style, secondary_button_style,

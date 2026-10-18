@@ -104,9 +104,7 @@ pub fn view_history_modal<'a>(
                     ChangeAction::Modified => {
                         ("🟡 Opdateret", ColorTokens::WARNING_AMBER.into_color())
                     }
-                    ChangeAction::Deleted => {
-                        ("🔴 Fjernet", ColorTokens::DANGER_TEXT.into_color())
-                    }
+                    ChangeAction::Deleted => ("🔴 Fjernet", ColorTokens::DANGER_TEXT.into_color()),
                 };
                 events_col = events_col.push(
                     row![
@@ -123,7 +121,9 @@ pub fn view_history_modal<'a>(
             let commit_card =
                 container(column![commit_header, Space::new().height(4), events_col].spacing(4))
                     .style(move |_| container::Style {
-                        background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
+                        background: Some(iced::Background::Color(
+                            ColorTokens::CANVAS_BACKGROUND.into_color(),
+                        )),
                         border: iced::Border {
                             color: if is_card_focused {
                                 ThemeColors::FOCUS_RING
@@ -284,7 +284,9 @@ pub fn view_conflict_resolver_modal<'a>(
             .spacing(4),
         )
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
+            background: Some(iced::Background::Color(
+                ColorTokens::CANVAS_BACKGROUND.into_color(),
+            )),
             border: iced::Border {
                 color: ThemeColors::SURFACE_BORDER,
                 width: 1.0,

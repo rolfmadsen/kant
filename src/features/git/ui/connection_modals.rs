@@ -105,7 +105,9 @@ pub fn view_publish_modal<'a>(
 
     let changes_box = container(changes_list)
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
+            background: Some(iced::Background::Color(
+                ColorTokens::CANVAS_BACKGROUND.into_color(),
+            )),
             border: iced::Border {
                 color: ThemeColors::SURFACE_BORDER,
                 width: 1.0,
@@ -399,9 +401,9 @@ pub fn view_git_connection_modal<'a>(
                     let base_border_width = if is_remove_focused { 1.5 } else { 1.0 };
                     button::Style {
                         background: match status {
-                            button::Status::Hovered => Some(iced::Background::Color(
-                                ColorTokens::DANGER_BG.into_color(),
-                            )),
+                            button::Status::Hovered => {
+                                Some(iced::Background::Color(ColorTokens::DANGER_BG.into_color()))
+                            }
                             _ => None,
                         },
                         text_color: ColorTokens::DANGER_TEXT.into_color(),

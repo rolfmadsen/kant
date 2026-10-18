@@ -368,7 +368,9 @@ pub fn view<'a>(
             toolbar,
             container(canvas_widget)
                 .style(|_| container::Style {
-                    background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
+                    background: Some(iced::Background::Color(
+                        ColorTokens::CANVAS_BACKGROUND.into_color()
+                    )),
                     border: iced::Border {
                         color: ThemeColors::SLATE_200,
                         width: 1.0,
@@ -389,7 +391,9 @@ pub fn view<'a>(
             toolbar,
             container(canvas_widget)
                 .style(|_| container::Style {
-                    background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
+                    background: Some(iced::Background::Color(
+                        ColorTokens::CANVAS_BACKGROUND.into_color()
+                    )),
                     border: iced::Border {
                         color: ThemeColors::SLATE_200,
                         width: 1.0,

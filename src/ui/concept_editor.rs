@@ -569,7 +569,9 @@ impl ConceptEditorState {
 
             let issues_box = container(issues_col)
                 .style(|_| container::Style {
-                    background: Some(iced::Background::Color(ColorTokens::WARNING_BG.into_color())),
+                    background: Some(iced::Background::Color(
+                        ColorTokens::WARNING_BG.into_color(),
+                    )),
                     border: iced::Border {
                         color: ColorTokens::WARNING_BORDER.into_color(),
                         width: 1.0,

@@ -687,7 +687,9 @@ pub fn view<'a>(
             dialog_card,
             container(canvas_widget)
                 .style(|_| container::Style {
-                    background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
+                    background: Some(iced::Background::Color(
+                        ColorTokens::CANVAS_BACKGROUND.into_color()
+                    )),
                     border: iced::Border {
                         color: ThemeColors::SLATE_200,
                         width: 1.0,
@@ -706,7 +708,9 @@ pub fn view<'a>(
             toolbar,
             container(canvas_widget)
                 .style(|_| container::Style {
-                    background: Some(iced::Background::Color(ColorTokens::CANVAS_BACKGROUND.into_color())),
+                    background: Some(iced::Background::Color(
+                        ColorTokens::CANVAS_BACKGROUND.into_color()
+                    )),
                     border: iced::Border {
                         color: ThemeColors::SLATE_200,
                         width: 1.0,
@@ -976,8 +980,11 @@ pub fn view<'a>(
                     if let Some(fix) = &issue.suggested_fix {
                         msg.push_str(&format!(" (Forslag: {})", fix));
                     }
-                    label_col = label_col
-                        .push(text(msg).size(10.0).color(ColorTokens::WARNING_AMBER.into_color()));
+                    label_col = label_col.push(
+                        text(msg)
+                            .size(10.0)
+                            .color(ColorTokens::WARNING_AMBER.into_color()),
+                    );
                 }
             }
 
@@ -1061,8 +1068,11 @@ pub fn view<'a>(
                 if let Some(fix) = &issue.suggested_fix {
                     msg.push_str(&format!(" (Forslag: {})", fix));
                 }
-                name_col =
-                    name_col.push(text(msg).size(10.5).color(ColorTokens::WARNING_AMBER.into_color()));
+                name_col = name_col.push(
+                    text(msg)
+                        .size(10.5)
+                        .color(ColorTokens::WARNING_AMBER.into_color()),
+                );
             }
         }
 
@@ -1498,8 +1508,11 @@ pub fn view<'a>(
                     if let Some(fix) = &issue.suggested_fix {
                         msg.push_str(&format!(" (Forslag: {})", fix));
                     }
-                    attr_col =
-                        attr_col.push(text(msg).size(10.0).color(ColorTokens::WARNING_AMBER.into_color()));
+                    attr_col = attr_col.push(
+                        text(msg)
+                            .size(10.0)
+                            .color(ColorTokens::WARNING_AMBER.into_color()),
+                    );
                 }
             }
 
@@ -1722,8 +1735,11 @@ pub fn view<'a>(
                 if let Some(fix) = &issue.suggested_fix {
                     msg.push_str(&format!(" (Forslag: {})", fix));
                 }
-                name_col =
-                    name_col.push(text(msg).size(10.5).color(ColorTokens::WARNING_AMBER.into_color()));
+                name_col = name_col.push(
+                    text(msg)
+                        .size(10.5)
+                        .color(ColorTokens::WARNING_AMBER.into_color()),
+                );
             }
         }
 
@@ -1843,8 +1859,11 @@ pub fn view<'a>(
                 if let Some(fix) = &issue.suggested_fix {
                     msg.push_str(&format!(" (Forslag: {})", fix));
                 }
-                add_val_col =
-                    add_val_col.push(text(msg).size(10.0).color(ColorTokens::WARNING_AMBER.into_color()));
+                add_val_col = add_val_col.push(
+                    text(msg)
+                        .size(10.0)
+                        .color(ColorTokens::WARNING_AMBER.into_color()),
+                );
             }
         }
 

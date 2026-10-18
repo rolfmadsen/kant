@@ -102,7 +102,9 @@ pub fn floating_panel_style(_theme: &iced::Theme) -> container::Style {
 
 pub fn pill_container_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(ColorTokens::SLATE_100.with_alpha(0.85).into_color())),
+        background: Some(Background::Color(
+            ColorTokens::SLATE_100.with_alpha(0.85).into_color(),
+        )),
         border: Border {
             color: ColorTokens::SLATE_300.with_alpha(0.70).into_color(),
             width: 1.0,
@@ -201,7 +203,9 @@ pub fn primary_button_style(_theme: &iced::Theme, status: button::Status) -> but
 pub fn secondary_button_style(_theme: &iced::Theme, status: button::Status) -> button::Style {
     match status {
         button::Status::Active => button::Style {
-            background: Some(Background::Color(ColorTokens::SURFACE.with_alpha(0.90).into_color())),
+            background: Some(Background::Color(
+                ColorTokens::SURFACE.with_alpha(0.90).into_color(),
+            )),
             text_color: ThemeColors::SLATE_700,
             border: Border {
                 color: ColorTokens::SLATE_200.with_alpha(0.85).into_color(),
@@ -258,7 +262,9 @@ pub fn secondary_button_style(_theme: &iced::Theme, status: button::Status) -> b
 pub fn danger_button_style(_theme: &iced::Theme, status: button::Status) -> button::Style {
     match status {
         button::Status::Active => button::Style {
-            background: Some(Background::Color(ColorTokens::DANGER_BG.with_alpha(0.90).into_color())),
+            background: Some(Background::Color(
+                ColorTokens::DANGER_BG.with_alpha(0.90).into_color(),
+            )),
             text_color: ThemeColors::ACCENT_RED,
             border: Border {
                 color: ColorTokens::ACCENT_RED.with_alpha(0.40).into_color(),
@@ -284,7 +290,9 @@ pub fn danger_button_style(_theme: &iced::Theme, status: button::Status) -> butt
             ..Default::default()
         },
         button::Status::Pressed => button::Style {
-            background: Some(Background::Color(ColorTokens::ACCENT_RED_PRESSED.into_color())),
+            background: Some(Background::Color(
+                ColorTokens::ACCENT_RED_PRESSED.into_color(),
+            )),
             text_color: ThemeColors::TEXT_LIGHT,
             border: Border {
                 color: ThemeColors::ACCENT_RED,
@@ -321,7 +329,9 @@ pub fn segmented_tab_button(
         } else {
             match status {
                 button::Status::Hovered => button::Style {
-                    background: Some(Background::Color(ColorTokens::SURFACE.with_alpha(0.65).into_color())),
+                    background: Some(Background::Color(
+                        ColorTokens::SURFACE.with_alpha(0.65).into_color(),
+                    )),
                     text_color: ThemeColors::SLATE_900,
                     border: Border {
                         radius: 14.0.into(),
@@ -335,7 +345,9 @@ pub fn segmented_tab_button(
                     ..Default::default()
                 },
                 button::Status::Pressed => button::Style {
-                    background: Some(Background::Color(ColorTokens::SLATE_200.with_alpha(0.80).into_color())),
+                    background: Some(Background::Color(
+                        ColorTokens::SLATE_200.with_alpha(0.80).into_color(),
+                    )),
                     text_color: ThemeColors::SLATE_900,
                     border: Border {
                         radius: 14.0.into(),
@@ -365,7 +377,9 @@ pub fn list_item_button(
     move |_theme, status| {
         if is_selected {
             button::Style {
-                background: Some(Background::Color(ColorTokens::PRIMARY_LIGHT_BG.with_alpha(0.92).into_color())),
+                background: Some(Background::Color(
+                    ColorTokens::PRIMARY_LIGHT_BG.with_alpha(0.92).into_color(),
+                )),
                 text_color: ThemeColors::PRIMARY,
                 border: Border {
                     color: ThemeColors::PRIMARY,
@@ -407,7 +421,9 @@ pub fn list_item_button(
                     ..Default::default()
                 },
                 _ => button::Style {
-                    background: Some(Background::Color(ColorTokens::SURFACE.with_alpha(0.75).into_color())),
+                    background: Some(Background::Color(
+                        ColorTokens::SURFACE.with_alpha(0.75).into_color(),
+                    )),
                     text_color: ThemeColors::SLATE_800,
                     border: Border {
                         color: ColorTokens::SLATE_200.with_alpha(0.75).into_color(),
@@ -425,7 +441,9 @@ pub fn list_item_container_style(is_selected: bool) -> impl Fn(&iced::Theme) -> 
     move |_theme| {
         if is_selected {
             container::Style {
-                background: Some(Background::Color(ColorTokens::PRIMARY_LIGHT_BG.with_alpha(0.92).into_color())),
+                background: Some(Background::Color(
+                    ColorTokens::PRIMARY_LIGHT_BG.with_alpha(0.92).into_color(),
+                )),
                 border: Border {
                     color: ThemeColors::PRIMARY,
                     width: 1.5,
@@ -440,7 +458,9 @@ pub fn list_item_container_style(is_selected: bool) -> impl Fn(&iced::Theme) -> 
             }
         } else {
             container::Style {
-                background: Some(Background::Color(ColorTokens::SURFACE.with_alpha(0.85).into_color())),
+                background: Some(Background::Color(
+                    ColorTokens::SURFACE.with_alpha(0.85).into_color(),
+                )),
                 border: Border {
                     color: ColorTokens::SLATE_200.with_alpha(0.85).into_color(),
                     width: 1.0,
