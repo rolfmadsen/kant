@@ -4,39 +4,39 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "083-decouple-acceptance-tests-and-app-monolith",
-    "task_title": "Task 083: Decouple Acceptance Tests & App Monolith",
-    "task_digest": "e1995e7e81f8a482fa0bb7aee653b9f7896f8d033b291b3cc68c6d9991201c95",
+    "task_id": "084-full-design-system-migration-and-token-enforcement",
+    "task_title": "Task 084: Full Design System Migration & Token Enforcement",
+    "task_digest": "5146af75770a88fb63386b78c895202b3657424223c6a5031d2d9df6f657a1e2",
     "acceptance_criteria": [
-      "**AC1 (Dekomponering af Accepttests)**: Identificer mindst 3 sammenhængende test-domæner i `tests/acceptance.rs` og udskil dem til separate testfiler under `tests/features/<feature>_acceptance_test.rs` (hver under 1.000 linjer). (Udført: 4 domæner udskilt: export 539l, collab 872l, canvas 765l, git 893l).",
-      "**AC2 (Dekomponering af UI View & State)**: Udskil de tilsvarende view-komponenter og update-grene fra `src/ui/app.rs` til `src/features/<feature>/ui/mod.rs` (hver under 800 linjer). (Udført: git/ui, collab/ui, export/ui, model/ui, diagnostics/ui, samtlige filer $\\le 800$l).",
-      "**AC3 (Ratchet Spærrehage Stramning)**: Reducer linjetallet i `tests/acceptance.rs` og `src/ui/app.rs` med mindst 20%, og opdater `max_lines` lofterne i `gauntlet.toml` tilsvarende. (Udført: app.rs 9.007l $\\le 9.200$l [-21.8%], acceptance.rs 9.010l $\\le 9.500$l [-26.0%]).",
-      "**AC4 (Ingen Adfærdsændringer / Regressioner)**: Samtlige eksisterende accepttests og enhedstests kører og består uden funktionelle regressionsfejl.",
-      "**AC5 (Arkitektur & Gauntlet Verifikation)**: `xgauntlet check-architecture` og `xgauntlet verify` passerer 100%."
+      "**AC1 (ThemeColors Harmonering)**: `src/ui/theme.rs` omskrives så alle konstanter (`PRIMARY`, `SLATE_*`, `SURFACE_*`, `FDA_*` mv.) viderestiller direkte til `ColorTokens` fra `src/design_system/tokens.rs`, hvilket eliminerer 105 rå RGB-instanser.",
+      "**AC2 (Resterende UI Migrering)**: Samtlige resterende rå `Color::from_rgb` og `Color::from_rgba` i `diagram_canvas.rs`, `app.rs`, `concept_editor.rs`, `concept_table.rs`, `concept_model_view.rs`, `information_model_view.rs` samt `features/*/ui/` erstattes med semantiske `ColorTokens`.",
+      "**AC3 (Forbidden Tokens Lås i gauntlet.toml)**: `forbidden_tokens = [\"Color::from_rgb\", \"Color::from_rgba\"]` aktiveres i `[architecture]` sektionen i `gauntlet.toml`.",
+      "**AC4 (Arkitektur-test Opdatering)**: `tests/architecture_test.rs` opdateres til at verificere, at `gauntlet.toml` deklarerer de forbudte tokens, og at `xgauntlet check-architecture` passerer med 0 overtrædelser.",
+      "**AC5 (Verifikation & Nul Regressioner)**: `xgauntlet check-architecture`, `cargo test --workspace` og `xgauntlet verify` passerer 100% uden visuelle eller funktionelle regressioner."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "916ffd9075ec5b6a318df595563fa7c43f354bcfb1829846e18209dfee5fbe72",
-    "source_manifest_digest_pre": "6363e0ff00b5dbb9becec1336409f33a5d30c07f13d882dbc002d9e9bd031d19",
-    "source_manifest_digest_post": "6363e0ff00b5dbb9becec1336409f33a5d30c07f13d882dbc002d9e9bd031d19",
-    "config_digest": "751240ef119227d111e35a4e6a0f9fb62f91ec8b0867de305acee046ce4dcbc3",
-    "task_digest": "e1995e7e81f8a482fa0bb7aee653b9f7896f8d033b291b3cc68c6d9991201c95",
+    "source_content_digest": "8e2fd39b4ee6b7595961cb8db946e6ac8dd1f6ef4112ff2bf840b0b250d8974b",
+    "source_manifest_digest_pre": "900142ee79a3ef0841534862a28b80c7e6f8b32f4a3c5762c5f92b7118cbc636",
+    "source_manifest_digest_post": "900142ee79a3ef0841534862a28b80c7e6f8b32f4a3c5762c5f92b7118cbc636",
+    "config_digest": "bb1901490e51b2797d0aca3019bbc21eafdc284cd1e3b6f953a1d3bc32d230a9",
+    "task_digest": "5146af75770a88fb63386b78c895202b3657424223c6a5031d2d9df6f657a1e2",
     "policy_digest": "779d592d4e19033524124ee6f7d07808c5009b4be93da24680090f900905208e",
     "check_definitions_digest": "7ac9f4a75d7c84442ecaa2a4c1e0c06c1940bf2e1f0c017e60b1fe20c38e97c4",
-    "included_files_count": 215,
+    "included_files_count": 218,
     "vcs": {
       "type": "git",
-      "head": "1b99e29",
-      "commit": "1b99e29",
+      "head": "7cce67f",
+      "commit": "7cce67f",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-18T15:49:02Z",
-    "finished_at": "2026-10-18T15:49:05Z",
-    "total_duration_seconds": 2.843114125,
+    "started_at": "2026-10-18T16:22:10Z",
+    "finished_at": "2026-10-18T16:22:13Z",
+    "total_duration_seconds": 2.619460242,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -49,7 +49,7 @@
       "name": "architecture",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.034028608,
+      "duration_seconds": 0.043541292,
       "optional": false,
       "passed": true,
       "log_digest": "9d9b7d7907be33888b1861fa258acc37e3c5cbd34282b658225c3d61d167e00f"
@@ -58,7 +58,7 @@
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.024065256,
+      "duration_seconds": 0.034435662,
       "optional": false,
       "passed": true,
       "log_digest": "7fc315ba9b70f089fe236085988a0af3a273b43b449acc33a958747a9ab2c5e4"
@@ -67,37 +67,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.226591192,
-      "optional": true,
-      "passed": true,
-      "log_digest": "d7dae192715495fa89ccbe279af3efb9792c1dae1768228e369035e68a1df673"
-    },
-    {
-      "name": "types",
-      "status": "PASSED",
-      "exit_code": 0,
-      "duration_seconds": 0.226375074,
+      "duration_seconds": 0.253859439,
       "optional": true,
       "passed": true,
       "log_digest": "732186322402325172940531d8d6d7cfac85dc902585b2bef6715ad6839dacfd"
     },
     {
+      "name": "types",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_seconds": 0.210639533,
+      "optional": true,
+      "passed": true,
+      "log_digest": "d7dae192715495fa89ccbe279af3efb9792c1dae1768228e369035e68a1df673"
+    },
+    {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 1.656959829,
+      "duration_seconds": 1.4116448,
       "optional": false,
       "passed": true,
-      "log_digest": "e8d83cecc8aa4f4841092fec3c1e430288b304f233ef9f0e2f57001d5a5611b9"
+      "log_digest": "2fcb7b3c06c804de0a57b1ce487954820969f9fde373ef99279e93a0cd502540"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.641150221,
+      "duration_seconds": 0.635140597,
       "optional": false,
       "passed": true,
-      "log_digest": "2a91d308066d84fcf06e330144900ba53b69d8c6701f12d5f30904162a113348"
+      "log_digest": "3ccaf9f2dc4289987f1199991cc0705dec94869d80934fecd3de2d15d9d1a357"
     }
   ],
   "diagnostics": []

@@ -2,7 +2,7 @@
 type: Task Package
 title: "Task 084: Full Design System Migration & Token Enforcement"
 description: "Fuld udfasning af rå Color::from_rgb/rgba i produktionskode, harmonisering af theme.rs med ColorTokens og aktivering af forbidden_tokens i gauntlet.toml jf. ADR 015"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-18T18:00:00Z" }
 tags: [design-system, tokens, accessibility, wcag-aa, architecture, forbidden-tokens, theme]
 scope:
@@ -24,7 +24,7 @@ test_refs:
 
 # Task 084: Full Design System Migration & Token Enforcement
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: `🔄 REFACTOR`  
 **Oprettet**: `2026-10-18`  
 
@@ -35,11 +35,11 @@ Fuldende udrulningen af Kants tilgængelige design-system jf. ADR 015 og stoppe 
 3. Aktivere `forbidden_tokens = ["Color::from_rgb", "Color::from_rgba"]` i `gauntlet.toml`, så fremtidig brug af rå farver fysisk blokeres af gatekeeperen.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 (ThemeColors Harmonering)**: `src/ui/theme.rs` omskrives så alle konstanter (`PRIMARY`, `SLATE_*`, `SURFACE_*`, `FDA_*` mv.) viderestiller direkte til `ColorTokens` fra `src/design_system/tokens.rs`, hvilket eliminerer 105 rå RGB-instanser.
-- [ ] **AC2 (Resterende UI Migrering)**: Samtlige resterende rå `Color::from_rgb` og `Color::from_rgba` i `diagram_canvas.rs`, `app.rs`, `concept_editor.rs`, `concept_table.rs`, `concept_model_view.rs`, `information_model_view.rs` samt `features/*/ui/` erstattes med semantiske `ColorTokens`.
-- [ ] **AC3 (Forbidden Tokens Lås i gauntlet.toml)**: `forbidden_tokens = ["Color::from_rgb", "Color::from_rgba"]` aktiveres i `[architecture]` sektionen i `gauntlet.toml`.
-- [ ] **AC4 (Arkitektur-test Opdatering)**: `tests/architecture_test.rs` opdateres til at verificere, at `gauntlet.toml` deklarerer de forbudte tokens, og at `xgauntlet check-architecture` passerer med 0 overtrædelser.
-- [ ] **AC5 (Verifikation & Nul Regressioner)**: `xgauntlet check-architecture`, `cargo test --workspace` og `xgauntlet verify` passerer 100% uden visuelle eller funktionelle regressioner.
+- [x] **AC1 (ThemeColors Harmonering)**: `src/ui/theme.rs` omskrives så alle konstanter (`PRIMARY`, `SLATE_*`, `SURFACE_*`, `FDA_*` mv.) viderestiller direkte til `ColorTokens` fra `src/design_system/tokens.rs`, hvilket eliminerer 105 rå RGB-instanser.
+- [x] **AC2 (Resterende UI Migrering)**: Samtlige resterende rå `Color::from_rgb` og `Color::from_rgba` i `diagram_canvas.rs`, `app.rs`, `concept_editor.rs`, `concept_table.rs`, `concept_model_view.rs`, `information_model_view.rs` samt `features/*/ui/` erstattes med semantiske `ColorTokens`.
+- [x] **AC3 (Forbidden Tokens Lås i gauntlet.toml)**: `forbidden_tokens = ["Color::from_rgb", "Color::from_rgba"]` aktiveres i `[architecture]` sektionen i `gauntlet.toml`.
+- [x] **AC4 (Arkitektur-test Opdatering)**: `tests/architecture_test.rs` opdateres til at verificere, at `gauntlet.toml` deklarerer de forbudte tokens, og at `xgauntlet check-architecture` passerer med 0 overtrædelser.
+- [x] **AC5 (Verifikation & Nul Regressioner)**: `xgauntlet check-architecture`, `cargo test --workspace` og `xgauntlet verify` passerer 100% uden visuelle eller funktionelle regressioner.
 
 ## 🚫 Must NOT
 - Må IKKE efterlade en eneste forekomst af `Color::from_rgb` eller `Color::from_rgba` i produktionskode (`src/`).
