@@ -2,21 +2,22 @@
 type: Task Package
 title: "Task 086: Information Model Decomposition"
 description: "Dekomponering af src/ui/information_model_view.rs (1.923 linjer) og src/features/information_model/mod.rs (1.719 linjer) i modulære feature-slices under 800 linjer"
-status: todo
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-10-18T18:01:00Z" }
 tags: [refactor, information-model, decomposition, modularity, architecture, ratchet]
 scope:
   - "src/ui/information_model_view.rs"
   - "src/features/information_model/**"
   - "gauntlet.toml"
+  - "tests/architecture_test.rs"
 test_refs:
-  - "tests/features/**"
+  - "tests/features/information_model_acceptance_test.rs"
   - "tests/architecture_test.rs"
 ---
 
 # Task 086: Information Model Decomposition
 
-**Status**: `TODO`  
+**Status**: `ACTIVE`  
 **Intent**: `🔄 REFACTOR`  
 **Oprettet**: `2026-10-18`  
 
