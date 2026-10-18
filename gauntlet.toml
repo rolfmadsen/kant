@@ -18,12 +18,12 @@ forbidden_tokens = []
 [[architecture.exemptions]]
 path = "src/ui/app.rs"
 reason = "Desktop app shell, state router og UI orchestrator; ratchet loft"
-max_lines = 11550
+max_lines = 9200
 
 [[architecture.exemptions]]
 path = "tests/acceptance.rs"
 reason = "Monolitisk multi-feature accepttest-suite; ratchet loft"
-max_lines = 12200
+max_lines = 9500
 
 [[architecture.exemptions]]
 path = "src/ui/diagram_canvas.rs"

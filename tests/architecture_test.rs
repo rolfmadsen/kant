@@ -34,8 +34,8 @@ fn test_gauntlet_toml_architecture_configuration() {
 
     // 2. Ratchet-undtagelser for monolitterne
     let required_exemptions = [
-        ("src/ui/app.rs", 11550),
-        ("tests/acceptance.rs", 12200),
+        ("src/ui/app.rs", 9200),
+        ("tests/acceptance.rs", 9500),
         ("src/ui/diagram_canvas.rs", 2600),
         ("src/ui/information_model_view.rs", 1950),
         ("src/features/information_model/mod.rs", 1750),
