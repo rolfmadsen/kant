@@ -6,7 +6,7 @@
 
 **Kant** er en moderne, lynhurtig skrivebordsapplikation til FDA begrebs- og informationsmodellering bygget i [Rust](https://www.rust-lang.org) med den reaktive GUI-ramme [Iced](https://iced.rs).
 
-Applikationen giver arkitekter og modelleringsfolk et visuelt lærred til opbygning af FDA-kompatible begrebs- og informationsmodeller med automatisk orthogonal relation-routing, live koncept-studio, multivalente egenskaber og robust JSON-persistens.
+Applikationen giver arkitekter og modelleringsfolk et visuelt lærred til opbygning af FDA-kompatible begrebs- og informationsmodeller med automatisk orthogonal relation-routing, live koncept-studio, multivalente egenskaber og robust JSON-persistens. Brugergrænsefladen overholder WAI 2.0 / WCAG AA tilgængelighedskrav via et type-sikkert design-tokens system og dekomponerede feature-slices ([ADR 015](docs/adr/015-accessible-design-tokens-and-decomposed-ui-slices.md)).
 
 ---
 

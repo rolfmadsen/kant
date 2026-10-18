@@ -46,6 +46,7 @@ tags: [specification, architecture, invariants]
   - [ADR 012: Maskinlæsbar Modeludveksling XMI & RDF](docs/adr/012-machine-readable-model-interchange.md)
   - [ADR 013: Rendering Diagnostics & WGPU på Windows](docs/adr/013-windows-rendering-diagnostics-and-wgpu-restoration.md)
   - [ADR 014: Windows MSIX Packaging & Store Distribution](docs/adr/014-windows-msix-packaging-and-microsoft-store-distribution.md)
+  - [ADR 015: Tilgængelige Design Tokens & Dekomponerede UI-Slices](docs/adr/015-accessible-design-tokens-and-decomposed-ui-slices.md)
   - [ADR Template: Ny beslutningsskabelon](docs/adr/template.md)
 
 ## 🚫 Must NOT (System Invariants)
