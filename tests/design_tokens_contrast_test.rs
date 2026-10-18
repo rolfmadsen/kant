@@ -129,6 +129,7 @@ fn test_iced_color_conversion_zero_overhead() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_spacing_and_typography_tokens_scale() {
     assert!(SpacingTokens::XXS < SpacingTokens::XS);
     assert!(SpacingTokens::XS < SpacingTokens::SM);
