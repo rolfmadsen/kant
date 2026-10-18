@@ -9,7 +9,8 @@ fn get_repo_root() -> PathBuf {
 
 #[test]
 fn test_adr_015_file_exists_and_has_accepted_status() {
-    let adr_path = get_repo_root().join("docs/adr/015-accessible-design-tokens-and-decomposed-ui-slices.md");
+    let adr_path =
+        get_repo_root().join("docs/adr/015-accessible-design-tokens-and-decomposed-ui-slices.md");
     assert!(
         adr_path.exists(),
         "ADR 015 filen skal eksistere på docs/adr/015-accessible-design-tokens-and-decomposed-ui-slices.md"
@@ -59,16 +60,15 @@ fn test_adr_015_referenced_in_documentation() {
     );
 
     // 2. spec.md
-    let spec = std::fs::read_to_string(repo_root.join("spec.md"))
-        .expect("Kunne ikke læse spec.md");
+    let spec = std::fs::read_to_string(repo_root.join("spec.md")).expect("Kunne ikke læse spec.md");
     assert!(
         spec.contains("015-accessible-design-tokens-and-decomposed-ui-slices.md"),
         "spec.md skal referere til ADR 015"
     );
 
     // 3. README.md
-    let readme = std::fs::read_to_string(repo_root.join("README.md"))
-        .expect("Kunne ikke læse README.md");
+    let readme =
+        std::fs::read_to_string(repo_root.join("README.md")).expect("Kunne ikke læse README.md");
     assert!(
         readme.contains("015-accessible-design-tokens-and-decomposed-ui-slices.md"),
         "README.md skal referere til ADR 015"

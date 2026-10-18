@@ -13,7 +13,10 @@ fn main() -> iced::Result {
         return Ok(());
     }
 
-    if args.iter().any(|arg| arg == "--install-desktop" || arg == "-i") {
+    if args
+        .iter()
+        .any(|arg| arg == "--install-desktop" || arg == "-i")
+    {
         match kant::ui::platform::install_user_desktop_entry() {
             Ok(paths) => {
                 println!("Kant desktop integration installeret for brugeren:");

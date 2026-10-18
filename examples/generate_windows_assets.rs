@@ -25,16 +25,16 @@ fn main() {
     let svg_h = tree.size().height();
 
     for (filename, canvas_w, canvas_h, icon_size) in targets {
-        let mut pixmap = tiny_skia::Pixmap::new(canvas_w, canvas_h)
-            .expect("Kunne ikke allokere Pixmap");
+        let mut pixmap =
+            tiny_skia::Pixmap::new(canvas_w, canvas_h).expect("Kunne ikke allokere Pixmap");
 
         // Skaleringsfaktor og centrering
         let scale = icon_size as f32 / svg_w.max(svg_h);
         let offset_x = (canvas_w as f32 - (svg_w * scale)) / 2.0;
         let offset_y = (canvas_h as f32 - (svg_h * scale)) / 2.0;
 
-        let transform = tiny_skia::Transform::from_translate(offset_x, offset_y)
-            .pre_scale(scale, scale);
+        let transform =
+            tiny_skia::Transform::from_translate(offset_x, offset_y).pre_scale(scale, scale);
 
         resvg::render(&tree, transform, &mut pixmap.as_mut());
 

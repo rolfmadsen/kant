@@ -13,7 +13,8 @@ fn test_appx_manifest_structure_and_identity() {
         "assets/windows/AppxManifest.xml skal eksistere"
     );
 
-    let content = std::fs::read_to_string(&manifest_path).expect("Kunne ikke læse AppxManifest.xml");
+    let content =
+        std::fs::read_to_string(&manifest_path).expect("Kunne ikke læse AppxManifest.xml");
     assert!(
         content.starts_with(r#"<?xml version="1.0" encoding="utf-8"?>"#),
         "XML deklaration skal være præcis lowercase version=\"1.0\""
@@ -28,7 +29,10 @@ fn test_appx_manifest_structure_and_identity() {
     );
 
     // Valider nøgleelementer og Partner Center identitet
-    assert!(content.contains(r#"Name="RolfMadsen.Kant""#), "Identity Name skal være RolfMadsen.Kant");
+    assert!(
+        content.contains(r#"Name="RolfMadsen.Kant""#),
+        "Identity Name skal være RolfMadsen.Kant"
+    );
     assert!(
         content.contains(r#"Publisher="CN=6101A799-2390-4F81-88B1-08BC634BEC12""#),
         "Publisher skal matche Partner Center CN"
@@ -77,14 +81,16 @@ fn verify_png_dimensions(path: &Path, expected_width: u32, expected_height: u32)
     let info = reader.info();
 
     assert_eq!(
-        info.width, expected_width,
+        info.width,
+        expected_width,
         "{:?} har forkert bredde: forventede {}, fik {}",
         path.file_name().unwrap(),
         expected_width,
         info.width
     );
     assert_eq!(
-        info.height, expected_height,
+        info.height,
+        expected_height,
         "{:?} har forkert højde: forventede {}, fik {}",
         path.file_name().unwrap(),
         expected_height,

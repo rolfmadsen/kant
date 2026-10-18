@@ -36,7 +36,8 @@ fn main() {
             println!("Skrev {} ({} bytes)", path, png_bytes.len());
         }
         if s == 256 {
-            std::fs::write("assets/icons/kant.png", &png_bytes).expect("skal kunne skrive kant.png");
+            std::fs::write("assets/icons/kant.png", &png_bytes)
+                .expect("skal kunne skrive kant.png");
             println!("Skrev assets/icons/kant.png ({} bytes)", png_bytes.len());
         }
     }

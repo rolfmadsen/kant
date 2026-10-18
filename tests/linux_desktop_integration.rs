@@ -65,11 +65,14 @@ fn test_cargo_deb_package_assets_include_pixmaps_and_icons() {
     // Valider deb assets
     assert!(
         content.contains(r#"["assets/icons/kant-256.png", "usr/share/pixmaps/kant.png", "644"]"#)
-            || content.contains(r#"["assets/icons/kant.png", "usr/share/pixmaps/kant.png", "644"]"#),
+            || content
+                .contains(r#"["assets/icons/kant.png", "usr/share/pixmaps/kant.png", "644"]"#),
         "Cargo.toml deb packaging skal indeholde usr/share/pixmaps/kant.png som Pop!_OS fallback"
     );
     assert!(
-        content.contains(r#"["assets/icons/kant-48.png", "usr/share/icons/hicolor/48x48/apps/kant.png", "644"]"#),
+        content.contains(
+            r#"["assets/icons/kant-48.png", "usr/share/icons/hicolor/48x48/apps/kant.png", "644"]"#
+        ),
         "Cargo.toml deb packaging skal indeholde 48x48 hicolor ikon"
     );
     assert!(
@@ -81,7 +84,9 @@ fn test_cargo_deb_package_assets_include_pixmaps_and_icons() {
         "Cargo.toml deb packaging skal indeholde 256x256 hicolor ikon"
     );
     assert!(
-        content.contains(r#"["assets/icons/kant.svg", "usr/share/icons/hicolor/scalable/apps/kant.svg", "644"]"#),
+        content.contains(
+            r#"["assets/icons/kant.svg", "usr/share/icons/hicolor/scalable/apps/kant.svg", "644"]"#
+        ),
         "Cargo.toml deb packaging skal indeholde scalable SVG ikon"
     );
 }

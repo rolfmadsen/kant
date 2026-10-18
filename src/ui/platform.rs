@@ -99,7 +99,8 @@ pub fn default_window_settings() -> iced::window::Settings {
 ///
 /// Trigger derefter `update-desktop-database` og `gtk-update-icon-cache` hvis tilgængelige.
 pub fn install_user_desktop_entry() -> Result<Vec<std::path::PathBuf>, String> {
-    let home_dir = std::env::var("HOME").map_err(|_| "HOME miljøvariabel ikke fundet".to_string())?;
+    let home_dir =
+        std::env::var("HOME").map_err(|_| "HOME miljøvariabel ikke fundet".to_string())?;
     let home = std::path::Path::new(&home_dir);
 
     let desktop_content = include_str!("../../assets/kant.desktop");
@@ -112,7 +113,8 @@ pub fn install_user_desktop_entry() -> Result<Vec<std::path::PathBuf>, String> {
 
     // 1. Applications directory
     let apps_dir = home.join(".local/share/applications");
-    std::fs::create_dir_all(&apps_dir).map_err(|e| format!("Kunne ikke oprette {:?}: {}", apps_dir, e))?;
+    std::fs::create_dir_all(&apps_dir)
+        .map_err(|e| format!("Kunne ikke oprette {:?}: {}", apps_dir, e))?;
     let desktop_target = apps_dir.join("kant.desktop");
     std::fs::write(&desktop_target, desktop_content)
         .map_err(|e| format!("Kunne ikke skrive {:?}: {}", desktop_target, e))?;
@@ -120,7 +122,8 @@ pub fn install_user_desktop_entry() -> Result<Vec<std::path::PathBuf>, String> {
 
     // 2. Scalable icon
     let scalable_dir = home.join(".local/share/icons/hicolor/scalable/apps");
-    std::fs::create_dir_all(&scalable_dir).map_err(|e| format!("Kunne ikke oprette {:?}: {}", scalable_dir, e))?;
+    std::fs::create_dir_all(&scalable_dir)
+        .map_err(|e| format!("Kunne ikke oprette {:?}: {}", scalable_dir, e))?;
     let svg_target = scalable_dir.join("kant.svg");
     std::fs::write(&svg_target, svg_bytes)
         .map_err(|e| format!("Kunne ikke skrive {:?}: {}", svg_target, e))?;
@@ -134,7 +137,8 @@ pub fn install_user_desktop_entry() -> Result<Vec<std::path::PathBuf>, String> {
     ];
     for (size, bytes) in fixed_sizes {
         let size_dir = home.join(format!(".local/share/icons/hicolor/{}/apps", size));
-        std::fs::create_dir_all(&size_dir).map_err(|e| format!("Kunne ikke oprette {:?}: {}", size_dir, e))?;
+        std::fs::create_dir_all(&size_dir)
+            .map_err(|e| format!("Kunne ikke oprette {:?}: {}", size_dir, e))?;
         let png_target = size_dir.join("kant.png");
         std::fs::write(&png_target, bytes)
             .map_err(|e| format!("Kunne ikke skrive {:?}: {}", png_target, e))?;
@@ -143,7 +147,8 @@ pub fn install_user_desktop_entry() -> Result<Vec<std::path::PathBuf>, String> {
 
     // 4. Pixmaps fallback (for Pop!_OS / COSMIC)
     let pixmaps_dir = home.join(".local/share/pixmaps");
-    std::fs::create_dir_all(&pixmaps_dir).map_err(|e| format!("Kunne ikke oprette {:?}: {}", pixmaps_dir, e))?;
+    std::fs::create_dir_all(&pixmaps_dir)
+        .map_err(|e| format!("Kunne ikke oprette {:?}: {}", pixmaps_dir, e))?;
     let pixmap_target = pixmaps_dir.join("kant.png");
     std::fs::write(&pixmap_target, png_256_bytes)
         .map_err(|e| format!("Kunne ikke skrive {:?}: {}", pixmap_target, e))?;
