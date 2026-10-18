@@ -783,10 +783,43 @@ fn test_task_085_canvas_studio_decomposition_modular_architecture_and_bounds() {
     assert_eq!(snapped, Point::new(20.0, 40.0));
 
     let stereotype = concept_stereotype_text();
-    assert_eq!(stereotype, "«FDA Begreb»");
+    assert_eq!(stereotype, "«Concept»");
 
-    let dist = distance_to_segment(Point::new(10.0, 5.0), Point::new(0.0, 0.0), Point::new(20.0, 0.0));
+    let dist = distance_to_segment(
+        Point::new(10.0, 5.0),
+        Point::new(0.0, 0.0),
+        Point::new(20.0, 0.0),
+    );
     assert_eq!(dist, 5.0);
+
+    let _rec = ClickRecord {
+        position: Point::ORIGIN,
+        world_position: Point::ORIGIN,
+        time: std::time::Instant::now(),
+        target: kant::ui::canvas::interaction::ClickTarget::Empty,
+    };
+    let _state = DiagramCanvasState::default();
+    let mini_rect = Rectangle::new(Point::ORIGIN, Size::new(50.0, 50.0));
+    let transform =
+        MinimapTransform::compute::<DiagramNode>(&[], &vp, Size::new(100.0, 100.0), mini_rect);
+    assert!(transform.scale > 0.0);
+
+    let nodes: Vec<DiagramNode> = vec![];
+    let edges: Vec<DiagramEdge> = vec![];
+    let canvas = DiagramCanvas::new(
+        &nodes,
+        &edges,
+        None,
+        vp,
+        false,
+        |_, _, _, _| {},
+        |_| (),
+        |_, _, _| (),
+        |_, _| (),
+        |_| (),
+        |_| (),
+    );
+    assert!(!canvas.is_node_selected(Uuid::new_v4()));
 
     // 2. Verificer modulgrænser og ratchet linjelofter jf. AC1-AC4
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -819,4 +852,3 @@ fn test_task_085_canvas_studio_decomposition_modular_architecture_and_bounds() {
         );
     }
 }
-

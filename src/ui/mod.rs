@@ -1,4 +1,5 @@
 pub mod app;
+pub mod canvas;
 pub mod concept_editor;
 pub mod concept_model_view;
 pub mod concept_table;

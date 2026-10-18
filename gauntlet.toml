@@ -25,10 +25,6 @@ path = "tests/acceptance.rs"
 reason = "Monolitisk multi-feature accepttest-suite; ratchet loft"
 max_lines = 9500
 
-[[architecture.exemptions]]
-path = "src/ui/diagram_canvas.rs"
-reason = "Interaktivt lærred til begrebs- og UML diagrammer; ratchet loft"
-max_lines = 2600
 
 [[architecture.exemptions]]
 path = "src/ui/information_model_view.rs"
