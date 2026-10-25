@@ -18,21 +18,25 @@ forbidden_tokens = ["Color::from_rgb", "Color::from_rgba"]
 [[architecture.exemptions]]
 path = "src/ui/app.rs"
 reason = "Desktop app shell, state router og UI orchestrator; ratchet loft"
+adr = "docs/adr/015-accessible-design-tokens-and-decomposed-ui-slices.md"
 max_lines = 9200
 
 [[architecture.exemptions]]
 path = "tests/acceptance.rs"
 reason = "Monolitisk multi-feature accepttest-suite; ratchet loft"
+adr = "docs/adr/015-accessible-design-tokens-and-decomposed-ui-slices.md"
 max_lines = 9500
 
 [[architecture.exemptions]]
 path = "src/features/model/merge.rs"
 reason = "Semantisk 3-vejs model merge motor; ratchet loft"
+adr = "docs/adr/011-decomposed-model-persistence-and-git-integration.md"
 max_lines = 1200
 
 [[architecture.exemptions]]
 path = "src/features/git/service.rs"
 reason = "Git integrations- og synkroniseringsservice; ratchet loft"
+adr = "docs/adr/011-decomposed-model-persistence-and-git-integration.md"
 max_lines = 1000
 
 [[layers]]
