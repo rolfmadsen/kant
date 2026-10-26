@@ -703,3 +703,187 @@ fn test_task_088_robust_excel_import() {
         .iter()
         .any(|s| s.sheet_name == "Begrebsliste DA+EN" && s.concept_count == 1));
 }
+
+#[test]
+fn test_task_089_excel_import_merge_awareness_and_new_model_option() {
+    use kant::features::concepts::excel::parse_concepts_from_xlsx_bytes;
+    use kant::features::export::ui::ExcelImportPreviewState;
+    use rust_xlsxwriter::Workbook;
+    use std::path::PathBuf;
+
+    // 1. Opret en åben model i App med 2 begreber: "Køretøj" og "Bygning"
+    let mut app = App::new_with_path(None);
+    app.project_mut()
+        .metadata_mut()
+        .set_name("Eksisterende Grundmodel");
+    let c_koretoj = Concept::new(
+        "Køretøj",
+        "Eksisterende definition af køretøj.",
+        BelongsToDomain::Yes,
+    );
+    let c_bygning = Concept::new(
+        "Bygning",
+        "En fast konstruktion til ophold eller opbevaring.",
+        BelongsToDomain::Yes,
+    );
+    app.project_mut().add_concept(c_koretoj);
+    app.project_mut().add_concept(c_bygning);
+    assert_eq!(app.project().concepts().len(), 2);
+
+    // 2. Skab en Excel-fil med et opdateret "Køretøj" og et nyt "Cykel", samt Forretningsmetadata for en "Ny Transportmodel"
+    let mut workbook = Workbook::new();
+    let meta_sheet = workbook.add_worksheet();
+    meta_sheet.set_name("Forretningsmetadata").unwrap();
+    meta_sheet.write_string(0, 0, "Modelnavn").unwrap();
+    meta_sheet.write_string(0, 1, "Ny Transportmodel").unwrap();
+    meta_sheet.write_string(1, 0, "Namespace / URI").unwrap();
+    meta_sheet
+        .write_string(1, 1, "https://data.gov.dk/model/core/new-transport")
+        .unwrap();
+
+    let sheet = workbook.add_worksheet();
+    sheet.set_name("Begrebsliste DA").unwrap();
+    sheet.write_string(0, 0, "Foretrukken term").unwrap();
+    sheet.write_string(0, 1, "Definition").unwrap();
+    sheet.write_string(1, 0, "Køretøj").unwrap();
+    sheet
+        .write_string(1, 1, "Opdateret definition af transportmiddel.")
+        .unwrap();
+    sheet.write_string(2, 0, "Cykel").unwrap();
+    sheet
+        .write_string(2, 1, "Et tohjulet pedalkøretøj.")
+        .unwrap();
+
+    let bytes = workbook.save_to_buffer().unwrap();
+    let summary = parse_concepts_from_xlsx_bytes(&bytes).unwrap();
+    assert_eq!(summary.valid_concepts.len(), 2);
+
+    // 3. Simuler åbning af preview i App
+    let mut new_count = 0;
+    let mut update_count = 0;
+    for c in &summary.valid_concepts {
+        let is_match = app.project().concepts().iter().any(|existing| {
+            (c.identifier().is_some() && c.identifier() == existing.identifier())
+                || c.preferred_term()
+                    .trim()
+                    .eq_ignore_ascii_case(existing.preferred_term().trim())
+        });
+        if is_match {
+            update_count += 1;
+        } else {
+            new_count += 1;
+        }
+    }
+    assert_eq!(new_count, 1, "Cykel er et nyt begreb");
+    assert_eq!(update_count, 1, "Køretøj findes allerede og skal opdateres");
+
+    let unchanged_count = app.project().concepts().len().saturating_sub(update_count);
+    assert_eq!(
+        unchanged_count, 1,
+        "Bygning forbliver fuldstændig uændret i modellen"
+    );
+
+    // Sæt preview tilstand på app
+    app.set_excel_import_preview_for_test(ExcelImportPreviewState {
+        import_summary: summary.clone(),
+        update_metadata: true,
+        new_count,
+        update_count,
+        file_path: PathBuf::from("transport_data.xlsx"),
+    });
+    assert!(app.is_excel_import_preview_open());
+
+    // 4. Test Alternativ 1: Opret som ny model i stedet (Message::ConfirmExcelImportAsNewModel)
+    let _ = app.update(Message::ConfirmExcelImportAsNewModel);
+    assert!(
+        !app.is_excel_import_preview_open(),
+        "Preview skal lukkes efter oprettelse"
+    );
+    assert_eq!(
+        app.project().concepts().len(),
+        2,
+        "Den nye model må KUN indeholde de 2 importerede begreber"
+    );
+    assert!(app
+        .project()
+        .concepts()
+        .iter()
+        .any(|c| c.preferred_term() == "Køretøj"));
+    assert!(app
+        .project()
+        .concepts()
+        .iter()
+        .any(|c| c.preferred_term() == "Cykel"));
+    assert!(
+        !app
+            .project()
+            .concepts()
+            .iter()
+            .any(|c| c.preferred_term() == "Bygning"),
+        "Bygning må IKKE findes i den nystiftede model"
+    );
+    assert_eq!(
+        app.project().metadata().name(),
+        "Ny Transportmodel",
+        "Metadata skal være overtaget fra Excel-arket"
+    );
+
+    // 5. Test Alternativ 2: Flet med åben model (Message::ConfirmExcelImport)
+    let mut merge_app = App::new_with_path(None);
+    merge_app
+        .project_mut()
+        .metadata_mut()
+        .set_name("Eksisterende Grundmodel");
+    merge_app.project_mut().add_concept(Concept::new(
+        "Køretøj",
+        "Gammel def",
+        BelongsToDomain::Yes,
+    ));
+    merge_app.project_mut().add_concept(Concept::new(
+        "Bygning",
+        "Fast konstruktion",
+        BelongsToDomain::Yes,
+    ));
+
+    merge_app.set_excel_import_preview_for_test(ExcelImportPreviewState {
+        import_summary: summary,
+        update_metadata: false,
+        new_count: 1,
+        update_count: 1,
+        file_path: PathBuf::from("transport_data.xlsx"),
+    });
+
+    let _ = merge_app.update(Message::ConfirmExcelImport);
+    assert!(!merge_app.is_excel_import_preview_open());
+    assert_eq!(
+        merge_app.project().concepts().len(),
+        3,
+        "Fletning skal resultere i 3 begreber (Køretøj, Bygning, Cykel)"
+    );
+    assert_eq!(
+        merge_app.project().metadata().name(),
+        "Eksisterende Grundmodel",
+        "Modelnavn må ikke overskrives når update_metadata er false"
+    );
+    let updated_koretoj = merge_app
+        .project()
+        .concepts()
+        .iter()
+        .find(|c| c.preferred_term() == "Køretøj")
+        .unwrap();
+    assert_eq!(
+        updated_koretoj.definition(),
+        "Opdateret definition af transportmiddel."
+    );
+    assert!(merge_app
+        .project()
+        .concepts()
+        .iter()
+        .any(|c| c.preferred_term() == "Bygning"));
+    assert!(merge_app
+        .project()
+        .concepts()
+        .iter()
+        .any(|c| c.preferred_term() == "Cykel"));
+}
+
