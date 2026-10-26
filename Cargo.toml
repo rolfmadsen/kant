@@ -89,3 +89,8 @@ path = "tests/features/information_model_acceptance_test.rs"
 [[test]]
 name = "concept_decomposition_acceptance"
 path = "tests/features/concept_decomposition_acceptance_test.rs"
+
+[[test]]
+name = "concept_palette_combobox_acceptance"
+path = "tests/features/concept_palette_combobox_acceptance_test.rs"
+
