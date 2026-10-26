@@ -549,6 +549,10 @@ impl ModelProject {
         self.concept_graph.sync_with_concepts(&self.concepts);
     }
 
+    pub fn populate_missing_concepts_to_graph(&mut self) {
+        self.concept_graph.populate_missing_concepts(&self.concepts);
+    }
+
     pub fn sync_information_graph(&mut self) {
         self.information_model.sync_attribute_dependencies();
         self.information_graph

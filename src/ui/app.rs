@@ -1,6 +1,6 @@
 use crate::design_system::tokens::ColorTokens;
 use crate::features::concept_model::{NodeId, RelationKind};
-use crate::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
+use crate::features::concepts::{BelongsToDomain, Concept};
 use crate::features::export::{
     export_concept_model_svg, export_concepts_to_csv, export_information_model_svg,
     export_model_report_html, export_model_report_markdown, export_to_shacl_turtle,
@@ -22,9 +22,9 @@ use crate::ui::diagram_canvas::{CanvasEdge, CanvasNode};
 use crate::ui::focus::{FocusCycle, FocusTarget};
 use crate::ui::information_model_view;
 use crate::ui::theme::{
-    card_container_style, focused_button_style, modal_backdrop_style, modal_card_style,
-    modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
-    segmented_tab_button, ThemeColors,
+    card_container_style, modal_backdrop_style, modal_card_style, modern_input_style,
+    pill_container_style, primary_button_style, secondary_button_style, segmented_tab_button,
+    ThemeColors,
 };
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
@@ -125,36 +125,7 @@ pub struct RelationDialogState {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-pub struct QuickCreateState {
-    pub position: (f32, f32),
-    pub preferred_term: String,
-    pub definition: String,
-    pub belongs_to_domain: BelongsToDomain,
-    pub validation_error: Option<String>,
-}
-
-impl QuickCreateState {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self {
-            position: (x, y),
-            preferred_term: String::new(),
-            definition: String::new(),
-            belongs_to_domain: BelongsToDomain::Yes,
-            validation_error: None,
-        }
-    }
-
-    pub fn build_concept(&self) -> Result<Concept, ValidationError> {
-        let concept = Concept::new(
-            self.preferred_term.trim(),
-            self.definition.trim(),
-            self.belongs_to_domain.clone(),
-        );
-        ConceptValidator::validate(&concept)?;
-        Ok(concept)
-    }
-}
+pub use crate::features::concept_model::ui::QuickCreateState;
 
 pub use crate::ui::concept_editor::ConceptFormField;
 
@@ -558,6 +529,9 @@ pub enum Message {
     AddConceptToDiagramAt(Uuid, f32, f32),
     RemoveConceptFromDiagram(NodeId),
     ConceptModelSearchChanged(String),
+    ConceptPaletteNext,
+    ConceptPalettePrevious,
+    ConceptPaletteSubmit,
 
     // Lynoprettelse & Node-redigering på Canvas (Task 006)
     CanvasDoubleClicked(f32, f32),
@@ -611,6 +585,9 @@ pub enum Message {
     SetAttributeConcept(Uuid, Uuid, Option<Uuid>),
     DeleteAttribute(Uuid, Uuid),
     InformationClassSearchChanged(String),
+    InfoPaletteNext,
+    InfoPalettePrevious,
+    InfoPaletteSubmit,
 
     // Concept Picker Combobox (Task 072)
     OpenConceptPicker,
@@ -750,6 +727,8 @@ pub struct App {
     pub is_concept_picker_open: bool,
     pub concept_picker_search: String,
     pub concept_picker_index: usize,
+    pub concept_palette_index: usize,
+    pub info_palette_index: usize,
 }
 
 impl Default for App {
@@ -899,6 +878,8 @@ impl App {
                         is_concept_picker_open: false,
                         concept_picker_search: String::new(),
                         concept_picker_index: 0,
+                        concept_palette_index: 0,
+                        info_palette_index: 0,
                         pending_quick_create: None,
                     };
                 }
@@ -989,6 +970,8 @@ impl App {
             is_concept_picker_open: false,
             concept_picker_search: String::new(),
             concept_picker_index: 0,
+            concept_palette_index: 0,
+            info_palette_index: 0,
             pending_quick_create: None,
         }
     }
@@ -1048,6 +1031,73 @@ impl App {
 
     pub fn concept_picker_index(&self) -> usize {
         self.concept_picker_index
+    }
+
+    pub fn concept_palette_index(&self) -> usize {
+        self.concept_palette_index
+    }
+
+    pub fn info_palette_index(&self) -> usize {
+        self.info_palette_index
+    }
+
+    pub fn show_left_sidebar(&self) -> bool {
+        self.show_left_sidebar
+    }
+
+    pub fn info_class_search(&self) -> &str {
+        &self.info_class_search
+    }
+
+    pub fn canvas_visible_center(&self) -> Point {
+        Point::new(500.0, 350.0)
+    }
+
+    pub fn filtered_palette_concepts(&self) -> Vec<&crate::features::concepts::Concept> {
+        let search_filter = self.concept_model_search.trim().to_lowercase();
+        let mut list: Vec<&crate::features::concepts::Concept> = self
+            .project
+            .concepts()
+            .iter()
+            .filter(|c| {
+                if search_filter.is_empty() {
+                    true
+                } else {
+                    c.preferred_term().to_lowercase().contains(&search_filter)
+                        || c.definition().to_lowercase().contains(&search_filter)
+                }
+            })
+            .collect();
+        list.sort_by(|a, b| {
+            a.preferred_term()
+                .to_lowercase()
+                .cmp(&b.preferred_term().to_lowercase())
+        });
+        list
+    }
+
+    pub fn filtered_palette_classes(
+        &self,
+    ) -> Vec<&crate::features::information_model::models::InformationClass> {
+        let search_filter = self.info_class_search.trim().to_lowercase();
+        let mut list: Vec<&crate::features::information_model::models::InformationClass> = self
+            .project
+            .information_model()
+            .classes()
+            .iter()
+            .filter(|c| {
+                if search_filter.is_empty() {
+                    true
+                } else {
+                    c.name().to_lowercase().contains(&search_filter)
+                        || c.description()
+                            .map(|d| d.to_lowercase().contains(&search_filter))
+                            .unwrap_or(false)
+                }
+            })
+            .collect();
+        list.sort_by_key(|a| a.name().to_lowercase());
+        list
     }
 
     pub fn available_concepts_for_class(&self, class_id: Uuid) -> Vec<ConceptOption> {
@@ -2515,21 +2565,12 @@ impl App {
         let (nx, ny) = (x, y);
         let concept = Concept::new("Nyt begreb", "Definition mangler", BelongsToDomain::Yes);
         if let Ok(concept_id) = self.project.add_concept(concept.clone()) {
-            if let Some(node) = self
+            let node_id = self
                 .project
                 .concept_graph_mut()
-                .find_node_by_concept_mut(concept_id)
-            {
-                node.set_position(nx, ny);
-            }
-            if let Some(node) = self
-                .project
-                .concept_graph()
-                .find_node_by_concept(concept_id)
-            {
-                self.selected_graph_node_id = Some(node.id());
-                self.selected_graph_node_ids = [node.id()].into_iter().collect();
-            }
+                .add_node_exact(&concept, nx, ny);
+            self.selected_graph_node_id = Some(node_id);
+            self.selected_graph_node_ids = [node_id].into_iter().collect();
             self.selected_edge = None;
             let mut editor = ConceptEditorState::from_concept(&concept);
             editor.preferred_term = String::new();
@@ -2827,6 +2868,19 @@ impl App {
             }
             Message::ToggleLeftSidebar => {
                 self.show_left_sidebar = !self.show_left_sidebar;
+                if self.show_left_sidebar {
+                    match self.active_tab {
+                        Tab::ConceptModel => {
+                            self.concept_palette_index = 0;
+                            return operation::focus("concept_model_search_input");
+                        }
+                        Tab::InformationModel => {
+                            self.info_palette_index = 0;
+                            return operation::focus("info_class_search_input");
+                        }
+                        _ => {}
+                    }
+                }
             }
             Message::OpenMetadataModal => {
                 self.active_menu = None;
@@ -4595,6 +4649,23 @@ impl App {
                     return Task::none();
                 }
 
+                // 1b. Palet søgefelt Escape jf. Task 090 AC6
+                if self.active_tab == Tab::ConceptModel
+                    && self.show_left_sidebar
+                    && !self.concept_model_search.is_empty()
+                {
+                    self.concept_model_search.clear();
+                    self.concept_palette_index = 0;
+                    return Task::none();
+                } else if self.active_tab == Tab::InformationModel
+                    && self.show_left_sidebar
+                    && !self.info_class_search.is_empty()
+                {
+                    self.info_class_search.clear();
+                    self.info_palette_index = 0;
+                    return Task::none();
+                }
+
                 // 2. Aktiv menu overlay
                 if self.active_menu.is_some() {
                     self.active_menu = None;
@@ -4634,6 +4705,15 @@ impl App {
                     self.selected_info_class_id = None;
                     self.selected_info_enum_id = None;
                     return Task::none();
+                }
+
+                // 4b. Luk åben palet jf. Task 090 AC6 (hvis søgefeltet allerede er tomt)
+                if self.show_left_sidebar
+                    && (self.active_tab == Tab::ConceptModel
+                        || self.active_tab == Tab::InformationModel)
+                {
+                    self.show_left_sidebar = false;
+                    return operation::focus(iced::widget::Id::unique());
                 }
 
                 // 5. Landing på de 3 primære faneblade
@@ -5109,6 +5189,10 @@ impl App {
                             }
                         } else if self.selected_edge.is_some() {
                             return operation::focus("edge_label_input");
+                        } else if self.show_left_sidebar
+                            && !self.filtered_palette_concepts().is_empty()
+                        {
+                            return self.update(Message::ConceptPaletteSubmit);
                         }
                     }
                     Tab::InformationModel => {
@@ -5137,6 +5221,10 @@ impl App {
                             return operation::focus("info_class_name_input");
                         } else if self.selected_info_edge.is_some() {
                             return operation::focus("info_edge_label_input");
+                        } else if self.show_left_sidebar
+                            && !self.filtered_palette_classes().is_empty()
+                        {
+                            return self.update(Message::InfoPaletteSubmit);
                         }
                     }
                     Tab::ConceptList => {
@@ -5729,6 +5817,56 @@ impl App {
             }
             Message::ConceptModelSearchChanged(query) => {
                 self.concept_model_search = query;
+                self.concept_palette_index = 0;
+            }
+            Message::ConceptPaletteNext => {
+                let count = self.filtered_palette_concepts().len();
+                if count > 0 {
+                    self.concept_palette_index = (self.concept_palette_index + 1) % count;
+                }
+            }
+            Message::ConceptPalettePrevious => {
+                let count = self.filtered_palette_concepts().len();
+                if count > 0 {
+                    self.concept_palette_index = if self.concept_palette_index == 0 {
+                        count - 1
+                    } else {
+                        self.concept_palette_index - 1
+                    };
+                }
+            }
+            Message::ConceptPaletteSubmit => {
+                let filtered = self.filtered_palette_concepts();
+                if let Some(concept) = filtered.get(self.concept_palette_index).copied() {
+                    let concept_id = concept.id();
+                    if let Some(node) = self
+                        .project
+                        .concept_graph()
+                        .find_node_by_concept(concept_id)
+                    {
+                        let nid = node.id();
+                        let nx = node.x();
+                        let ny = node.y();
+                        let nw = node.width();
+                        let nh = node.height();
+                        self.selected_graph_node_id = Some(nid);
+                        self.selected_graph_node_ids.clear();
+                        self.selected_graph_node_ids.insert(nid);
+                        let center = self.canvas_visible_center();
+                        self.canvas_viewport.center_on_rect(nx, ny, nw, nh, center);
+                        return operation::focus(iced::widget::Id::unique());
+                    } else {
+                        let center_world =
+                            self.canvas_viewport.to_world(self.canvas_visible_center());
+                        let raw_x = center_world.x
+                            - crate::features::concept_model::DEFAULT_NODE_WIDTH / 2.0;
+                        let raw_y = center_world.y
+                            - crate::features::concept_model::DEFAULT_NODE_HEIGHT / 2.0;
+                        let _ =
+                            self.update(Message::AddConceptToDiagramAt(concept_id, raw_x, raw_y));
+                        return operation::focus(iced::widget::Id::unique());
+                    }
+                }
             }
 
             // Lynoprettelse & Node-redigering på Canvas (Task 006, 030, 039 & 077)
@@ -6074,23 +6212,35 @@ impl App {
                 self.concept_picker_index = 0;
             }
             Message::ConceptPickerNext => {
-                if let Some(cid) = self.selected_info_class_id {
-                    let count = self.filtered_available_concepts_for_class(cid).len();
-                    if count > 0 {
-                        self.concept_picker_index = (self.concept_picker_index + 1) % count;
+                if self.is_concept_picker_open {
+                    if let Some(cid) = self.selected_info_class_id {
+                        let count = self.filtered_available_concepts_for_class(cid).len();
+                        if count > 0 {
+                            self.concept_picker_index = (self.concept_picker_index + 1) % count;
+                        }
                     }
+                } else if self.active_tab == Tab::ConceptModel && self.show_left_sidebar {
+                    return self.update(Message::ConceptPaletteNext);
+                } else if self.active_tab == Tab::InformationModel && self.show_left_sidebar {
+                    return self.update(Message::InfoPaletteNext);
                 }
             }
             Message::ConceptPickerPrevious => {
-                if let Some(cid) = self.selected_info_class_id {
-                    let count = self.filtered_available_concepts_for_class(cid).len();
-                    if count > 0 {
-                        self.concept_picker_index = if self.concept_picker_index == 0 {
-                            count - 1
-                        } else {
-                            self.concept_picker_index - 1
-                        };
+                if self.is_concept_picker_open {
+                    if let Some(cid) = self.selected_info_class_id {
+                        let count = self.filtered_available_concepts_for_class(cid).len();
+                        if count > 0 {
+                            self.concept_picker_index = if self.concept_picker_index == 0 {
+                                count - 1
+                            } else {
+                                self.concept_picker_index - 1
+                            };
+                        }
                     }
+                } else if self.active_tab == Tab::ConceptModel && self.show_left_sidebar {
+                    return self.update(Message::ConceptPalettePrevious);
+                } else if self.active_tab == Tab::InformationModel && self.show_left_sidebar {
+                    return self.update(Message::InfoPalettePrevious);
                 }
             }
             Message::ConceptPickerSubmit => {
@@ -6368,6 +6518,57 @@ impl App {
             }
             Message::InformationClassSearchChanged(q) => {
                 self.info_class_search = q;
+                self.info_palette_index = 0;
+            }
+            Message::InfoPaletteNext => {
+                let count = self.filtered_palette_classes().len();
+                if count > 0 {
+                    self.info_palette_index = (self.info_palette_index + 1) % count;
+                }
+            }
+            Message::InfoPalettePrevious => {
+                let count = self.filtered_palette_classes().len();
+                if count > 0 {
+                    self.info_palette_index = if self.info_palette_index == 0 {
+                        count - 1
+                    } else {
+                        self.info_palette_index - 1
+                    };
+                }
+            }
+            Message::InfoPaletteSubmit => {
+                let filtered = self.filtered_palette_classes();
+                if let Some(cls) = filtered.get(self.info_palette_index).copied() {
+                    let class_id = cls.id();
+                    if let Some(node) = self
+                        .project
+                        .information_graph()
+                        .find_node_by_class(class_id)
+                    {
+                        let nid = node.id();
+                        let nx = node.x();
+                        let ny = node.y();
+                        let nw = node.width();
+                        let nh = node.height();
+                        self.set_selected_info_graph_node(Some(nid));
+                        self.selected_info_class_id = Some(class_id);
+                        self.selected_info_enum_id = None;
+                        let center = self.canvas_visible_center();
+                        self.info_canvas_viewport
+                            .center_on_rect(nx, ny, nw, nh, center);
+                        return operation::focus(iced::widget::Id::unique());
+                    } else {
+                        let center_world = self
+                            .info_canvas_viewport
+                            .to_world(self.canvas_visible_center());
+                        let raw_x = center_world.x
+                            - crate::features::concept_model::DEFAULT_NODE_WIDTH / 2.0;
+                        let raw_y = center_world.y
+                            - crate::features::concept_model::DEFAULT_NODE_HEIGHT / 2.0;
+                        let _ = self.update(Message::AddClassToDiagramAt(class_id, raw_x, raw_y));
+                        return operation::focus(iced::widget::Id::unique());
+                    }
+                }
             }
 
             // Enumeration styring (Task 063)
@@ -7704,7 +7905,7 @@ impl App {
             return Some(Message::PaletteDragDropped);
         }
 
-        // VIGTIGT: Tab, Shift+Tab og Escape skal ALTID opfanges, selv hvis et
+        // VIGTIGT: Tab, Shift+Tab, Escape, Enter, ArrowDown, ArrowUp og Ctrl+B skal ALTID opfanges, selv hvis et
         // tekstfelt har sat status == event::Status::Captured.
         // Dette sikrer at tastaturnavigation (Tab/Shift+Tab) og lukning af dialoger (Esc)
         // fungerer pålideligt uanset om et inputfelt aktuelt har fokus.
@@ -7726,6 +7927,11 @@ impl App {
                 }
                 Key::Named(Named::ArrowUp) => {
                     return Some(Message::ConceptPickerPrevious);
+                }
+                Key::Character(c)
+                    if (c == "b" || c == "B") && (modifiers.control() || modifiers.command()) =>
+                {
+                    return Some(Message::ToggleLeftSidebar);
                 }
                 _ => {}
             }
@@ -7901,7 +8107,10 @@ impl App {
         let header_right = row![
             collab_header_badge,
             Space::new().width(6),
-            self.view_git_status_badge(),
+            crate::features::git::ui::view_git_status_badge(
+                &self.git_sync_status,
+                &self.git_status_badge_text(),
+            ),
             Space::new().width(8),
             text(self.project.metadata().name())
                 .size(12)
@@ -7927,47 +8136,57 @@ impl App {
         .width(Length::Fill);
 
         // 2. Modale dialoger (Stack Overlay)
-        let maybe_diagnostics_modal: Option<Element<Message>> = self
-            .diagnostics_modal
-            .as_ref()
-            .map(|modal| self.view_diagnostics_modal(modal));
+        let maybe_diagnostics_modal: Option<Element<Message>> =
+            self.diagnostics_modal.as_ref().map(|modal| {
+                crate::features::diagnostics::ui::view_diagnostics_modal(modal, &self.modal_focus)
+            });
 
-        let maybe_publish_modal: Option<Element<Message>> = self
-            .publish_modal
-            .as_ref()
-            .map(|modal| self.view_publish_modal(modal));
+        let maybe_publish_modal: Option<Element<Message>> =
+            self.publish_modal.as_ref().map(|modal| {
+                crate::features::git::ui::view_publish_modal(
+                    modal,
+                    &self.git_sync_status,
+                    &self.modal_focus,
+                )
+            });
 
         let maybe_history_modal: Option<Element<Message>> = self
             .history_modal
             .as_ref()
-            .map(|modal| self.view_history_modal(modal));
+            .map(|modal| crate::features::git::ui::view_history_modal(modal, &self.modal_focus));
 
-        let maybe_conflict_resolver_modal: Option<Element<Message>> = self
-            .conflict_resolver_modal
-            .as_ref()
-            .map(|modal| self.view_conflict_resolver_modal(modal));
+        let maybe_conflict_resolver_modal: Option<Element<Message>> =
+            self.conflict_resolver_modal.as_ref().map(|modal| {
+                crate::features::git::ui::view_conflict_resolver_modal(modal, &self.modal_focus)
+            });
 
-        let maybe_git_connection_modal: Option<Element<Message>> = self
-            .git_connection_modal
-            .as_ref()
-            .map(|modal| self.view_git_connection_modal(modal));
+        let maybe_git_connection_modal: Option<Element<Message>> =
+            self.git_connection_modal.as_ref().map(|modal| {
+                crate::features::git::ui::view_git_connection_modal(modal, &self.modal_focus)
+            });
 
         let maybe_git_clone_modal: Option<Element<Message>> = self
             .git_clone_modal
             .as_ref()
-            .map(|modal| self.view_git_clone_modal(modal));
+            .map(|modal| crate::features::git::ui::view_git_clone_modal(modal, &self.modal_focus));
 
         let maybe_excel_schema_guide_modal: Option<Element<Message>> =
             if self.excel_schema_guide_open {
-                Some(self.view_excel_schema_guide_modal())
+                Some(crate::features::export::ui::view_excel_schema_guide_modal(
+                    &self.modal_focus,
+                ))
             } else {
                 None
             };
 
-        let maybe_excel_import_preview_modal: Option<Element<Message>> = self
-            .excel_import_preview
-            .as_ref()
-            .map(|modal| self.view_excel_import_preview_modal(modal));
+        let maybe_excel_import_preview_modal: Option<Element<Message>> =
+            self.excel_import_preview.as_ref().map(|modal| {
+                crate::features::export::ui::view_excel_import_preview_modal(
+                    modal,
+                    &self.project,
+                    &self.modal_focus,
+                )
+            });
 
         let maybe_metadata_modal: Option<Element<Message>> =
             self.metadata_modal.as_ref().map(|meta_state| {
@@ -7993,113 +8212,11 @@ impl App {
             });
 
         let maybe_file_dialog_modal: Option<Element<Message>> = self.file_dialog_mode.map(|mode| {
-            let (mode_title, confirm_label) = match mode {
-                FileDialogMode::Open => ("Åbn FDA Modelprojekt", "Åbn"),
-                FileDialogMode::SaveAs => ("Gem Modelprojekt som...", "Gem"),
-            };
-
-            let mut dialog_body = column![
-                row![
-                    text(mode_title).size(16).color(ThemeColors::SLATE_900),
-                    Space::new().width(Length::Fill),
-                    button(text("✕").size(13))
-                        .style(secondary_button_style)
-                        .on_press(Message::CloseFileDialog)
-                        .padding([3, 7]),
-                ]
-                .align_y(Alignment::Center),
-                text("Angiv filsti eller gennemse filer på maskinen:")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                row![
-                    text_input(
-                        "Filsti (f.eks. model.kant.json)...",
-                        &self.file_dialog_input
-                    )
-                    .id("file_dialog_input")
-                    .style(modern_input_style)
-                    .on_input(Message::FileDialogInputChanged)
-                    .on_submit(Message::ConfirmFileDialog)
-                    .padding(8)
-                    .width(Length::Fill),
-                    button(text("🖥️ Gennemse...").size(12))
-                        .style(secondary_button_style)
-                        .on_press(match mode {
-                            FileDialogMode::Open => Message::OpenProjectDialog,
-                            FileDialogMode::SaveAs => Message::SaveProjectAsDialog,
-                        })
-                        .padding([8, 12]),
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center),
-            ]
-            .spacing(12);
-
-            if mode == FileDialogMode::Open {
-                let local_files =
-                    crate::ui::file_dialog::scan_local_project_files(&PathBuf::from("."));
-                if !local_files.is_empty() {
-                    let mut chips = column![text("Filer i projektmappen:")
-                        .size(12)
-                        .color(ThemeColors::TEXT_MUTED)]
-                    .spacing(6);
-
-                    let mut chip_row = row![].spacing(6);
-                    for f in local_files {
-                        let name = f
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("model.kant.json")
-                            .to_string();
-                        chip_row = chip_row.push(
-                            button(text(format!("📄 {}", name)).size(11))
-                                .style(secondary_button_style)
-                                .on_press(Message::OpenProjectFile(f))
-                                .padding([3, 8]),
-                        );
-                    }
-                    chips = chips.push(chip_row);
-                    dialog_body = dialog_body.push(chips);
-                }
-            }
-
-            let is_cancel_focused = self.modal_focus.is_focused(0);
-            let is_confirm_focused = self.modal_focus.is_focused(1);
-
-            let actions_row = row![
-                Space::new().width(Length::Fill),
-                button(text("Annuller").size(12))
-                    .style(focused_button_style(
-                        secondary_button_style,
-                        is_cancel_focused
-                    ))
-                    .on_press(Message::CloseFileDialog)
-                    .padding([6, 14]),
-                button(text(confirm_label).size(12))
-                    .style(focused_button_style(
-                        primary_button_style,
-                        is_confirm_focused
-                    ))
-                    .on_press(Message::ConfirmFileDialog)
-                    .padding([6, 16]),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center);
-
-            dialog_body = dialog_body.push(actions_row);
-
-            let modal_card = container(dialog_body)
-                .style(modal_card_style)
-                .padding(24)
-                .width(Length::Fixed(520.0));
-
-            container(modal_card)
-                .style(modal_backdrop_style)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .center_x(Length::Fill)
-                .center_y(Length::Fill)
-                .into()
+            crate::ui::file_dialog::view_file_dialog_modal(
+                mode,
+                &self.file_dialog_input,
+                &self.modal_focus,
+            )
         });
 
         let maybe_relation_modal: Option<Element<Message>> =
@@ -8267,144 +8384,7 @@ impl App {
 
         let maybe_quick_create_modal: Option<Element<Message>> =
             self.quick_create.as_ref().map(|qc| {
-                let mut dialog_col = column![
-                    row![
-                        text("Nyt Begreb på Lærred")
-                            .size(16)
-                            .color(ThemeColors::SLATE_900),
-                        Space::new().width(Length::Fill),
-                        button(text("✕").size(13))
-                            .style(secondary_button_style)
-                            .on_press(Message::QuickCreateCancel)
-                            .padding([3, 7]),
-                    ]
-                    .align_y(Alignment::Center),
-                    text(format!(
-                        "Opretter begreb ved ({:.0}, {:.0}) på lærredet jf. FDA Modelreglerne:",
-                        qc.position.0, qc.position.1
-                    ))
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                ]
-                .spacing(12);
-
-                if let Some(err) = &qc.validation_error {
-                    dialog_col = dialog_col.push(
-                        container(
-                            text(format!("⚠️ {}", err))
-                                .size(12)
-                                .color(ThemeColors::ACCENT_RED),
-                        )
-                        .style(|_theme| container::Style {
-                            background: Some(iced::Background::Color(
-                                ThemeColors::ACCENT_RED_LIGHT,
-                            )),
-                            border: iced::Border {
-                                color: ThemeColors::ACCENT_RED,
-                                width: 1.0,
-                                radius: 6.0.into(),
-                            },
-                            ..Default::default()
-                        })
-                        .padding([6, 10])
-                        .width(Length::Fill),
-                    );
-                }
-
-                let term_field = column![
-                    text("Foretrukken term *")
-                        .size(12)
-                        .color(ThemeColors::SLATE_700),
-                    text_input("Foretrukken term (f.eks. Godsvogn)...", &qc.preferred_term)
-                        .id("quick_create_term_input")
-                        .style(modern_input_style)
-                        .on_input(Message::QuickCreateTermChanged)
-                        .on_submit(Message::QuickCreateSubmit)
-                        .padding(8)
-                        .width(Length::Fill),
-                ]
-                .spacing(4);
-
-                let def_field = column![
-                    text("Definition (Aristoteles' formel) *")
-                        .size(12)
-                        .color(ThemeColors::SLATE_700),
-                    text_input(
-                        "Overordnet begreb + adskillende egenskaber...",
-                        &qc.definition
-                    )
-                    .style(modern_input_style)
-                    .on_input(Message::QuickCreateDefinitionChanged)
-                    .on_submit(Message::QuickCreateSubmit)
-                    .padding(8)
-                    .width(Length::Fill),
-                ]
-                .spacing(4);
-
-                let is_local = qc.belongs_to_domain == BelongsToDomain::Yes;
-                let domain_row = row![
-                    text("Tilknytning:").size(12).color(ThemeColors::SLATE_700),
-                    button(text("Lokalt begreb (FDA Sand)").size(11))
-                        .style(if is_local {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
-                        .on_press(Message::QuickCreateDomainChanged(BelongsToDomain::Yes))
-                        .padding([4, 8]),
-                    button(text("Indlånt begreb (FDA Blå)").size(11))
-                        .style(if !is_local {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
-                        .on_press(Message::QuickCreateDomainChanged(BelongsToDomain::No))
-                        .padding([4, 8]),
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center);
-
-                dialog_col = dialog_col.push(term_field);
-                dialog_col = dialog_col.push(def_field);
-                dialog_col = dialog_col.push(domain_row);
-
-                let is_cancel_focused = self.modal_focus.is_focused(0);
-                let is_submit_focused = self.modal_focus.is_focused(1);
-
-                let actions = row![
-                    Space::new().width(Length::Fill),
-                    button(text("Annuller").size(12))
-                        .style(focused_button_style(
-                            secondary_button_style,
-                            is_cancel_focused
-                        ))
-                        .on_press(Message::QuickCreateCancel)
-                        .padding([6, 14]),
-                    button(text("Opret Begreb").size(12))
-                        .style(focused_button_style(
-                            primary_button_style,
-                            is_submit_focused
-                        ))
-                        .on_press(Message::QuickCreateSubmit)
-                        .padding([6, 16]),
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center);
-
-                dialog_col = dialog_col.push(actions);
-
-                let modal_card = container(dialog_col)
-                    .style(modal_card_style)
-                    .padding(24)
-                    .width(Length::Fixed(480.0));
-
-                container(modal_card)
-                    .style(modal_backdrop_style)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .center_x(Length::Fill)
-                    .center_y(Length::Fill)
-                    .into()
+                crate::features::concept_model::ui::view_quick_create_modal(qc, &self.modal_focus)
             });
 
         let maybe_menu_overlay: Option<Element<Message>> = self.active_menu.map(|menu_type| {
@@ -8784,6 +8764,7 @@ impl App {
                 &self.selected_graph_node_ids,
                 self.selected_edge,
                 &self.concept_model_search,
+                self.concept_palette_index,
                 self.canvas_viewport,
                 self.is_space_pressed,
                 self.is_inline_graph_editing,
@@ -8804,6 +8785,7 @@ impl App {
                 &self.selected_info_graph_node_ids,
                 self.selected_info_edge,
                 &self.info_class_search,
+                self.info_palette_index,
                 &self.new_enum_value_input,
                 self.info_canvas_viewport,
                 self.is_space_pressed,
@@ -9071,62 +9053,6 @@ impl App {
         } else {
             layered_layout
         }
-    }
-
-    fn view_git_status_badge(&self) -> Element<'_, Message> {
-        crate::features::git::ui::view_git_status_badge(
-            &self.git_sync_status,
-            &self.git_status_badge_text(),
-        )
-    }
-
-    fn view_publish_modal<'a>(&self, modal: &'a PublishModalState) -> Element<'a, Message> {
-        crate::features::git::ui::view_publish_modal(
-            modal,
-            &self.git_sync_status,
-            &self.modal_focus,
-        )
-    }
-
-    fn view_history_modal<'a>(&self, modal: &'a ModelHistoryModalState) -> Element<'a, Message> {
-        crate::features::git::ui::view_history_modal(modal, &self.modal_focus)
-    }
-
-    fn view_conflict_resolver_modal<'a>(
-        &self,
-        modal: &'a ConflictResolverModalState,
-    ) -> Element<'a, Message> {
-        crate::features::git::ui::view_conflict_resolver_modal(modal, &self.modal_focus)
-    }
-
-    fn view_git_connection_modal<'a>(
-        &self,
-        modal: &'a GitConnectionModalState,
-    ) -> Element<'a, Message> {
-        crate::features::git::ui::view_git_connection_modal(modal, &self.modal_focus)
-    }
-
-    fn view_git_clone_modal<'a>(&self, modal: &'a GitCloneModalState) -> Element<'a, Message> {
-        crate::features::git::ui::view_git_clone_modal(modal, &self.modal_focus)
-    }
-
-    fn view_diagnostics_modal<'a>(&self, modal: &'a DiagnosticsModalState) -> Element<'a, Message> {
-        crate::features::diagnostics::ui::view_diagnostics_modal(modal, &self.modal_focus)
-    }
-
-    fn view_excel_schema_guide_modal<'a>(&self) -> Element<'a, Message> {
-        crate::features::export::ui::view_excel_schema_guide_modal(&self.modal_focus)
-    }
-
-    fn view_excel_import_preview_modal<'a>(
-        &self,
-        modal: &'a ExcelImportPreviewState,
-    ) -> Element<'a, Message> {
-        crate::features::export::ui::view_excel_import_preview_modal(
-            modal,
-            &self.project,
-            &self.modal_focus,
-        )
     }
 }
 

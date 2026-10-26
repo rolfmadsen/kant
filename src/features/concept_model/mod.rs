@@ -387,6 +387,17 @@ impl ConceptGraph {
         id
     }
 
+    pub fn add_node_exact(&mut self, concept: &Concept, x: f32, y: f32) -> NodeId {
+        if let Some(existing) = self.find_node_by_concept_mut(concept.id()) {
+            existing.set_position(x, y);
+            return existing.id();
+        }
+        let node = DiagramNode::new(concept, x, y);
+        let id = node.id();
+        self.nodes.push(node);
+        id
+    }
+
     pub fn add_relation(&mut self, from: NodeId, to: NodeId, kind: RelationKind) {
         self.edges.push(DiagramEdge::new(from, to, kind));
     }
@@ -577,14 +588,22 @@ impl ConceptGraph {
             self.remove_node(id);
         }
 
-        // 2. Tilføj nye eller opdater eksisterende
+        // 2. Opdater eksisterende noder (opret IKKE automatisk nye jf. Task 090 AC1)
         for concept in concepts {
             if let Some(node) = self.find_node_by_concept_mut(concept.id()) {
                 node.set_label(concept.preferred_term().to_string());
                 node.set_is_local(concept.belongs_to_domain().is_local());
                 node.width = DEFAULT_NODE_WIDTH;
                 node.height = DEFAULT_NODE_HEIGHT;
-            } else {
+            }
+        }
+    }
+
+    /// Placerer alle begreber fra listen, som endnu ikke optræder på diagrammet,
+    /// i et standard 3-kolonnet gitterlayout (anvendes ved eksplicit masseinlæsning/tests).
+    pub fn populate_missing_concepts(&mut self, concepts: &[Concept]) {
+        for concept in concepts {
+            if self.find_node_by_concept(concept.id()).is_none() {
                 let count = self.nodes.len() as f32;
                 let x = 60.0 + (count % 3.0) * 230.0;
                 let y = 60.0 + (count / 3.0).floor() * 130.0;

@@ -420,7 +420,7 @@ fn test_concept_graph_lifecycle_and_persistence() {
     let id3 = project.add_concept(c3).unwrap();
 
     // 1. Synkroniser projektbegreber med concept_graph
-    project.sync_concept_graph();
+    project.populate_missing_concepts_to_graph();
     let graph = project.concept_graph();
     assert_eq!(graph.node_count(), 3, "Skal have 3 noder i grafen");
 
@@ -759,10 +759,10 @@ fn test_canvas_ergonomics_zoom_pan_grid() {
     let mut app = App::new_with_path(None);
     let _ = app.update(Message::SelectTab(Tab::ConceptModel));
 
-    // Opret et begreb i projektet og synkroniser til graf
+    // Opret et begreb i projektet og tilføj til diagram
     let c = Concept::new("Vogn", "Rullende materiel", BelongsToDomain::Yes);
-    let _ = app.project_mut().add_concept(c);
-    app.project_mut().sync_concept_graph();
+    let cid = app.project_mut().add_concept(c).unwrap();
+    let _ = app.update(Message::AddConceptToDiagram(cid));
 
     let node = &app.project().concept_graph().nodes()[0];
     let node_id = node.id();
@@ -3673,6 +3673,7 @@ fn test_task_030_canvas_ergonomics_and_edge_geometry() {
     let c2 = Concept::new("Kunde", "En kunde", BelongsToDomain::Yes);
     let id1 = app.project_mut().add_concept(c1.clone()).unwrap();
     let id2 = app.project_mut().add_concept(c2).unwrap();
+    app.project_mut().populate_missing_concepts_to_graph();
     let node1 = app
         .project()
         .concept_graph()

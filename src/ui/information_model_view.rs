@@ -33,6 +33,7 @@ pub fn view<'a>(
     selected_node_ids: &'a std::collections::HashSet<NodeId>,
     selected_edge: Option<(NodeId, NodeId)>,
     search_query: &'a str,
+    palette_active_index: usize,
     new_enum_value_input: &'a str,
     viewport: CanvasViewport,
     is_space_pressed: bool,
@@ -67,6 +68,7 @@ pub fn view<'a>(
         selected_class_id,
         selected_enum_id,
         search_query,
+        palette_active_index,
     );
 
     // 2. CENTER CANVAS (UML Klassediagram)

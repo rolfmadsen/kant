@@ -595,6 +595,7 @@ fn test_task_077_telemetry_sources_and_node_double_click() {
     // 3. Dobbeltklik på node i grafen -> log "Dobbeltklik på node ... – åbner egenskaber"
     let concept = Concept::new("Vej", "Færdselsareal", BelongsToDomain::Yes);
     let cid = app.project_mut().add_concept(concept).unwrap();
+    let _ = app.update(Message::AddConceptToDiagram(cid));
     let nid = app
         .project()
         .concept_graph()

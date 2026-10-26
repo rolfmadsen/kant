@@ -22,6 +22,7 @@ pub fn view<'a>(
     selected_node_ids: &'a HashSet<NodeId>,
     selected_edge: Option<(NodeId, NodeId)>,
     search_query: &'a str,
+    palette_active_index: usize,
     viewport: CanvasViewport,
     is_space_pressed: bool,
     is_inline_editing: bool,
@@ -32,7 +33,13 @@ pub fn view<'a>(
     inspector_focused_button: Option<usize>,
 ) -> Element<'a, Message> {
     // 1. Venstre palet
-    let left_palette = view_palette(concepts, concept_graph, selected_node_id, search_query);
+    let left_palette = view_palette(
+        concepts,
+        concept_graph,
+        selected_node_id,
+        search_query,
+        palette_active_index,
+    );
 
     // 2. Center canvas & toolbar
     let mut toolbar_elements: Vec<Element<'a, Message>> = Vec::new();

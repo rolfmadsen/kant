@@ -62,6 +62,24 @@ impl CanvasViewport {
         )
     }
 
+    /// Centrerer et målrektangel i verden (target_x, target_y, target_w, target_h)
+    /// på skærmens synlige centrum (screen_center) med bevarelse af det aktuelle zoom-niveau.
+    pub fn center_on_rect(
+        &mut self,
+        target_x: f32,
+        target_y: f32,
+        target_w: f32,
+        target_h: f32,
+        screen_center: Point,
+    ) {
+        let world_center_x = target_x + target_w / 2.0;
+        let world_center_y = target_y + target_h / 2.0;
+        self.pan = Vector::new(
+            screen_center.x - world_center_x * self.zoom,
+            screen_center.y - world_center_y * self.zoom,
+        );
+    }
+
     pub fn zoom_at(&mut self, screen_pivot: Point, factor: f32) {
         let world_pivot = self.to_world(screen_pivot);
         let new_zoom = (self.zoom * factor).clamp(Self::MIN_ZOOM, Self::MAX_ZOOM);

@@ -15,6 +15,7 @@ pub fn view_palette<'a>(
     concept_graph: &'a ConceptGraph,
     selected_node_id: Option<NodeId>,
     search_query: &'a str,
+    active_index: usize,
 ) -> Element<'a, Message> {
     let concept_count = concepts.len();
     let search_filter = search_query.trim().to_lowercase();
@@ -58,20 +59,23 @@ pub fn view_palette<'a>(
         .spacing(6)
         .align_y(Alignment::Center),
         text_input("🔍 Søg begreber...", search_query)
+            .id("concept_model_search_input")
             .style(modern_input_style)
             .on_input(Message::ConceptModelSearchChanged)
+            .on_submit(Message::ConceptPaletteSubmit)
             .padding(5),
     ]
     .spacing(8);
 
     let mut concept_items = column![].spacing(4);
-    for concept in filtered_concepts {
+    for (idx, concept) in filtered_concepts.into_iter().enumerate() {
         let concept_id = concept.id();
         let is_on_canvas = concept_graph.is_concept_on_diagram(concept_id);
         let node_id = concept_graph
             .find_node_by_concept(concept_id)
             .map(|n| n.id());
         let is_selected = selected_node_id.is_some() && selected_node_id == node_id;
+        let is_combobox_active = idx == active_index;
 
         let action_controls: Element<'a, Message> = if is_on_canvas {
             container(text("✓").size(11).color(ThemeColors::ACCENT_GREEN))
@@ -100,7 +104,7 @@ pub fn view_palette<'a>(
         let item_content = column![
             text(concept.preferred_term())
                 .size(13)
-                .color(if is_selected {
+                .color(if is_selected || is_combobox_active {
                     ThemeColors::PRIMARY
                 } else {
                     ThemeColors::SLATE_900
@@ -112,7 +116,7 @@ pub fn view_palette<'a>(
         let item_widget: Element<'a, Message> = if !is_on_canvas {
             mouse_area(
                 container(item_content)
-                    .style(list_item_container_style(is_selected))
+                    .style(list_item_container_style(is_selected || is_combobox_active))
                     .width(Length::Fill)
                     .padding([4, 6]),
             )
@@ -123,7 +127,7 @@ pub fn view_palette<'a>(
             .into()
         } else {
             button(item_content)
-                .style(list_item_button(is_selected))
+                .style(list_item_button(is_selected || is_combobox_active))
                 .on_press(if let Some(nid) = node_id {
                     Message::GraphNodeSelected(Some(nid))
                 } else {

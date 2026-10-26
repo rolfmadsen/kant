@@ -7,7 +7,6 @@ use kant::features::concepts::{BelongsToDomain, Concept};
 use kant::features::information_model::models::InformationClass;
 use kant::ui::app::{App, Message, Tab};
 use kant::ui::canvas::CanvasViewport;
-use uuid::Uuid;
 
 #[test]
 fn test_task_090_ac1_selective_canvas_placement_for_concepts() {
@@ -36,7 +35,11 @@ fn test_task_090_ac1_selective_canvas_placement_for_concepts() {
     );
 
     // 4. Tilføj et andet begreb via fletning/tilføjelse
-    let c2 = Concept::new("Kørebane", "Del af vej bestemt for kørende", BelongsToDomain::Yes);
+    let c2 = Concept::new(
+        "Kørebane",
+        "Del af vej bestemt for kørende",
+        BelongsToDomain::Yes,
+    );
     let c2_id = c2.id();
     let _ = app.project_mut().add_concept(c2);
 
@@ -61,7 +64,11 @@ fn test_task_090_ac7_canvas_viewport_center_on_rect() {
     vp.center_on_rect(400.0, 300.0, 180.0, 80.0, screen_center);
 
     // Verificer at zoom er bevaret
-    assert_eq!(vp.zoom(), 1.25, "AC7: Zoom skal forblive uændret ved centrering");
+    assert_eq!(
+        vp.zoom(),
+        1.25,
+        "AC7: Zoom skal forblive uændret ved centrering"
+    );
 
     // Beregn skærmposition af rektanglets midtpunkt
     let world_center = Point::new(490.0, 340.0);
@@ -113,11 +120,18 @@ fn test_task_090_ac3_and_ac4_palette_combobox_navigation_and_center_placed_node(
     let _ = app.update(Message::ConceptPaletteSubmit);
 
     // Noden for Bygning skal være valgt
-    let node1 = app.project().concept_graph().find_node_by_concept(c1_id).unwrap();
+    let node1 = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(c1_id)
+        .unwrap();
     assert_eq!(app.selected_graph_node_id(), Some(node1.id()));
 
     // Viewport pan skal være opdateret til at centrere på noden
-    let node_center = Point::new(node1.x() + node1.width() / 2.0, node1.y() + node1.height() / 2.0);
+    let node_center = Point::new(
+        node1.x() + node1.width() / 2.0,
+        node1.y() + node1.height() / 2.0,
+    );
     let screen_pos = app.canvas_viewport().to_screen(node_center);
     let expected_center = app.canvas_visible_center();
     assert!(
@@ -134,7 +148,11 @@ fn test_task_090_ac5_enter_places_unplaced_concept_at_viewport_center() {
     let _ = app.update(Message::SelectTab(Tab::ConceptModel));
 
     // Opret u-placeret begreb
-    let c = Concept::new("Kommune", "Geografisk og administrativ enhed", BelongsToDomain::Yes);
+    let c = Concept::new(
+        "Kommune",
+        "Geografisk og administrativ enhed",
+        BelongsToDomain::Yes,
+    );
     let c_id = c.id();
     let _ = app.project_mut().add_concept(c);
 
@@ -150,12 +168,24 @@ fn test_task_090_ac5_enter_places_unplaced_concept_at_viewport_center() {
         "AC5: Enter på u-placeret begreb skal placere det på canvas"
     );
 
-    let node = app.project().concept_graph().find_node_by_concept(c_id).unwrap();
+    let node = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(c_id)
+        .unwrap();
     assert_eq!(app.selected_graph_node_id(), Some(node.id()));
 
     // Verificer 20px grid snapping
-    assert_eq!(node.x() % 20.0, 0.0, "AC5: Node X skal være snappet til 20px grid");
-    assert_eq!(node.y() % 20.0, 0.0, "AC5: Node Y skal være snappet til 20px grid");
+    assert_eq!(
+        node.x() % 20.0,
+        0.0,
+        "AC5: Node X skal være snappet til 20px grid"
+    );
+    assert_eq!(
+        node.y() % 20.0,
+        0.0,
+        "AC5: Node Y skal være snappet til 20px grid"
+    );
 }
 
 #[test]
@@ -175,12 +205,22 @@ fn test_task_090_ac6_escape_handling_in_palette_search() {
 
     // 1. tryk på Escape rydder søgeteksten, men holder paletten åben
     let _ = app.update(Message::EscapePressed);
-    assert_eq!(app.concept_model_search(), "", "AC6: Escape skal rydde søgefelt");
-    assert!(app.show_left_sidebar(), "AC6: Paletten forbliver åben ved første Escape");
+    assert_eq!(
+        app.concept_model_search(),
+        "",
+        "AC6: Escape skal rydde søgefelt"
+    );
+    assert!(
+        app.show_left_sidebar(),
+        "AC6: Paletten forbliver åben ved første Escape"
+    );
 
     // 2. tryk på Escape (med tomt søgefelt) lukker paletten
     let _ = app.update(Message::EscapePressed);
-    assert!(!app.show_left_sidebar(), "AC6: Escape med tomt søgefelt skal lukke paletten");
+    assert!(
+        !app.show_left_sidebar(),
+        "AC6: Escape med tomt søgefelt skal lukke paletten"
+    );
 }
 
 #[test]
@@ -193,7 +233,10 @@ fn test_task_090_information_model_palette_combobox_and_placement() {
     let cls_id = cls.id();
     app.project_mut().information_model_mut().add_class(cls);
 
-    assert!(!app.project().information_graph().is_class_on_diagram(cls_id));
+    assert!(!app
+        .project()
+        .information_graph()
+        .is_class_on_diagram(cls_id));
 
     // Naviger paletten og tryk Enter på u-placeret klasse
     assert_eq!(app.info_palette_index(), 0);
@@ -201,7 +244,9 @@ fn test_task_090_information_model_palette_combobox_and_placement() {
 
     // Klassen skal nu være placeret på UML canvas og valgt
     assert!(
-        app.project().information_graph().is_class_on_diagram(cls_id),
+        app.project()
+            .information_graph()
+            .is_class_on_diagram(cls_id),
         "AC5: Enter på u-placeret klasse i Fane 3 skal placere den på canvas"
     );
     assert_eq!(app.selected_info_class_id(), Some(cls_id));

@@ -22,6 +22,7 @@ pub fn view<'a>(
     selected_class_id: Option<Uuid>,
     selected_enum_id: Option<Uuid>,
     search_query: &'a str,
+    active_index: usize,
 ) -> Element<'a, Message> {
     let class_count = info_model.classes().len();
     let search_filter = search_query.trim().to_lowercase();
@@ -71,17 +72,20 @@ pub fn view<'a>(
         .padding(4)
         .width(Length::Fill),
         text_input("🔍 Søg klasser...", search_query)
+            .id("info_class_search_input")
             .style(modern_input_style)
             .on_input(Message::InformationClassSearchChanged)
+            .on_submit(Message::InfoPaletteSubmit)
             .padding(5),
     ]
     .spacing(8);
 
     let mut class_items = column![].spacing(4);
-    for class in filtered_classes {
+    for (idx, class) in filtered_classes.into_iter().enumerate() {
         let is_selected = selected_class_id == Some(class.id());
         let class_id = class.id();
         let is_on_canvas = class_graph.is_class_on_diagram(class_id);
+        let is_combobox_active = idx == active_index;
         let attr_count = class.attributes().len();
 
         let action_controls: Element<'a, Message> = if is_on_canvas {
@@ -114,11 +118,14 @@ pub fn view<'a>(
         let is_abstract = class.is_abstract();
         let is_borrowed = !class.is_local();
 
-        let mut name_text = text(display_name).size(13).color(if is_selected {
-            ThemeColors::PRIMARY
-        } else {
-            ThemeColors::SLATE_900
-        });
+        let mut name_text =
+            text(display_name)
+                .size(13)
+                .color(if is_selected || is_combobox_active {
+                    ThemeColors::PRIMARY
+                } else {
+                    ThemeColors::SLATE_900
+                });
         if is_abstract {
             name_text = name_text.font(iced::Font {
                 style: iced::font::Style::Italic,
@@ -157,7 +164,7 @@ pub fn view<'a>(
         let item_widget: Element<'a, Message> = if !is_on_canvas {
             mouse_area(
                 container(item_content)
-                    .style(list_item_container_style(is_selected))
+                    .style(list_item_container_style(is_selected || is_combobox_active))
                     .width(Length::Fill)
                     .padding([4, 6]),
             )
@@ -166,7 +173,7 @@ pub fn view<'a>(
             .into()
         } else {
             button(item_content)
-                .style(list_item_button(is_selected))
+                .style(list_item_button(is_selected || is_combobox_active))
                 .on_press(Message::SelectInformationClass(Some(class_id)))
                 .width(Length::Fill)
                 .padding([4, 6])

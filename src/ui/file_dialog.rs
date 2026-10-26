@@ -115,3 +115,122 @@ pub fn scan_local_project_files(dir: &Path) -> Vec<PathBuf> {
     files.sort();
     files
 }
+
+use crate::ui::app::{FileDialogMode, Message};
+use crate::ui::focus::FocusCycle;
+use crate::ui::theme::{
+    focused_button_style, modal_backdrop_style, modal_card_style, modern_input_style,
+    primary_button_style, secondary_button_style, ThemeColors,
+};
+use iced::widget::{button, column, container, row, text, text_input, Space};
+use iced::{Alignment, Element, Length};
+
+pub fn view_file_dialog_modal<'a>(
+    mode: FileDialogMode,
+    input: &'a str,
+    modal_focus: &'a FocusCycle,
+) -> Element<'a, Message> {
+    let (mode_title, confirm_label) = match mode {
+        FileDialogMode::Open => ("Åbn FDA Modelprojekt", "Åbn"),
+        FileDialogMode::SaveAs => ("Gem Modelprojekt som...", "Gem"),
+    };
+
+    let mut dialog_body = column![
+        row![
+            text(mode_title).size(16).color(ThemeColors::SLATE_900),
+            Space::new().width(Length::Fill),
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .on_press(Message::CloseFileDialog)
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center),
+        text("Angiv filsti eller gennemse filer på maskinen:")
+            .size(12)
+            .color(ThemeColors::TEXT_MUTED),
+        row![
+            text_input("Filsti (f.eks. model.kant.json)...", input)
+                .id("file_dialog_input")
+                .style(modern_input_style)
+                .on_input(Message::FileDialogInputChanged)
+                .on_submit(Message::ConfirmFileDialog)
+                .padding(8)
+                .width(Length::Fill),
+            button(text("🖥️ Gennemse...").size(12))
+                .style(secondary_button_style)
+                .on_press(match mode {
+                    FileDialogMode::Open => Message::OpenProjectDialog,
+                    FileDialogMode::SaveAs => Message::SaveProjectAsDialog,
+                })
+                .padding([8, 12]),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+    ]
+    .spacing(12);
+
+    if mode == FileDialogMode::Open {
+        let local_files = scan_local_project_files(&PathBuf::from("."));
+        if !local_files.is_empty() {
+            let mut chips = column![text("Filer i projektmappen:")
+                .size(12)
+                .color(ThemeColors::TEXT_MUTED)]
+            .spacing(6);
+
+            let mut chip_row = row![].spacing(6);
+            for f in local_files {
+                let name = f
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("model.kant.json")
+                    .to_string();
+                chip_row = chip_row.push(
+                    button(text(format!("📄 {}", name)).size(11))
+                        .style(secondary_button_style)
+                        .on_press(Message::OpenProjectFile(f))
+                        .padding([3, 8]),
+                );
+            }
+            chips = chips.push(chip_row);
+            dialog_body = dialog_body.push(chips);
+        }
+    }
+
+    let is_cancel_focused = modal_focus.is_focused(0);
+    let is_confirm_focused = modal_focus.is_focused(1);
+
+    let actions_row = row![
+        Space::new().width(Length::Fill),
+        button(text("Annuller").size(12))
+            .style(focused_button_style(
+                secondary_button_style,
+                is_cancel_focused,
+            ))
+            .on_press(Message::CloseFileDialog)
+            .padding([6, 14]),
+        button(text(confirm_label).size(12))
+            .style(focused_button_style(
+                primary_button_style,
+                is_confirm_focused,
+            ))
+            .on_press(Message::ConfirmFileDialog)
+            .padding([6, 16]),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    dialog_body = dialog_body.push(actions_row);
+
+    let modal_card = container(dialog_body)
+        .style(modal_card_style)
+        .padding(24)
+        .width(Length::Fixed(520.0));
+
+    container(modal_card)
+        .style(modal_backdrop_style)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .into()
+}
