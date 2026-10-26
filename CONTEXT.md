@@ -55,6 +55,14 @@ _Avoid_: Datamodel, entitetsdiagram, ER-diagram.
 En UML-baseret applikationsmodel, der beriger begreber med klassestrukturer, attributter med standard primitive datatyper, kodelister og multipliciteter med henblik på dataudveksling og IT-implementering.
 _Avoid_: Fysisk databasemodel, skema, tabeldesign.
 
+**Begrebspalet (Concept Palette / Fane 2 Venstrepalet)**:
+Et foldbart navigations- og oprettelsespanel i Begrebsdiagrammet, der opstiller samtlige begreber fra Begrebslisten med søgning, filtrering, statusindikatorer (på lærred vs. u-placeret) samt tastatur- og drag-and-drop-placering.
+_Avoid_: Begrebsliste (når der menes diagrammets palet), venstremenu, værktøjskasse.
+
+**Selektiv Lærredsplacering (Selective Canvas Placement)**:
+En ergonomisk interaktionsmodel, hvor nye eller importerede begreber registreres i begrebskataloget uden automatisk at generere diagramnoder på lærredet, således at placering på diagrammet sker eksplicit via brugerhandling.
+_Avoid_: Auto-dump, tvunget lærredsplacering.
+
 ---
 
 ## 🔍 Begrebsmodellering (ISO 704 & FDA Regler)
