@@ -13,6 +13,7 @@ use iced::{mouse, Alignment, Element, Length};
 
 pub const PALETTE_WIDTH: f32 = 268.0;
 pub const SCROLLBAR_WIDTH: f32 = 4.0;
+pub const SEARCH_INPUT_PADDING: [f32; 2] = [7.0, 9.0];
 
 pub fn view_palette<'a>(
     concepts: &'a [Concept],
@@ -67,7 +68,7 @@ pub fn view_palette<'a>(
             .style(modern_input_style)
             .on_input(Message::ConceptModelSearchChanged)
             .on_submit(Message::ConceptPaletteSubmit)
-            .padding(5),
+            .padding(SEARCH_INPUT_PADDING),
     ]
     .spacing(8);
 

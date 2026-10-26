@@ -113,7 +113,7 @@ fn test_task_091_information_model_palette_scrollbar_dimensions_and_width() {
         model.add_class(InformationClass::new(format!("Klasse_{:02}", i)));
     }
     let graph = ClassGraph::new();
-    let _widget = class_list::view(&model, &graph, Vec::new(), None, None, "", 0);
+    let _widget = class_list::view(&model, &graph, None, None, "", 0);
 }
 
 #[test]

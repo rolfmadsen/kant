@@ -9,7 +9,7 @@ use crate::features::concepts::Concept;
 pub use crate::features::information_model::ui::DataTypeOption;
 use crate::features::information_model::ui::{association_editor, class_detail, class_list};
 use crate::features::information_model::{ClassGraph, InformationModel, Multiplicity};
-use crate::ui::app::{ConceptOption, Message, NodeOption, RelationDialogState};
+use crate::ui::app::{Message, NodeOption, RelationDialogState};
 use crate::ui::diagram_canvas::{
     render_uml_class_node, render_uml_datatype_node, render_uml_enumeration_node, CanvasViewport,
     DiagramCanvas,
@@ -45,26 +45,10 @@ pub fn view<'a>(
     concept_picker_search: &'a str,
     concept_picker_index: usize,
 ) -> Element<'a, Message> {
-    let existing_class_names: std::collections::HashSet<String> = info_model
-        .classes()
-        .iter()
-        .map(|c| c.name().trim().to_lowercase())
-        .collect();
-
-    let concept_options: Vec<ConceptOption> = concepts
-        .iter()
-        .filter(|c| !existing_class_names.contains(&c.preferred_term().trim().to_lowercase()))
-        .map(|c| ConceptOption {
-            id: c.id(),
-            term: c.preferred_term().to_string(),
-        })
-        .collect();
-
     // 1. VENSTRE PALET (Repository Browser)
     let left_palette = class_list::view(
         info_model,
         class_graph,
-        concept_options,
         selected_class_id,
         selected_enum_id,
         search_query,

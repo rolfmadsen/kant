@@ -3,26 +3,25 @@
 use crate::design_system::tokens::ColorTokens;
 use crate::features::information_model::diagram::ClassGraph;
 use crate::features::information_model::models::{InformationClass, InformationModel};
-use crate::ui::app::{ConceptOption, Message, PaletteDragItem};
+use crate::ui::app::{Message, PaletteDragItem};
 use crate::ui::theme::{
     card_container_style, danger_button_style, list_item_button, list_item_container_style,
     modern_input_style, modern_scrollable_style, pill_container_style, secondary_button_style,
     ThemeColors,
 };
 use iced::widget::{
-    button, column, container, mouse_area, pick_list, row, scrollable, text, text_input, tooltip,
-    Space,
+    button, column, container, mouse_area, row, scrollable, text, text_input, tooltip, Space,
 };
 use iced::{mouse, Alignment, Element, Length};
 use uuid::Uuid;
 
 pub const PALETTE_WIDTH: f32 = 268.0;
 pub const SCROLLBAR_WIDTH: f32 = 4.0;
+pub const SEARCH_INPUT_PADDING: [f32; 2] = [7.0, 9.0];
 
 pub fn view<'a>(
     info_model: &'a InformationModel,
     class_graph: &'a ClassGraph,
-    concept_options: Vec<ConceptOption>,
     selected_class_id: Option<Uuid>,
     selected_enum_id: Option<Uuid>,
     search_query: &'a str,
@@ -67,20 +66,12 @@ pub fn view<'a>(
         ]
         .spacing(6)
         .align_y(Alignment::Center),
-        pick_list(
-            concept_options,
-            None::<ConceptOption>,
-            Message::CreateInformationClassFromConcept,
-        )
-        .placeholder("+ Fra begreb...")
-        .padding(4)
-        .width(Length::Fill),
         text_input("🔍 Søg klasser...", search_query)
             .id("info_class_search_input")
             .style(modern_input_style)
             .on_input(Message::InformationClassSearchChanged)
             .on_submit(Message::InfoPaletteSubmit)
-            .padding(5),
+            .padding(SEARCH_INPUT_PADDING),
     ]
     .spacing(8);
 
