@@ -434,6 +434,7 @@ pub enum Message {
     OpenExcelSchemaGuideModal,
     CloseExcelSchemaGuideModal,
     ConfirmExcelImport,
+    ConfirmExcelImportAsNewModel,
     DismissExcelImportModal,
     SelectExcelImportSheet(String),
     ToggleExcelImportMetadata(bool),
@@ -1030,6 +1031,11 @@ impl App {
 
     pub fn is_excel_import_preview_open(&self) -> bool {
         self.excel_import_preview.is_some()
+    }
+
+    pub fn set_excel_import_preview_for_test(&mut self, preview: ExcelImportPreviewState) {
+        self.modal_focus = FocusCycle::with_initial(3, Some(2));
+        self.excel_import_preview = Some(preview);
     }
 
     pub fn is_concept_picker_open(&self) -> bool {
@@ -4314,7 +4320,7 @@ impl App {
                                         }
                                     }
                                     let update_metadata = import_summary.metadata.is_some();
-                                    self.modal_focus = FocusCycle::with_initial(2, Some(1));
+                                    self.modal_focus = FocusCycle::with_initial(3, Some(2));
                                     self.excel_import_preview = Some(ExcelImportPreviewState {
                                         import_summary,
                                         update_metadata,
@@ -4374,6 +4380,64 @@ impl App {
                         &format!(
                             "Excel import bekræftet og gennemført: {} nye begreber tilføjet, {} eksisterende opdateret",
                             summary.inserted, summary.updated
+                        ),
+                    );
+                    self.trigger_autosave();
+                }
+            }
+            Message::ConfirmExcelImportAsNewModel => {
+                self.modal_focus.reset();
+                if let Some(preview) = self.excel_import_preview.take() {
+                    self.active_menu = None;
+                    self.project = ModelProject::default();
+                    self.active_tab = Tab::ConceptList;
+                    self.editor_state = None;
+                    self.is_inline_graph_editing = false;
+                    self.search_query.clear();
+                    self.current_file_path = None;
+                    self.save_status = SaveStatus::Unsaved;
+                    self.git_status_generation += 1;
+                    self.git_status_refresh = GitStatusRefresh::Idle;
+                    self.git_sync_status = RepoSyncStatus::Uninitialized;
+                    self.selected_graph_node_id = None;
+                    self.selected_edge = None;
+                    self.relation_dialog = None;
+                    self.quick_create = None;
+                    self.selected_info_class_id = None;
+                    self.selected_info_enum_id = None;
+                    self.selected_info_graph_node_id = None;
+                    self.selected_info_graph_node_ids.clear();
+                    self.selected_info_edge = None;
+                    self.info_class_search.clear();
+
+                    if let Some(meta) = preview.import_summary.metadata {
+                        crate::features::diagnostics::log_info(
+                            "excel",
+                            &format!(
+                                "Initialiserer ny model med Forretningsmetadata: \"{}\" ({})",
+                                meta.name(),
+                                meta.uri()
+                            ),
+                        );
+                        *self.project.metadata_mut() = meta;
+                    } else {
+                        let fallback_name = preview
+                            .file_path
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("Ny model");
+                        self.project.metadata_mut().set_name(fallback_name);
+                    }
+
+                    let summary = crate::features::concepts::excel::apply_concept_upsert(
+                        &mut self.project,
+                        preview.import_summary.valid_concepts,
+                    );
+                    crate::features::diagnostics::log_info(
+                        "excel",
+                        &format!(
+                            "Oprettet ny model fra Excel import med {} begreber",
+                            summary.inserted
                         ),
                     );
                     self.trigger_autosave();
@@ -4679,7 +4743,10 @@ impl App {
                     } else if self.excel_import_preview.is_some() {
                         match focused {
                             Some(0) => return self.update(Message::DismissExcelImportModal),
-                            Some(1) | None => return self.update(Message::ConfirmExcelImport),
+                            Some(1) => {
+                                return self.update(Message::ConfirmExcelImportAsNewModel)
+                            }
+                            Some(2) | None => return self.update(Message::ConfirmExcelImport),
                             _ => {}
                         }
                     } else if self.diagnostics_modal.is_some() {

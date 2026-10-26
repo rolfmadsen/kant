@@ -164,6 +164,40 @@ pub fn view_excel_import_preview_modal<'a>(
     .size(12)
     .color(ThemeColors::TEXT_MUTED);
 
+    let target_model_name = if project.metadata().name().trim().is_empty() {
+        "Navnløs model"
+    } else {
+        project.metadata().name().trim()
+    };
+
+    let target_banner = container(
+        row![
+            text("🎯 Fletningsmål:").size(12).color(ThemeColors::PRIMARY),
+            Space::new().width(4),
+            text(format!("\"{}\"", target_model_name))
+                .size(12)
+                .color(ThemeColors::SLATE_900),
+            Space::new().width(Length::Fill),
+            text("Begreber flettes ind i den åbne model")
+                .size(11)
+                .color(ThemeColors::TEXT_MUTED),
+        ]
+        .align_y(Alignment::Center),
+    )
+    .style(|_| container::Style {
+        background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
+        border: iced::Border {
+            color: ThemeColors::PRIMARY,
+            width: 1.0,
+            radius: 6.0.into(),
+        },
+        ..Default::default()
+    })
+    .padding([6, 12])
+    .width(Length::Fill);
+
+    let unchanged_count = project.concepts().len().saturating_sub(preview.update_count);
+
     let stats_row = row![
         container(
             row![
@@ -181,7 +215,7 @@ pub fn view_excel_import_preview_modal<'a>(
         .padding([4, 10]),
         container(
             row![
-                text("+ Nye begreber:")
+                text("+ Nye:")
                     .size(12)
                     .color(ThemeColors::ACCENT_GREEN),
                 Space::new().width(6),
@@ -203,7 +237,7 @@ pub fn view_excel_import_preview_modal<'a>(
         .padding([4, 10]),
         container(
             row![
-                text("🔄 Opdateres (upsert):")
+                text("🔄 Opdateres:")
                     .size(12)
                     .color(ThemeColors::PRIMARY),
                 Space::new().width(6),
@@ -222,6 +256,20 @@ pub fn view_excel_import_preview_modal<'a>(
             },
             ..Default::default()
         })
+        .padding([4, 10]),
+        container(
+            row![
+                text("🛡️ Uændrede i model:")
+                    .size(12)
+                    .color(ThemeColors::SLATE_600),
+                Space::new().width(6),
+                text(format!("{}", unchanged_count))
+                    .size(13)
+                    .color(ThemeColors::SLATE_900),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .style(pill_container_style)
         .padding([4, 10]),
     ]
     .spacing(8)
@@ -300,7 +348,8 @@ pub fn view_excel_import_preview_modal<'a>(
     let scrollable_list = scrollable(preview_list).height(Length::Fixed(240.0));
 
     let is_cancel_focused = modal_focus.is_focused(0);
-    let is_confirm_focused = modal_focus.is_focused(1);
+    let is_new_model_focused = modal_focus.is_focused(1);
+    let is_confirm_focused = modal_focus.is_focused(2);
 
     let actions_row = row![
         Space::new().width(Length::Fill),
@@ -311,7 +360,14 @@ pub fn view_excel_import_preview_modal<'a>(
             ))
             .on_press(Message::DismissExcelImportModal)
             .padding([6, 14]),
-        button(row![text("Bekræft og Gennemfør Import").size(12),].align_y(Alignment::Center),)
+        button(text("Opret som ny model i stedet").size(12))
+            .style(focused_button_style(
+                secondary_button_style,
+                is_new_model_focused,
+            ))
+            .on_press(Message::ConfirmExcelImportAsNewModel)
+            .padding([6, 14]),
+        button(row![text("Flet med åben model").size(12),].align_y(Alignment::Center),)
             .style(focused_button_style(
                 primary_button_style,
                 is_confirm_focused,
@@ -391,7 +447,7 @@ pub fn view_excel_import_preview_modal<'a>(
             .width(Length::Fill)
     });
 
-    let mut modal_content = column![title_row, file_info].spacing(10);
+    let mut modal_content = column![title_row, file_info, target_banner].spacing(10);
     if let Some(selector) = sheet_selector {
         modal_content = modal_content.push(selector);
     }
@@ -456,7 +512,7 @@ pub fn view_excel_import_preview_modal<'a>(
     let modal_card = container(modal_content)
         .style(modal_card_style)
         .padding(20)
-        .width(Length::Fixed(660.0));
+        .width(Length::Fixed(680.0));
 
     container(modal_card)
         .style(modal_backdrop_style)

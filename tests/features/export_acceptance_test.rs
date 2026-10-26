@@ -726,8 +726,8 @@ fn test_task_089_excel_import_merge_awareness_and_new_model_option() {
         "En fast konstruktion til ophold eller opbevaring.",
         BelongsToDomain::Yes,
     );
-    app.project_mut().add_concept(c_koretoj);
-    app.project_mut().add_concept(c_bygning);
+    let _ = app.project_mut().add_concept(c_koretoj);
+    let _ = app.project_mut().add_concept(c_bygning);
     assert_eq!(app.project().concepts().len(), 2);
 
     // 2. Skab en Excel-fil med et opdateret "Køretøj" og et nyt "Cykel", samt Forretningsmetadata for en "Ny Transportmodel"
@@ -834,12 +834,12 @@ fn test_task_089_excel_import_merge_awareness_and_new_model_option() {
         .project_mut()
         .metadata_mut()
         .set_name("Eksisterende Grundmodel");
-    merge_app.project_mut().add_concept(Concept::new(
+    let _ = merge_app.project_mut().add_concept(Concept::new(
         "Køretøj",
         "Gammel def",
         BelongsToDomain::Yes,
     ));
-    merge_app.project_mut().add_concept(Concept::new(
+    let _ = merge_app.project_mut().add_concept(Concept::new(
         "Bygning",
         "Fast konstruktion",
         BelongsToDomain::Yes,
