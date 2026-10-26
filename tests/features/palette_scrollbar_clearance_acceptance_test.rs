@@ -28,7 +28,7 @@ fn test_task_091_concept_palette_scrollbar_clearance_and_width() {
     let mut concepts = Vec::new();
     for i in 0..20 {
         concepts.push(Concept::new(
-            &format!("Begreb_{:02}", i),
+            format!("Begreb_{:02}", i),
             "Definition",
             BelongsToDomain::Yes,
         ));
@@ -54,7 +54,7 @@ fn test_task_091_information_model_palette_scrollbar_clearance_and_width() {
     // Verificer rendering med 20 klasser
     let mut model = InformationModel::new();
     for i in 0..20 {
-        model.add_class(InformationClass::new(&format!("Klasse_{:02}", i)));
+        model.add_class(InformationClass::new(format!("Klasse_{:02}", i)));
     }
     let graph = ClassGraph::new();
     let _widget = class_list::view(&model, &graph, Vec::new(), None, None, "", 0);
@@ -68,7 +68,7 @@ fn test_task_091_app_integration_tab_renders_with_overflow() {
     // Opret 15 begreber for at aktivere overflow og scrollbar
     for i in 0..15 {
         let c = Concept::new(
-            &format!("LangtBegrebsNavn_{:02}", i),
+            format!("LangtBegrebsNavn_{:02}", i),
             "Aristotelisk definition",
             BelongsToDomain::Yes,
         );
