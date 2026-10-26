@@ -1,5 +1,5 @@
 use crate::features::concepts::excel::types::{
-    ExcelError, ExcelImportSummary, RejectedRow, UpsertSummary,
+    ExcelError, ExcelImportSummary, ExcelSheetCandidate, RejectedRow, UpsertSummary,
 };
 use crate::features::concepts::{BelongsToDomain, Concept, ConceptEnglishFields};
 use crate::features::diagnostics::{log_error, log_info, log_warn};
@@ -45,12 +45,49 @@ pub fn parse_concepts_from_xlsx_bytes(bytes: &[u8]) -> Result<ExcelImportSummary
         }
     }
 
+    let available_sheets: Vec<ExcelSheetCandidate> = candidate_summaries
+        .iter()
+        .filter(|s| !s.valid_concepts.is_empty())
+        .map(|s| ExcelSheetCandidate {
+            sheet_name: s.sheet_name.clone(),
+            concept_count: s.valid_concepts.len(),
+            valid_concepts: s.valid_concepts.clone(),
+            rejected_rows: s.rejected_rows.clone(),
+        })
+        .collect();
+
+    // Evaluer om der findes et forretningsmetadata ark
+    let metadata = sheet_names
+        .iter()
+        .find(|name| {
+            let n = name.to_lowercase();
+            n.contains("forretningsmetadata") || n == "metadata"
+        })
+        .and_then(|name| {
+            workbook
+                .worksheet_range(name)
+                .ok()
+                .and_then(|range| parse_metadata_from_sheet(&range))
+        });
+
+    if let Some(meta) = &metadata {
+        log_info(
+            "excel",
+            &format!(
+                "Fandt forretningsmetadata i arket: \"{}\" (Namespace: {}, v{})",
+                meta.name(),
+                meta.uri(),
+                meta.version()
+            ),
+        );
+    }
+
     // Udvælg det bedste ark:
     // 1. Ark med gyldige begreber prioriteres altid over tomme ark.
     // 2. Hvis et ark har tosprogethed ("da+en") OG har begreber, vælges dette for maksimal information.
     // 3. Ellers det ark, der har flest gyldige begreber.
     // 4. Hvis ingen ark har begreber, vælges standard prioritering ("da+en", "begrebsliste", eller første ark).
-    let chosen_summary = {
+    let mut chosen_summary = {
         let with_concepts: Vec<&ExcelImportSummary> = candidate_summaries
             .iter()
             .filter(|s| !s.valid_concepts.is_empty())
@@ -87,17 +124,23 @@ pub fn parse_concepts_from_xlsx_bytes(bytes: &[u8]) -> Result<ExcelImportSummary
                     valid_concepts: Vec::new(),
                     rejected_rows: Vec::new(),
                     sheet_name: default_name,
+                    available_sheets: Vec::new(),
+                    metadata: None,
                 })
         }
     };
 
+    chosen_summary.available_sheets = available_sheets;
+    chosen_summary.metadata = metadata;
+
     log_info(
         "excel",
         &format!(
-            "Valgte ark \"{}\": {} gyldige begreber, {} afviste række(r)",
+            "Valgte ark \"{}\": {} gyldige begreber, {} afviste række(r), {} tilgængelige datark",
             chosen_summary.sheet_name,
             chosen_summary.valid_concepts.len(),
-            chosen_summary.rejected_rows.len()
+            chosen_summary.rejected_rows.len(),
+            chosen_summary.available_sheets.len()
         ),
     );
 
@@ -112,6 +155,99 @@ pub fn parse_concepts_from_xlsx_bytes(bytes: &[u8]) -> Result<ExcelImportSummary
     }
 
     Ok(chosen_summary)
+}
+
+/// Udtrækker officielle FDA Forretningsmetadata fra et regneark
+pub fn parse_metadata_from_sheet(
+    range: &Range<Data>,
+) -> Option<crate::features::model::ModelMetadata> {
+    use crate::features::model::{ModelMetadata, ModelScope, ModelStatus};
+
+    let mut name = String::new();
+    let mut description = String::new();
+    let mut uri = String::new();
+    let mut responsible_org = String::new();
+    let mut domain_area = String::new();
+    let mut version = String::new();
+    let mut status = ModelStatus::Development;
+    let mut language = "da".to_string();
+    let mut scope = ModelScope::Core;
+
+    for row in range.rows() {
+        if row.len() < 2 {
+            continue;
+        }
+        let key = cell_as_string(&row[0]).trim().to_lowercase();
+        let val = cell_as_string(&row[1]).trim().to_string();
+        if val.is_empty() {
+            continue;
+        }
+
+        if key == "modelnavn" || key == "navn" {
+            name = val;
+        } else if key == "beskrivelse" {
+            description = val;
+        } else if key == "namespace / uri" || key == "namespace" || key == "uri" {
+            uri = val;
+        } else if key == "modelansvarlig" || key == "ansvarlig" || key.contains("organisation") {
+            responsible_org = val;
+        } else if key == "emne" || key == "emneområde" || key == "domæne" {
+            domain_area = val;
+        } else if key == "version" {
+            version = val;
+        } else if key == "status" || key == "godkendelsestatus" || key == "modelstatus" {
+            let val_lower = val.to_lowercase();
+            if val_lower.contains("gældende")
+                || val_lower.contains("godkendt")
+                || val_lower.contains("completed")
+            {
+                status = ModelStatus::Completed;
+            } else if val_lower.contains("udfaset") || val_lower.contains("deprecated") {
+                status = ModelStatus::Deprecated;
+            } else if val_lower.contains("tilbagetrukket") || val_lower.contains("withdrawn") {
+                status = ModelStatus::Withdrawn;
+            } else {
+                status = ModelStatus::Development;
+            }
+        } else if key == "modelsprog" || key == "sprog" {
+            language = val;
+        } else if key == "modelomfang" || key == "omfang" {
+            let val_lower = val.to_lowercase();
+            if val_lower.contains("anvendelse")
+                || val_lower.contains("profile")
+                || val_lower.contains("application")
+            {
+                scope = ModelScope::ApplicationProfile;
+            } else {
+                scope = ModelScope::Core;
+            }
+        }
+    }
+
+    if name.is_empty() && uri.is_empty() && description.is_empty() {
+        return None;
+    }
+
+    let mut meta = ModelMetadata::new(
+        if name.is_empty() {
+            "Ubenævnt Model".to_string()
+        } else {
+            name
+        },
+        description,
+        uri,
+        responsible_org,
+        domain_area,
+        if version.is_empty() {
+            "1.0.0".to_string()
+        } else {
+            version
+        },
+        status,
+    );
+    meta.set_language(language);
+    meta.set_model_scope(scope);
+    Some(meta)
 }
 
 fn parse_sheet_range(range: &Range<Data>, sheet_name: &str) -> ExcelImportSummary {
@@ -142,6 +278,8 @@ fn parse_sheet_range(range: &Range<Data>, sheet_name: &str) -> ExcelImportSummar
             valid_concepts: Vec::new(),
             rejected_rows: Vec::new(),
             sheet_name: sheet_name.to_string(),
+            available_sheets: Vec::new(),
+            metadata: None,
         };
     }
 
@@ -269,6 +407,8 @@ fn parse_sheet_range(range: &Range<Data>, sheet_name: &str) -> ExcelImportSummar
         valid_concepts,
         rejected_rows,
         sheet_name: sheet_name.to_string(),
+        available_sheets: Vec::new(),
+        metadata: None,
     }
 }
 

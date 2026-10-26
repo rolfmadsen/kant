@@ -435,6 +435,8 @@ pub enum Message {
     CloseExcelSchemaGuideModal,
     ConfirmExcelImport,
     DismissExcelImportModal,
+    SelectExcelImportSheet(String),
+    ToggleExcelImportMetadata(bool),
 
     // Modelomslag & Metadata modal (Task 017 & Task 055)
     OpenMetadataModal,
@@ -4311,9 +4313,11 @@ impl App {
                                             new_count += 1;
                                         }
                                     }
+                                    let update_metadata = import_summary.metadata.is_some();
                                     self.modal_focus = FocusCycle::with_initial(2, Some(1));
                                     self.excel_import_preview = Some(ExcelImportPreviewState {
                                         import_summary,
+                                        update_metadata,
                                         new_count,
                                         update_count,
                                         file_path: path,
@@ -4348,6 +4352,19 @@ impl App {
             Message::ConfirmExcelImport => {
                 self.modal_focus.reset();
                 if let Some(preview) = self.excel_import_preview.take() {
+                    if preview.update_metadata {
+                        if let Some(meta) = preview.import_summary.metadata {
+                            crate::features::diagnostics::log_info(
+                                "excel",
+                                &format!(
+                                    "Opdaterer modelmetadata fra Forretningsmetadata: \"{}\" ({})",
+                                    meta.name(),
+                                    meta.uri()
+                                ),
+                            );
+                            *self.project.metadata_mut() = meta;
+                        }
+                    }
                     let summary = crate::features::concepts::excel::apply_concept_upsert(
                         &mut self.project,
                         preview.import_summary.valid_concepts,
@@ -4365,6 +4382,44 @@ impl App {
             Message::DismissExcelImportModal => {
                 self.modal_focus.reset();
                 self.excel_import_preview = None;
+            }
+            Message::SelectExcelImportSheet(sheet_name) => {
+                if let Some(preview) = &mut self.excel_import_preview {
+                    if let Some(candidate) = preview
+                        .import_summary
+                        .available_sheets
+                        .iter()
+                        .find(|s| s.sheet_name == sheet_name)
+                    {
+                        preview.import_summary.sheet_name = candidate.sheet_name.clone();
+                        preview.import_summary.valid_concepts = candidate.valid_concepts.clone();
+                        preview.import_summary.rejected_rows = candidate.rejected_rows.clone();
+
+                        let mut new_count = 0;
+                        let mut update_count = 0;
+                        for c in &preview.import_summary.valid_concepts {
+                            let is_match = self.project.concepts().iter().any(|existing| {
+                                (c.identifier().is_some()
+                                    && c.identifier() == existing.identifier())
+                                    || c.preferred_term()
+                                        .trim()
+                                        .eq_ignore_ascii_case(existing.preferred_term().trim())
+                            });
+                            if is_match {
+                                update_count += 1;
+                            } else {
+                                new_count += 1;
+                            }
+                        }
+                        preview.new_count = new_count;
+                        preview.update_count = update_count;
+                    }
+                }
+            }
+            Message::ToggleExcelImportMetadata(val) => {
+                if let Some(preview) = &mut self.excel_import_preview {
+                    preview.update_metadata = val;
+                }
             }
             Message::ExportDialogCompleted(res, kind) => {
                 if let crate::ui::file_dialog::DialogResult::Selected(path) = res {

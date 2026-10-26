@@ -551,7 +551,21 @@ fn test_task_088_robust_excel_import() {
     let meta_sheet = workbook.add_worksheet();
     meta_sheet.set_name("Forretningsmetadata").unwrap();
     meta_sheet.write_string(0, 0, "Modelnavn").unwrap();
-    meta_sheet.write_string(0, 1, "Transportmodel").unwrap();
+    meta_sheet.write_string(0, 1, "Transportmodellen").unwrap();
+    meta_sheet.write_string(1, 0, "Namespace / URI").unwrap();
+    meta_sheet
+        .write_string(1, 1, "https://data.gov.dk/model/core/transport")
+        .unwrap();
+    meta_sheet.write_string(2, 0, "Beskrivelse").unwrap();
+    meta_sheet
+        .write_string(2, 1, "Officiel kernemodel for transport.")
+        .unwrap();
+    meta_sheet.write_string(3, 0, "Modelansvarlig").unwrap();
+    meta_sheet
+        .write_string(3, 1, "Transportministeriet")
+        .unwrap();
+    meta_sheet.write_string(4, 0, "Version").unwrap();
+    meta_sheet.write_string(4, 1, "1.2.0").unwrap();
 
     let da_sheet = workbook.add_worksheet();
     da_sheet.set_name("Begrebsliste DA").unwrap();
@@ -627,7 +641,18 @@ fn test_task_088_robust_excel_import() {
         "Definition: En leverandør der prioriteres i organisationens indkøb."
     );
 
-    // AC4: Verificer diagnostisk logning
+    // AC4: Verificer udtrækning af Forretningsmetadata
+    assert!(
+        summary.metadata.is_some(),
+        "Forretningsmetadata skal udtrækkes fra arket"
+    );
+    let meta = summary.metadata.unwrap();
+    assert_eq!(meta.name(), "Transportmodellen");
+    assert_eq!(meta.uri(), "https://data.gov.dk/model/core/transport");
+    assert_eq!(meta.responsible_org(), "Transportministeriet");
+    assert_eq!(meta.version(), "1.2.0");
+
+    // AC5: Verificer diagnostisk logning
     let recent_logs = kant::features::diagnostics::get_recent_logs();
     assert!(
         recent_logs
@@ -636,4 +661,45 @@ fn test_task_088_robust_excel_import() {
         "System- og Grafikdiagnostik skal have logget arkvalget med [excel] tag: {:?}",
         recent_logs
     );
+
+    // === Del 2: Begreber i BEGGE faneblade -> Verificer tilgængelige fane-kandidater ===
+    let mut multi_workbook = Workbook::new();
+    let s_da = multi_workbook.add_worksheet();
+    s_da.set_name("Begrebsliste DA").unwrap();
+    s_da.write_string(0, 0, "Foretrukken term").unwrap();
+    s_da.write_string(0, 1, "Definition").unwrap();
+    s_da.write_string(1, 0, "Bil").unwrap();
+    s_da.write_string(1, 1, "Et motorkøretøj.").unwrap();
+
+    let s_da_en = multi_workbook.add_worksheet();
+    s_da_en.set_name("Begrebsliste DA+EN").unwrap();
+    s_da_en.write_string(0, 0, "Foretrukken term (da)").unwrap();
+    s_da_en.write_string(0, 1, "Definition (da)").unwrap();
+    s_da_en.write_string(0, 2, "Foretrukken term (en)").unwrap();
+    s_da_en.write_string(0, 3, "Definition (en)").unwrap();
+    s_da_en.write_string(1, 0, "Cykel").unwrap();
+    s_da_en
+        .write_string(1, 1, "Et tohjulet pedalkøretøj.")
+        .unwrap();
+    s_da_en.write_string(1, 2, "Bicycle").unwrap();
+    s_da_en
+        .write_string(1, 3, "A two-wheeled vehicle.")
+        .unwrap();
+
+    let multi_bytes = multi_workbook.save_to_buffer().unwrap();
+    let multi_summary = parse_concepts_from_xlsx_bytes(&multi_bytes).unwrap();
+
+    assert_eq!(
+        multi_summary.available_sheets.len(),
+        2,
+        "Begge ark med begreber skal registreres som tilgængelige faneblade for brugeren"
+    );
+    assert!(multi_summary
+        .available_sheets
+        .iter()
+        .any(|s| s.sheet_name == "Begrebsliste DA" && s.concept_count == 1));
+    assert!(multi_summary
+        .available_sheets
+        .iter()
+        .any(|s| s.sheet_name == "Begrebsliste DA+EN" && s.concept_count == 1));
 }

@@ -29,10 +29,20 @@ pub struct RejectedRow {
 }
 
 #[derive(Debug, Clone)]
+pub struct ExcelSheetCandidate {
+    pub sheet_name: String,
+    pub concept_count: usize,
+    pub valid_concepts: Vec<Concept>,
+    pub rejected_rows: Vec<RejectedRow>,
+}
+
+#[derive(Debug, Clone)]
 pub struct ExcelImportSummary {
     pub valid_concepts: Vec<Concept>,
     pub rejected_rows: Vec<RejectedRow>,
     pub sheet_name: String,
+    pub available_sheets: Vec<ExcelSheetCandidate>,
+    pub metadata: Option<crate::features::model::ModelMetadata>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

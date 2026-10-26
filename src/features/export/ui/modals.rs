@@ -7,7 +7,7 @@ use crate::ui::theme::{
     focused_button_style, modal_backdrop_style, modal_card_style, pill_container_style,
     primary_button_style, secondary_button_style, ThemeColors,
 };
-use iced::widget::{button, column, container, row, scrollable, text, Space};
+use iced::widget::{button, checkbox, column, container, row, scrollable, text, Space};
 use iced::{Alignment, Element, Length};
 
 pub fn view_excel_schema_guide_modal<'a>(modal_focus: &FocusCycle) -> Element<'a, Message> {
@@ -322,7 +322,84 @@ pub fn view_excel_import_preview_modal<'a>(
     .spacing(10)
     .align_y(Alignment::Center);
 
-    let mut modal_content = column![title_row, file_info, stats_row, notice_card,].spacing(12);
+    let sheet_selector = if preview.import_summary.available_sheets.len() > 1 {
+        let mut buttons = row![
+            text("Vælg faneblad:")
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+            Space::new().width(4),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center);
+
+        for candidate in &preview.import_summary.available_sheets {
+            let is_selected = candidate.sheet_name == preview.import_summary.sheet_name;
+            let label = format!(
+                "{} ({} begreber)",
+                candidate.sheet_name, candidate.concept_count
+            );
+            let btn = button(text(label).size(11))
+                .style(if is_selected {
+                    primary_button_style
+                } else {
+                    secondary_button_style
+                })
+                .on_press(Message::SelectExcelImportSheet(
+                    candidate.sheet_name.clone(),
+                ))
+                .padding([4, 10]);
+            buttons = buttons.push(btn);
+        }
+        Some(buttons)
+    } else {
+        None
+    };
+
+    let maybe_meta_card = preview.import_summary.metadata.as_ref().map(|meta| {
+        let meta_info = format!(
+            "Model: \"{}\" • Namespace: {} • Version: {}",
+            meta.name(),
+            if meta.uri().is_empty() {
+                "(ikke angivet)"
+            } else {
+                meta.uri()
+            },
+            meta.version()
+        );
+        let cb = row![
+            checkbox(preview.update_metadata)
+                .on_toggle(Message::ToggleExcelImportMetadata)
+                .size(15),
+            Space::new().width(6),
+            text("Opdater også Modelomslag & Metadata jf. FDA Forretningsmetadata")
+                .size(12)
+                .color(ThemeColors::SLATE_900),
+        ]
+        .align_y(Alignment::Center);
+
+        container(column![cb, text(meta_info).size(11).color(ThemeColors::TEXT_MUTED),].spacing(4))
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(ThemeColors::SLATE_50)),
+                border: iced::Border {
+                    color: ThemeColors::PRIMARY,
+                    width: 1.0,
+                    radius: 6.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding([8, 12])
+            .width(Length::Fill)
+    });
+
+    let mut modal_content = column![title_row, file_info].spacing(10);
+    if let Some(selector) = sheet_selector {
+        modal_content = modal_content.push(selector);
+    }
+    modal_content = modal_content.push(stats_row);
+    if let Some(card) = maybe_meta_card {
+        modal_content = modal_content.push(card);
+    }
+    modal_content = modal_content.push(notice_card);
 
     if !preview.import_summary.rejected_rows.is_empty() {
         let mut rej_col = column![
