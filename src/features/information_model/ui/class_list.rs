@@ -15,6 +15,9 @@ use iced::widget::{
 use iced::{mouse, Alignment, Element, Length};
 use uuid::Uuid;
 
+pub const PALETTE_WIDTH: f32 = 268.0;
+pub const SCROLLBAR_GUTTER: f32 = 10.0;
+
 pub fn view<'a>(
     info_model: &'a InformationModel,
     class_graph: &'a ClassGraph,
@@ -80,7 +83,12 @@ pub fn view<'a>(
     ]
     .spacing(8);
 
-    let mut class_items = column![].spacing(4);
+    let mut class_items = column![].spacing(4).padding(iced::Padding {
+        top: 0.0,
+        right: SCROLLBAR_GUTTER,
+        bottom: 0.0,
+        left: 0.0,
+    });
     for (idx, class) in filtered_classes.into_iter().enumerate() {
         let is_selected = selected_class_id == Some(class.id());
         let class_id = class.id();
@@ -181,7 +189,7 @@ pub fn view<'a>(
         };
 
         let item_row = container(
-            row![item_widget, action_controls]
+            row![item_widget, action_controls, Space::new().width(4)]
                 .align_y(Alignment::Center)
                 .spacing(4),
         )
@@ -220,7 +228,12 @@ pub fn view<'a>(
     .spacing(6)
     .align_y(Alignment::Center);
 
-    let mut enum_items = column![].spacing(4);
+    let mut enum_items = column![].spacing(4).padding(iced::Padding {
+        top: 0.0,
+        right: SCROLLBAR_GUTTER,
+        bottom: 0.0,
+        left: 0.0,
+    });
     for e in filtered_enums {
         let is_selected = selected_enum_id == Some(e.id());
         let enum_id = e.id();
@@ -308,7 +321,7 @@ pub fn view<'a>(
         };
 
         let item_row = container(
-            row![item_widget, action_controls]
+            row![item_widget, action_controls, Space::new().width(4)]
                 .align_y(Alignment::Center)
                 .spacing(4),
         )
@@ -329,7 +342,7 @@ pub fn view<'a>(
     )
     .style(card_container_style)
     .padding(12)
-    .width(Length::Fixed(240.0))
+    .width(Length::Fixed(PALETTE_WIDTH))
     .height(Length::Fill)
     .into()
 }
