@@ -98,3 +98,7 @@ path = "tests/features/concept_palette_combobox_acceptance_test.rs"
 name = "palette_scrollbar_clearance_acceptance"
 path = "tests/features/palette_scrollbar_clearance_acceptance_test.rs"
 
+[[test]]
+name = "palette_search_and_header_cleanup_acceptance"
+path = "tests/features/palette_search_and_header_cleanup_acceptance_test.rs"
+
