@@ -94,3 +94,7 @@ path = "tests/features/concept_decomposition_acceptance_test.rs"
 name = "concept_palette_combobox_acceptance"
 path = "tests/features/concept_palette_combobox_acceptance_test.rs"
 
+[[test]]
+name = "palette_scrollbar_clearance_acceptance"
+path = "tests/features/palette_scrollbar_clearance_acceptance_test.rs"
+
