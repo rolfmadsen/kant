@@ -537,3 +537,94 @@ fn test_task_060_machine_readable_model_interchange_xmi_skos_and_shacl() {
     let _ = app.update(Message::ExportModelSkosDialog);
     let _ = app.update(Message::ExportModelShaclDialog);
 }
+
+#[test]
+fn test_task_088_robust_excel_import() {
+    use kant::features::concepts::excel::parse_concepts_from_xlsx_bytes;
+    use rust_xlsxwriter::Workbook;
+
+    // === Del 1: FDA-skabelon kompatibilitet (Begrebsliste DA vs Begrebsliste DA+EN) ===
+    // En bruger downloader den officielle FDA-skabelon, udfylder kun 'Begrebsliste DA',
+    // og lader 'Begrebsliste DA+EN' være tom for databegreber.
+    let mut workbook = Workbook::new();
+
+    let meta_sheet = workbook.add_worksheet();
+    meta_sheet.set_name("Forretningsmetadata").unwrap();
+    meta_sheet.write_string(0, 0, "Modelnavn").unwrap();
+    meta_sheet.write_string(0, 1, "Transportmodel").unwrap();
+
+    let da_sheet = workbook.add_worksheet();
+    da_sheet.set_name("Begrebsliste DA").unwrap();
+    // Række 0: SKOS overskrifter
+    da_sheet.write_string(0, 0, "prefLabel (da)").unwrap();
+    da_sheet.write_string(0, 1, "definition (da)").unwrap();
+    // Række 1: Danske overskrifter
+    da_sheet.write_string(1, 0, "Foretrukken term").unwrap();
+    da_sheet.write_string(1, 1, "Definition").unwrap();
+    // Række 2: Tom / mellemrum som i FDA skabelonen
+    da_sheet.write_string(2, 0, " ").unwrap();
+    // Række 3: Brugerens data 1 (med ordet 'definition' og 'forklaring' i teksten)
+    da_sheet.write_string(3, 0, "Køretøj").unwrap();
+    da_sheet
+        .write_string(3, 1, "En definition på et transportmiddel på hjul.")
+        .unwrap();
+    // Række 4: Brugerens data 2 (term der starter med 'Foretrukken', definition starter med 'Definition')
+    da_sheet
+        .write_string(4, 0, "Foretrukken leverandør")
+        .unwrap();
+    da_sheet
+        .write_string(
+            4,
+            1,
+            "Definition: En leverandør der prioriteres i organisationens indkøb.",
+        )
+        .unwrap();
+
+    // Fanen Begrebsliste DA+EN tilføjes også (som i skabelonen), men er tom for databegreber
+    let da_en_sheet = workbook.add_worksheet();
+    da_en_sheet.set_name("Begrebsliste DA+EN").unwrap();
+    da_en_sheet.write_string(0, 0, "prefLabel (da)").unwrap();
+    da_en_sheet.write_string(0, 3, "definition (da)").unwrap();
+    da_en_sheet.write_string(0, 9, "prefLabel (en)").unwrap();
+    da_en_sheet.write_string(0, 12, "definition (en)").unwrap();
+    da_en_sheet
+        .write_string(1, 0, "Foretrukken term (da)")
+        .unwrap();
+    da_en_sheet.write_string(1, 3, "Definition (da)").unwrap();
+
+    let bytes = workbook.save_to_buffer().unwrap();
+
+    // Test import
+    let summary = parse_concepts_from_xlsx_bytes(&bytes)
+        .expect("Skal kunne parse Excel dokumentet uden fejl");
+
+    assert_eq!(
+        summary.sheet_name, "Begrebsliste DA",
+        "Parseren skal automatisk vælge det ark der reelt indeholder data ('Begrebsliste DA') frem for et tomt ark"
+    );
+    assert_eq!(
+        summary.valid_concepts.len(),
+        2,
+        "Begge begreber fra Begrebsliste DA skal importeres som gyldige begreber"
+    );
+    assert_eq!(
+        summary.rejected_rows.len(),
+        0,
+        "Ingen gyldige begreber må kastes bort som headers eller manglende felter"
+    );
+
+    let c1 = &summary.valid_concepts[0];
+    assert_eq!(c1.preferred_term(), "Køretøj");
+    assert_eq!(
+        c1.definition(),
+        "En definition på et transportmiddel på hjul."
+    );
+
+    let c2 = &summary.valid_concepts[1];
+    assert_eq!(c2.preferred_term(), "Foretrukken leverandør");
+    assert_eq!(
+        c2.definition(),
+        "Definition: En leverandør der prioriteres i organisationens indkøb."
+    );
+}
+
