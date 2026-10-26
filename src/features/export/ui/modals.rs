@@ -172,7 +172,9 @@ pub fn view_excel_import_preview_modal<'a>(
 
     let target_banner = container(
         row![
-            text("🎯 Fletningsmål:").size(12).color(ThemeColors::PRIMARY),
+            text("🎯 Fletningsmål:")
+                .size(12)
+                .color(ThemeColors::PRIMARY),
             Space::new().width(4),
             text(format!("\"{}\"", target_model_name))
                 .size(12)
@@ -196,7 +198,10 @@ pub fn view_excel_import_preview_modal<'a>(
     .padding([6, 12])
     .width(Length::Fill);
 
-    let unchanged_count = project.concepts().len().saturating_sub(preview.update_count);
+    let unchanged_count = project
+        .concepts()
+        .len()
+        .saturating_sub(preview.update_count);
 
     let stats_row = row![
         container(
@@ -215,9 +220,7 @@ pub fn view_excel_import_preview_modal<'a>(
         .padding([4, 10]),
         container(
             row![
-                text("+ Nye:")
-                    .size(12)
-                    .color(ThemeColors::ACCENT_GREEN),
+                text("+ Nye:").size(12).color(ThemeColors::ACCENT_GREEN),
                 Space::new().width(6),
                 text(format!("{}", preview.new_count))
                     .size(13)
@@ -237,9 +240,7 @@ pub fn view_excel_import_preview_modal<'a>(
         .padding([4, 10]),
         container(
             row![
-                text("🔄 Opdateres:")
-                    .size(12)
-                    .color(ThemeColors::PRIMARY),
+                text("🔄 Opdateres:").size(12).color(ThemeColors::PRIMARY),
                 Space::new().width(6),
                 text(format!("{}", preview.update_count))
                     .size(13)

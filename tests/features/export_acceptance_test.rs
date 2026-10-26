@@ -815,8 +815,7 @@ fn test_task_089_excel_import_merge_awareness_and_new_model_option() {
         .iter()
         .any(|c| c.preferred_term() == "Cykel"));
     assert!(
-        !app
-            .project()
+        !app.project()
             .concepts()
             .iter()
             .any(|c| c.preferred_term() == "Bygning"),
@@ -886,4 +885,3 @@ fn test_task_089_excel_import_merge_awareness_and_new_model_option() {
         .iter()
         .any(|c| c.preferred_term() == "Cykel"));
 }
-

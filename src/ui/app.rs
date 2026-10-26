@@ -4743,9 +4743,7 @@ impl App {
                     } else if self.excel_import_preview.is_some() {
                         match focused {
                             Some(0) => return self.update(Message::DismissExcelImportModal),
-                            Some(1) => {
-                                return self.update(Message::ConfirmExcelImportAsNewModel)
-                            }
+                            Some(1) => return self.update(Message::ConfirmExcelImportAsNewModel),
                             Some(2) | None => return self.update(Message::ConfirmExcelImport),
                             _ => {}
                         }
