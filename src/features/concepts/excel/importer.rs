@@ -2,46 +2,147 @@ use crate::features::concepts::excel::types::{
     ExcelError, ExcelImportSummary, RejectedRow, UpsertSummary,
 };
 use crate::features::concepts::{BelongsToDomain, Concept, ConceptEnglishFields};
+use crate::features::diagnostics::{log_error, log_info, log_warn};
 use crate::features::model::ModelProject;
-use calamine::{open_workbook_auto_from_rs, Data, Reader};
+use calamine::{open_workbook_auto_from_rs, Data, Range, Reader};
 use std::io::Cursor;
 use uuid::Uuid;
 
 /// Indlæser og parser begreber fra en Excel-fil i hukommelsen (.xlsx, .xls)
 pub fn parse_concepts_from_xlsx_bytes(bytes: &[u8]) -> Result<ExcelImportSummary, ExcelError> {
+    log_info(
+        "excel",
+        &format!(
+            "Starter parsing af Excel-dokument ({} bytes)...",
+            bytes.len()
+        ),
+    );
+
     let cursor = Cursor::new(bytes);
     let mut workbook = open_workbook_auto_from_rs(cursor)?;
 
     let sheet_names = workbook.sheet_names().to_vec();
     if sheet_names.is_empty() {
+        log_error("excel", "Ingen regnearksfaner fundet i Excel-filen");
         return Err(ExcelError::NoSheetsFound);
     }
 
-    // Prioritering af arknavne: "DA+EN", dernæst "Begrebsliste", dernæst første ark
-    let target_sheet = sheet_names
-        .iter()
-        .find(|name| name.to_lowercase().contains("da+en"))
-        .or_else(|| {
+    log_info(
+        "excel",
+        &format!(
+            "Fandt {} fane(r) i arket: {:?}",
+            sheet_names.len(),
             sheet_names
+        ),
+    );
+
+    // Evaluer alle tilgængelige ark for at finde det mest relevante ark med databegreber
+    let mut candidate_summaries = Vec::new();
+    for name in &sheet_names {
+        if let Ok(range) = workbook.worksheet_range(name) {
+            let summary = parse_sheet_range(&range, name);
+            candidate_summaries.push(summary);
+        }
+    }
+
+    // Udvælg det bedste ark:
+    // 1. Ark med gyldige begreber prioriteres altid over tomme ark.
+    // 2. Hvis et ark har tosprogethed ("da+en") OG har begreber, vælges dette for maksimal information.
+    // 3. Ellers det ark, der har flest gyldige begreber.
+    // 4. Hvis ingen ark har begreber, vælges standard prioritering ("da+en", "begrebsliste", eller første ark).
+    let chosen_summary = {
+        let with_concepts: Vec<&ExcelImportSummary> = candidate_summaries
+            .iter()
+            .filter(|s| !s.valid_concepts.is_empty())
+            .collect();
+
+        if let Some(da_en_with_data) = with_concepts
+            .iter()
+            .find(|s| s.sheet_name.to_lowercase().contains("da+en"))
+        {
+            (*da_en_with_data).clone()
+        } else if let Some(max_concepts) = with_concepts
+            .into_iter()
+            .max_by_key(|s| s.valid_concepts.len())
+        {
+            max_concepts.clone()
+        } else {
+            // Fallback når arket er tomt: bevar forventet standardark
+            let default_name = sheet_names
                 .iter()
-                .find(|name| name.to_lowercase().contains("begrebsliste"))
-        })
-        .or_else(|| sheet_names.first())
-        .cloned()
-        .unwrap();
+                .find(|name| name.to_lowercase().contains("da+en"))
+                .or_else(|| {
+                    sheet_names
+                        .iter()
+                        .find(|name| name.to_lowercase().contains("begrebsliste"))
+                })
+                .or_else(|| sheet_names.first())
+                .cloned()
+                .unwrap();
 
-    let range = workbook.worksheet_range(&target_sheet)?;
+            candidate_summaries
+                .into_iter()
+                .find(|s| s.sheet_name == default_name)
+                .unwrap_or_else(|| ExcelImportSummary {
+                    valid_concepts: Vec::new(),
+                    rejected_rows: Vec::new(),
+                    sheet_name: default_name,
+                })
+        }
+    };
 
+    log_info(
+        "excel",
+        &format!(
+            "Valgte ark \"{}\": {} gyldige begreber, {} afviste række(r)",
+            chosen_summary.sheet_name,
+            chosen_summary.valid_concepts.len(),
+            chosen_summary.rejected_rows.len()
+        ),
+    );
+
+    for rej in &chosen_summary.rejected_rows {
+        log_warn(
+            "excel",
+            &format!(
+                "Række {} afvist: \"{}\" ({})",
+                rej.row_index, rej.preferred_term, rej.reason
+            ),
+        );
+    }
+
+    Ok(chosen_summary)
+}
+
+fn parse_sheet_range(range: &Range<Data>, sheet_name: &str) -> ExcelImportSummary {
     let mut last_header_idx = None;
     let mut col_map = ColumnIndices::default();
 
-    // Scan de første 6 rækker for at identificere kolonnehoveder (kan have flere header-rækker, fx SKOS i række 1 og danske navne i række 2 eller 3)
+    // Scan de første rækker (op til 6) for at identificere kolonnehoveder
     for (r_idx, row) in range.rows().enumerate().take(6) {
         let indices = detect_columns(row);
         if indices.has_primary_headers() {
             last_header_idx = Some(r_idx);
-            col_map = indices;
+            col_map.merge_with(&indices);
+        } else if col_map.has_primary_headers() {
+            // Hvis vi allerede har fundet en gyldig primær header i en tidligere række,
+            // og denne række IKKE har overskriftskarakter, stopper vi scanningen så datarrækker ikke forveksles.
+            let has_any_header_match = indices.preferred_term.is_some()
+                || indices.definition.is_some()
+                || indices.accepted_term.is_some()
+                || indices.source.is_some();
+            if !has_any_header_match {
+                break;
+            }
         }
+    }
+
+    if !col_map.has_primary_headers() {
+        return ExcelImportSummary {
+            valid_concepts: Vec::new(),
+            rejected_rows: Vec::new(),
+            sheet_name: sheet_name.to_string(),
+        };
     }
 
     // Start efter den senest detekterede header-række
@@ -72,15 +173,25 @@ pub fn parse_concepts_from_xlsx_bytes(bytes: &[u8]) -> Result<ExcelImportSummary
             continue;
         }
 
-        // Tjek om rækken mod forventning er en gentaget header-række
+        // Tjek om rækken mod forventning er en gentaget header-række (kræver at BÅDE term og def er overskriftsnavne)
         let is_header = {
             let p = pref_term.to_lowercase();
             let d = def.to_lowercase();
-            p.starts_with("foretrukken")
-                || p.starts_with("preflabel")
+            (p == "foretrukken term"
+                || p == "foretrukken term *"
+                || p == "foretrukken term (da)"
+                || p == "foretrukken term (da) *"
+                || p == "preflabel (da)"
+                || p == "preflabel"
+                || p == "begrebsnavn"
                 || p == "term"
-                || p == "navn"
-                || d.starts_with("definition")
+                || p == "navn")
+                && (d == "definition"
+                    || d == "definition *"
+                    || d == "definition (da)"
+                    || d == "definition (da) *"
+                    || d == "betydning"
+                    || d == "forklaring")
         };
         if is_header {
             continue;
@@ -154,11 +265,11 @@ pub fn parse_concepts_from_xlsx_bytes(bytes: &[u8]) -> Result<ExcelImportSummary
         valid_concepts.push(concept);
     }
 
-    Ok(ExcelImportSummary {
+    ExcelImportSummary {
         valid_concepts,
         rejected_rows,
-        sheet_name: target_sheet,
-    })
+        sheet_name: sheet_name.to_string(),
+    }
 }
 
 /// Udfører intelligent upsert af importerede begreber på projektet:
@@ -266,7 +377,15 @@ pub fn apply_concept_upsert(project: &mut ModelProject, concepts: Vec<Concept>) 
         }
     }
 
-    UpsertSummary { inserted, updated }
+    let summary = UpsertSummary { inserted, updated };
+    log_info(
+        "excel",
+        &format!(
+            "Excel upsert afsluttet: {} nye begreber tilføjet, {} eksisterende opdateret",
+            summary.inserted, summary.updated
+        ),
+    );
+    summary
 }
 
 #[derive(Debug, Default, Clone)]
@@ -294,7 +413,67 @@ struct ColumnIndices {
 
 impl ColumnIndices {
     fn has_primary_headers(&self) -> bool {
-        self.preferred_term.is_some() || self.definition.is_some()
+        self.preferred_term.is_some() && self.definition.is_some()
+    }
+
+    fn merge_with(&mut self, other: &ColumnIndices) {
+        if other.preferred_term.is_some() {
+            self.preferred_term = other.preferred_term;
+        }
+        if other.definition.is_some() {
+            self.definition = other.definition;
+        }
+        if other.accepted_term.is_some() {
+            self.accepted_term = other.accepted_term;
+        }
+        if other.deprecated_term.is_some() {
+            self.deprecated_term = other.deprecated_term;
+        }
+        if other.example.is_some() {
+            self.example = other.example;
+        }
+        if other.comment.is_some() {
+            self.comment = other.comment;
+        }
+        if other.application_note.is_some() {
+            self.application_note = other.application_note;
+        }
+        if other.legal_source.is_some() {
+            self.legal_source = other.legal_source;
+        }
+        if other.source.is_some() {
+            self.source = other.source;
+        }
+        if other.domain.is_some() {
+            self.domain = other.domain;
+        }
+        if other.identifier.is_some() {
+            self.identifier = other.identifier;
+        }
+        if other.derived_from.is_some() {
+            self.derived_from = other.derived_from;
+        }
+        if other.en_preferred_term.is_some() {
+            self.en_preferred_term = other.en_preferred_term;
+        }
+        if other.en_accepted_term.is_some() {
+            self.en_accepted_term = other.en_accepted_term;
+        }
+        if other.en_deprecated_term.is_some() {
+            self.en_deprecated_term = other.en_deprecated_term;
+        }
+        if other.en_definition.is_some() {
+            self.en_definition = other.en_definition;
+        }
+        if other.en_example.is_some() {
+            self.en_example = other.en_example;
+        }
+        if other.en_comment.is_some() {
+            self.en_comment = other.en_comment;
+        }
+        if other.en_application_note.is_some() {
+            self.en_application_note = other.en_application_note;
+        }
     }
 
     fn get_str(&self, row: &[Data], idx: Option<usize>) -> String {
@@ -309,7 +488,7 @@ fn detect_columns(row: &[Data]) -> ColumnIndices {
 
     for (idx, cell) in row.iter().enumerate() {
         let text = cell_as_string(cell).trim().to_lowercase();
-        if text.is_empty() {
+        if text.is_empty() || text.len() > 50 {
             continue;
         }
 
@@ -330,7 +509,10 @@ fn detect_columns(row: &[Data]) -> ColumnIndices {
                 || text == "english term"
             {
                 cols.en_preferred_term = Some(idx);
-            } else if text.contains("definition") {
+            } else if text == "definition (en)"
+                || text.starts_with("definition (en)")
+                || text == "definition"
+            {
                 cols.en_definition = Some(idx);
             } else if text.contains("example") || text.contains("eksempel") {
                 cols.en_example = Some(idx);
@@ -352,9 +534,19 @@ fn detect_columns(row: &[Data]) -> ColumnIndices {
             || text == "navn"
             || text == "begreb"
             || text == "term"
+            || text.contains("begrebsnavn")
+            || text.contains("termnavn")
         {
             cols.preferred_term = Some(idx);
-        } else if text.contains("definition") || text == "betydning" || text == "forklaring" {
+        } else if text == "definition"
+            || text.starts_with("definition ")
+            || text.starts_with("definition*")
+            || text.starts_with("definition (da)")
+            || text == "definition (da)"
+            || text == "betydning"
+            || text == "forklaring"
+            || text == "beskrivelse"
+        {
             cols.definition = Some(idx);
         } else if text.contains("example") || text.contains("eksempel") {
             cols.example = Some(idx);

@@ -4320,12 +4320,18 @@ impl App {
                                     });
                                 }
                                 Err(err) => {
-                                    eprintln!("Fejl ved parsing af Excel-regneark: {}", err);
+                                    crate::features::diagnostics::log_error(
+                                        "excel",
+                                        &format!("Fejl ved parsing af Excel-regneark: {}", err),
+                                    );
                                 }
                             }
                         }
                         Err(err) => {
-                            eprintln!("Fejl ved indlæsning af fil: {}", err);
+                            crate::features::diagnostics::log_error(
+                                "excel",
+                                &format!("Fejl ved indlæsning af fil {:?}: {}", path, err),
+                            );
                         }
                     }
                 }
@@ -4346,9 +4352,12 @@ impl App {
                         &mut self.project,
                         preview.import_summary.valid_concepts,
                     );
-                    println!(
-                        "Excel import gennemført: {} nye begreber tilføjet, {} eksisterende opdateret",
-                        summary.inserted, summary.updated
+                    crate::features::diagnostics::log_info(
+                        "excel",
+                        &format!(
+                            "Excel import bekræftet og gennemført: {} nye begreber tilføjet, {} eksisterende opdateret",
+                            summary.inserted, summary.updated
+                        ),
                     );
                     self.trigger_autosave();
                 }

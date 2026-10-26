@@ -626,5 +626,14 @@ fn test_task_088_robust_excel_import() {
         c2.definition(),
         "Definition: En leverandør der prioriteres i organisationens indkøb."
     );
-}
 
+    // AC4: Verificer diagnostisk logning
+    let recent_logs = kant::features::diagnostics::get_recent_logs();
+    assert!(
+        recent_logs
+            .iter()
+            .any(|log| log.contains("[excel]") && log.contains("Valgte ark \"Begrebsliste DA\"")),
+        "System- og Grafikdiagnostik skal have logget arkvalget med [excel] tag: {:?}",
+        recent_logs
+    );
+}
