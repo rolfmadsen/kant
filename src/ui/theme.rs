@@ -1,5 +1,5 @@
 use crate::design_system::tokens::ColorTokens;
-use iced::widget::{button, container, text_input};
+use iced::widget::{button, container, scrollable, text_input};
 use iced::{Background, Border, Color, Shadow, Vector};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -116,6 +116,83 @@ pub fn pill_container_style(_theme: &iced::Theme) -> container::Style {
             blur_radius: 3.0,
         },
         ..Default::default()
+    }
+}
+
+pub fn modern_scrollable_style(
+    theme: &iced::Theme,
+    status: scrollable::Status,
+) -> scrollable::Style {
+    let invisible_rail = scrollable::Rail {
+        background: None,
+        border: Border::default(),
+        scroller: scrollable::Scroller {
+            background: Background::Color(Color::TRANSPARENT),
+            border: Border::default(),
+        },
+    };
+
+    match status {
+        scrollable::Status::Active { .. } => scrollable::Style {
+            container: container::Style::default(),
+            vertical_rail: invisible_rail,
+            horizontal_rail: invisible_rail,
+            gap: None,
+            auto_scroll: scrollable::default(theme, status).auto_scroll,
+        },
+        scrollable::Status::Hovered {
+            is_vertical_scrollbar_hovered,
+            ..
+        } => {
+            let scroller_color = if is_vertical_scrollbar_hovered {
+                ColorTokens::SLATE_500.with_alpha(0.80).into_color()
+            } else {
+                ColorTokens::SLATE_400.with_alpha(0.40).into_color()
+            };
+
+            let visible_rail = scrollable::Rail {
+                background: None,
+                border: Border::default(),
+                scroller: scrollable::Scroller {
+                    background: Background::Color(scroller_color),
+                    border: Border {
+                        radius: 2.0.into(),
+                        ..Border::default()
+                    },
+                },
+            };
+
+            scrollable::Style {
+                container: container::Style::default(),
+                vertical_rail: visible_rail,
+                horizontal_rail: invisible_rail,
+                gap: None,
+                auto_scroll: scrollable::default(theme, status).auto_scroll,
+            }
+        }
+        scrollable::Status::Dragged { .. } => {
+            let visible_rail = scrollable::Rail {
+                background: None,
+                border: Border::default(),
+                scroller: scrollable::Scroller {
+                    background: Background::Color(
+                        ColorTokens::SLATE_600.with_alpha(0.85).into_color(),
+                    ),
+                    border: Border {
+                        radius: 2.0.into(),
+                        ..Border::default()
+                    },
+                },
+            };
+
+            scrollable::Style {
+                container: container::Style::default(),
+                vertical_rail: visible_rail,
+                horizontal_rail: invisible_rail,
+                gap: None,
+                auto_scroll: scrollable::default(theme, status).auto_scroll,
+            }
+        }
     }
 }
 

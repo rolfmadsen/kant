@@ -3,7 +3,8 @@ use crate::features::concepts::Concept;
 use crate::ui::app::{Message, PaletteDragItem};
 use crate::ui::theme::{
     card_container_style, danger_button_style, list_item_button, list_item_container_style,
-    modern_input_style, pill_container_style, secondary_button_style, ThemeColors,
+    modern_input_style, modern_scrollable_style, pill_container_style, secondary_button_style,
+    ThemeColors,
 };
 use iced::widget::{
     button, column, container, mouse_area, row, scrollable, text, text_input, tooltip, Space,
@@ -11,7 +12,7 @@ use iced::widget::{
 use iced::{mouse, Alignment, Element, Length};
 
 pub const PALETTE_WIDTH: f32 = 268.0;
-pub const SCROLLBAR_GUTTER: f32 = 10.0;
+pub const SCROLLBAR_WIDTH: f32 = 4.0;
 
 pub fn view_palette<'a>(
     concepts: &'a [Concept],
@@ -70,12 +71,7 @@ pub fn view_palette<'a>(
     ]
     .spacing(8);
 
-    let mut concept_items = column![].spacing(4).padding(iced::Padding {
-        top: 0.0,
-        right: SCROLLBAR_GUTTER,
-        bottom: 0.0,
-        left: 0.0,
-    });
+    let mut concept_items = column![].spacing(4);
     for (idx, concept) in filtered_concepts.into_iter().enumerate() {
         let concept_id = concept.id();
         let is_on_canvas = concept_graph.is_concept_on_diagram(concept_id);
@@ -147,7 +143,7 @@ pub fn view_palette<'a>(
         };
 
         let item_row = container(
-            row![item_widget, action_controls, Space::new().width(4)]
+            row![item_widget, action_controls]
                 .align_y(Alignment::Center)
                 .spacing(4),
         )
@@ -159,7 +155,15 @@ pub fn view_palette<'a>(
     container(
         column![
             palette_header,
-            scrollable(concept_items).height(Length::Fill),
+            scrollable(concept_items)
+                .direction(scrollable::Direction::Vertical(
+                    scrollable::Scrollbar::new()
+                        .width(SCROLLBAR_WIDTH)
+                        .scroller_width(SCROLLBAR_WIDTH)
+                        .margin(1.0),
+                ))
+                .style(modern_scrollable_style)
+                .height(Length::Fill),
         ]
         .spacing(10)
         .height(Length::Fill),

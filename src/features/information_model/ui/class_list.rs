@@ -6,7 +6,8 @@ use crate::features::information_model::models::{InformationClass, InformationMo
 use crate::ui::app::{ConceptOption, Message, PaletteDragItem};
 use crate::ui::theme::{
     card_container_style, danger_button_style, list_item_button, list_item_container_style,
-    modern_input_style, pill_container_style, secondary_button_style, ThemeColors,
+    modern_input_style, modern_scrollable_style, pill_container_style, secondary_button_style,
+    ThemeColors,
 };
 use iced::widget::{
     button, column, container, mouse_area, pick_list, row, scrollable, text, text_input, tooltip,
@@ -16,7 +17,7 @@ use iced::{mouse, Alignment, Element, Length};
 use uuid::Uuid;
 
 pub const PALETTE_WIDTH: f32 = 268.0;
-pub const SCROLLBAR_GUTTER: f32 = 10.0;
+pub const SCROLLBAR_WIDTH: f32 = 4.0;
 
 pub fn view<'a>(
     info_model: &'a InformationModel,
@@ -83,12 +84,7 @@ pub fn view<'a>(
     ]
     .spacing(8);
 
-    let mut class_items = column![].spacing(4).padding(iced::Padding {
-        top: 0.0,
-        right: SCROLLBAR_GUTTER,
-        bottom: 0.0,
-        left: 0.0,
-    });
+    let mut class_items = column![].spacing(4);
     for (idx, class) in filtered_classes.into_iter().enumerate() {
         let is_selected = selected_class_id == Some(class.id());
         let class_id = class.id();
@@ -189,7 +185,7 @@ pub fn view<'a>(
         };
 
         let item_row = container(
-            row![item_widget, action_controls, Space::new().width(4)]
+            row![item_widget, action_controls]
                 .align_y(Alignment::Center)
                 .spacing(4),
         )
@@ -228,12 +224,7 @@ pub fn view<'a>(
     .spacing(6)
     .align_y(Alignment::Center);
 
-    let mut enum_items = column![].spacing(4).padding(iced::Padding {
-        top: 0.0,
-        right: SCROLLBAR_GUTTER,
-        bottom: 0.0,
-        left: 0.0,
-    });
+    let mut enum_items = column![].spacing(4);
     for e in filtered_enums {
         let is_selected = selected_enum_id == Some(e.id());
         let enum_id = e.id();
@@ -321,7 +312,7 @@ pub fn view<'a>(
         };
 
         let item_row = container(
-            row![item_widget, action_controls, Space::new().width(4)]
+            row![item_widget, action_controls]
                 .align_y(Alignment::Center)
                 .spacing(4),
         )
@@ -333,9 +324,25 @@ pub fn view<'a>(
     container(
         column![
             palette_header,
-            scrollable(class_items).height(Length::FillPortion(1)),
+            scrollable(class_items)
+                .direction(scrollable::Direction::Vertical(
+                    scrollable::Scrollbar::new()
+                        .width(SCROLLBAR_WIDTH)
+                        .scroller_width(SCROLLBAR_WIDTH)
+                        .margin(1.0),
+                ))
+                .style(modern_scrollable_style)
+                .height(Length::FillPortion(1)),
             enum_header,
-            scrollable(enum_items).height(Length::FillPortion(1)),
+            scrollable(enum_items)
+                .direction(scrollable::Direction::Vertical(
+                    scrollable::Scrollbar::new()
+                        .width(SCROLLBAR_WIDTH)
+                        .scroller_width(SCROLLBAR_WIDTH)
+                        .margin(1.0),
+                ))
+                .style(modern_scrollable_style)
+                .height(Length::FillPortion(1)),
         ]
         .spacing(10)
         .height(Length::Fill),
