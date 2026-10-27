@@ -1866,6 +1866,19 @@ impl App {
         None
     }
 
+    pub fn has_collab_feature() -> bool {
+        true
+    }
+
+    pub fn available_menu_types() -> &'static [MenuType] {
+        &[
+            MenuType::File,
+            MenuType::Export,
+            MenuType::Help,
+            MenuType::Collab,
+        ]
+    }
+
     pub fn collab_state(&self) -> CollabState {
         self.collab_state
     }
