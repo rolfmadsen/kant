@@ -8,7 +8,7 @@ tags: [architecture, adr, canvas, iced, graph, uml, fda, routing, orthogonal, ma
 # 5. Deterministisk Ortogonal Edge-Routing, Port-Bus og Bro-krydsninger
 
 **Status**: `accepted`  
-**Date**: `2026-09-19`  
+**Date**: `2026-09-19` (Opdateret `2026-10-27` med Task 096 Addendum)  
 
 ## Context
 I `edge` begrebsmodellen (graf-canvas) skal relationer (Generaliseringer og Associationer) fremstå professionelt og letlæseligt efter FDA Modelreglerne (Kapitel 5 og 7):
@@ -34,11 +34,17 @@ I `edge` begrebsmodellen (graf-canvas) skal relationer (Generaliseringer og Asso
    - Noden og pilehovedet sammensættes i render-løkken så hverken hvid fyldning eller kantstreg overlapper uhensigtsmæssigt.
 5. **Krydsnings-Detektion med Linjebroer (Line Hops)**:
    - Horisontale og vertikale segmenter kryds-tjekkes; ved skæringspunkt indsættes en halvcirkelbue ($r = 4\text{px}$) på det horisontale segment.
+6. **Brugertilpasset Linjeføring, Frie Knækpunkter og Port-Sliding (Task 096 Addendum - 2026-10-27)**:
+   - Automatisk ortogonal ruteberegning fungerer som *default*.
+   - En relation kan overstyres med en eksplicit liste af knækpunkter (`bends: Vec<BendPoint>`), som forankres rumligt på canvas ved node-flytninger.
+   - For relationer med knækpunkter erstattes fast slot-allokering af dynamisk *port-sliding*: Porten glider langs nodens kant for at flugte direkte med det tilstødende knækpunkt.
+   - Ren ortogonalitet (90-graders Manhattan-vinkler) og vinkelret pilehoveddocking bevares som en ufravigelig FDA-invariant.
 
 ## Consequences
 - **Positive**:
   - Høj visuel læsbarhed og professionel diagramkvalitet efter FDA Modelreglerne.
   - Ingen sammenpressede eller usynlige pilehoveder ved træk af noder.
   - Testbar geometrisk logik med 100% determinisme uden komplekse eksterne afhængigheder.
+  - Fuld brugerkontrol over diagramlayout uden at give køb på ortogonal standardisering.
 - **Trade-offs**:
   - Mere beregningsarbejde under canvas-optegning; holdes performant ved letvægts 2D vektoraritmetik uden tunge A*-gitter-søgninger.
