@@ -96,3 +96,7 @@ path = "tests/features/git_purge_acceptance_test.rs"
 name = "palette_scrollbar_edge_alignment_acceptance"
 path = "tests/features/palette_scrollbar_edge_alignment_acceptance_test.rs"
 
+[[test]]
+name = "edge_manual_routing_acceptance"
+path = "tests/features/edge_manual_routing_acceptance_test.rs"
+

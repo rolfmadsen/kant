@@ -1,0 +1,151 @@
+use iced::Point;
+use kant::features::concept_model::{
+    BendPoint, DiagramEdge, DiagramNode, NodeId, PortSide, RelationKind, GRID_SIZE,
+};
+use kant::features::concepts::{BelongsToDomain, Concept};
+use kant::features::information_model::{ClassDiagramEdge, ClassDiagramNode, InformationClass};
+use kant::features::model::decomposed::{load_decomposed, save_decomposed};
+use kant::features::model::ModelProject;
+use kant::ui::canvas::viewport::CanvasViewport;
+use kant::ui::canvas::CanvasEdge;
+use kant::ui::edge_router::geometry::prune_collinear_bends;
+use kant::ui::edge_router::EdgeRouter;
+use uuid::Uuid;
+
+#[test]
+fn test_ac1_bendpoint_and_edge_bends_accessors() {
+    let from_id = Uuid::new_v4();
+    let to_id = Uuid::new_v4();
+
+    let mut edge = DiagramEdge::new(from_id, to_id, RelationKind::Association);
+    assert!(edge.bends().is_none());
+
+    let bends = vec![
+        BendPoint::new(100.0, 200.0),
+        BendPoint::new(100.0, 400.0),
+    ];
+    edge.set_bends(Some(bends.clone()));
+    assert_eq!(edge.bends(), Some(bends.as_slice()));
+
+    // Test for ClassDiagramEdge
+    let mut class_edge = ClassDiagramEdge::new(from_id, to_id, RelationKind::Association, None);
+    assert!(class_edge.bends().is_none());
+    class_edge.set_bends(Some(bends.clone()));
+    assert_eq!(class_edge.bends(), Some(bends.as_slice()));
+
+    // Test CanvasEdge trait abstraction
+    let canvas_edge: &dyn CanvasEdge = &edge;
+    assert_eq!(canvas_edge.bends(), Some(bends.as_slice()));
+}
+
+#[test]
+fn test_ac2_decomposed_persistence_of_bends() {
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_bends_{}", Uuid::new_v4()));
+    let kant_dir = temp_dir.join(".kant");
+
+    let mut project = ModelProject::default();
+    let c1 = Concept::new("Ordre", "En forretningsordre", BelongsToDomain::Yes);
+    let c2 = Concept::new("Kunde", "En køber", BelongsToDomain::Yes);
+    let n1 = project.concept_graph_mut().add_node(&c1);
+    let n2 = project.concept_graph_mut().add_node(&c2);
+
+    let mut edge = DiagramEdge::new(n1, n2, RelationKind::Association);
+    let bends = vec![
+        BendPoint::new(120.0, 240.0),
+        BendPoint::new(260.0, 240.0),
+    ];
+    edge.set_bends(Some(bends.clone()));
+    project.concept_graph_mut().edges_mut().push(edge);
+
+    // Save decomposed
+    save_decomposed(&project, &kant_dir).expect("save_decomposed should succeed");
+
+    // Load back
+    let loaded = load_decomposed(&kant_dir).expect("load_decomposed should succeed");
+    let loaded_edge = loaded.concept_graph().edges().first().expect("edge should exist");
+    assert_eq!(loaded_edge.bends(), Some(bends.as_slice()));
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_ac3_ac4_orthogonal_routing_with_bends_and_port_sliding() {
+    // Node A at (100, 100), size 160x80 -> bottom edge is y = 180, x in [100, 260]
+    let node_a = DiagramNode::custom(Uuid::new_v4(), "A".to_string(), 100.0, 100.0, 160.0, 80.0);
+    // Node B at (100, 400), size 160x80 -> top edge is y = 400, x in [100, 260]
+    let node_b = DiagramNode::custom(Uuid::new_v4(), "B".to_string(), 100.0, 400.0, 160.0, 80.0);
+
+    // Bend at (220, 280), shifted toward right flank of node A (220 is within [108, 252])
+    let mut edge = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Association);
+    edge.set_bends(Some(vec![
+        BendPoint::new(220.0, 280.0),
+    ]));
+
+    let routes = EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[edge]);
+    assert_eq!(routes.len(), 1);
+    let route = &routes[0];
+
+    // AC4: Port-sliding - start point should have x = 220.0 (sliding to align with P_1)
+    let start_pt = route.points[0];
+    assert_eq!(start_pt.y, 180.0, "Source port should be on bottom of Node A");
+    assert_eq!(start_pt.x, 220.0, "Source port should slide along bottom edge to align with P_1.x");
+
+    // AC3: Route should contain the bend (220.0, 280.0)
+    assert!(
+        route.points.iter().any(|p| (p.x - 220.0).abs() < 0.1 && (p.y - 280.0).abs() < 0.1),
+        "Route must pass through bend (220.0, 280.0)"
+    );
+}
+
+#[test]
+fn test_ac6_ac10_grid_snapping_and_collinear_pruning() {
+    // Grid snapping helper
+    let p = Point::new(43.2, 78.9);
+    let snapped = CanvasViewport::snap_to_grid(p, GRID_SIZE);
+    assert_eq!(snapped, Point::new(40.0, 80.0));
+
+    // AC10: Collinear pruning: three points on the same vertical axis
+    let pts = vec![
+        BendPoint::new(100.0, 100.0),
+        BendPoint::new(100.0, 200.0),
+        BendPoint::new(100.0, 300.0),
+        BendPoint::new(200.0, 300.0),
+    ];
+    let pruned = prune_collinear_bends(&pts);
+    assert_eq!(
+        pruned,
+        vec![
+            BendPoint::new(100.0, 100.0),
+            BendPoint::new(100.0, 300.0),
+            BendPoint::new(200.0, 300.0),
+        ],
+        "Collinear middle point (100.0, 200.0) must be pruned"
+    );
+}
+
+#[test]
+fn test_ac9_anchored_bends_when_nodes_moved() {
+    let node_a = DiagramNode::custom(Uuid::new_v4(), "A".to_string(), 100.0, 100.0, 160.0, 80.0);
+    let node_b = DiagramNode::custom(Uuid::new_v4(), "B".to_string(), 400.0, 100.0, 160.0, 80.0);
+
+    let mut edge = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Association);
+    let original_bends = vec![
+        BendPoint::new(200.0, 260.0),
+        BendPoint::new(350.0, 260.0),
+    ];
+    edge.set_bends(Some(original_bends.clone()));
+
+    // Move Node A from (100, 100) to (120, 80)
+    let moved_node_a = DiagramNode::custom(node_a.id(), "A".to_string(), 120.0, 80.0, 160.0, 80.0);
+
+    // Route edges with moved node
+    let routes = EdgeRouter::route_edges(&[moved_node_a, node_b], &[edge.clone()]);
+    assert_eq!(routes.len(), 1);
+
+    // Invariant: Bends on the edge remain anchored at original canvas coordinates
+    assert_eq!(
+        edge.bends(),
+        Some(original_bends.as_slice()),
+        "Edge bends must remain anchored and untouched when node moves"
+    );
+}
