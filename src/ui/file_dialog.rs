@@ -82,7 +82,7 @@ pub fn pick_file_to_export(default_name: &str, filter_name: &str, extension: &st
     }
 }
 
-/// Åbner native mappevælger til at vælge en destinationsmappe til f.eks. Git-kloning
+/// Åbner native mappevælger til at vælge en destinationsmappe til f.eks. model
 pub fn pick_folder() -> DialogResult {
     let dialog = rfd::FileDialog::new().set_title("Vælg mappe til model");
     match dialog.pick_folder() {

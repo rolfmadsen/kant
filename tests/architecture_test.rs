@@ -33,12 +33,7 @@ fn test_gauntlet_toml_architecture_configuration() {
     );
 
     // 2. Ratchet-undtagelser for monolitterne
-    let required_exemptions = [
-        ("src/ui/app.rs", 9200),
-        ("tests/acceptance.rs", 9500),
-        ("src/features/model/merge.rs", 1200),
-        ("src/features/git/service.rs", 1000),
-    ];
+    let required_exemptions = [("src/ui/app.rs", 9200), ("tests/acceptance.rs", 9500)];
 
     for (path, ceiling) in required_exemptions {
         assert!(

@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub mod decomposed;
-pub mod merge;
 pub mod recent;
 pub mod storage;
 pub mod ui;

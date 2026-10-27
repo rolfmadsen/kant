@@ -19,7 +19,8 @@ fn test_task_094_git_integration_purged() {
     );
 
     // 2. Decomposed persistence (.kant/) skal fortsat fungere 100% uafhængigt af Git
-    let temp_dir = std::env::temp_dir().join(format!("kant_test_decomposed_nogit_{}", Uuid::new_v4()));
+    let temp_dir =
+        std::env::temp_dir().join(format!("kant_test_decomposed_nogit_{}", Uuid::new_v4()));
     std::fs::create_dir_all(&temp_dir).unwrap();
 
     let meta = ModelMetadata::new(

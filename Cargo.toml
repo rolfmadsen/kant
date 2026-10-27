@@ -63,9 +63,6 @@ path = "tests/features/export_acceptance_test.rs"
 [[test]]
 name = "canvas_acceptance"
 path = "tests/features/canvas_acceptance_test.rs"
-[[test]]
-name = "git_acceptance"
-path = "tests/features/git_acceptance_test.rs"
 
 [[test]]
 name = "information_model_acceptance"

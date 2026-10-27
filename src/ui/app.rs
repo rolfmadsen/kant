@@ -6,9 +6,6 @@ use crate::features::export::{
     export_model_report_html, export_model_report_markdown, export_to_shacl_turtle,
     export_to_skos_turtle, export_to_xmi_2_1,
 };
-use crate::features::git::{
-    ChangeAction, DomainEventMapper, GitService, PullResult, RepoSyncStatus,
-};
 use crate::features::information_model::{
     Attribute, ClassRelation, InformationClass, InformationDataType, InformationEnumeration,
     Multiplicity, PrimitiveType,
@@ -41,15 +38,6 @@ use uuid::Uuid;
 pub use crate::features::diagnostics::ui::{view_diagnostics_modal, DiagnosticsModalState};
 pub use crate::features::export::ui::{
     view_excel_import_preview_modal, view_excel_schema_guide_modal, ExcelImportPreviewState,
-};
-pub use crate::features::git::ui::{
-    view_conflict_resolver_modal, view_git_clone_modal, view_git_connection_modal,
-    view_git_status_badge, view_history_modal, view_publish_modal, ConflictChoice,
-    ConflictResolverModalState, GitCloneModalState, GitConnectionModalState,
-    ModelHistoryModalState, PublishAsyncResult, PublishModalState, GIT_CLONE_BTN_BROWSE,
-    GIT_CLONE_BTN_CANCEL, GIT_CLONE_BTN_CLONE, GIT_CONN_BTN_BROWSE, GIT_CONN_BTN_CANCEL,
-    GIT_CONN_BTN_REMOVE, GIT_CONN_BTN_SAVE, HISTORY_BTN_CLOSE, HISTORY_BTN_COMMIT_NOW,
-    HISTORY_COMMIT_CARD_START,
 };
 pub use crate::features::model::ui::{
     view_metadata_modal, MetadataField, ModelMetadataModalState, META_BTN_CANCEL, META_BTN_SAVE,
@@ -168,13 +156,6 @@ pub const INFO_EDGE_BTN_DIRECTED_CHECKBOX: usize = 5;
 pub const INFO_EDGE_BTN_SRC_MULT: usize = 6;
 pub const INFO_EDGE_BTN_TGT_MULT: usize = 7;
 pub const INFO_EDGE_BTN_DELETE: usize = 8;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GitStatusRefresh {
-    Idle,
-    InFlight { generation: u64 },
-    InFlightDirty { generation: u64 },
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SaveStatus {
@@ -374,55 +355,6 @@ pub enum Message {
     CloseDiagnosticsModal,
     CopyDiagnosticsToClipboard,
 
-    // Git & Versionsstyring (Task 047 & 076)
-    RefreshGitStatus,
-    GitSyncStatusRefreshed {
-        generation: u64,
-        result: Result<RepoSyncStatus, String>,
-        elapsed: std::time::Duration,
-    },
-    OpenPublishModal,
-    ClosePublishModal,
-    UpdatePublishMessage(String),
-    ConfirmPublish,
-    PublishCompleted(PublishAsyncResult),
-    InitGitRepository,
-    PullModel,
-
-    // Modelhistorik, Element-historik & Konfliktløsning (Task 048)
-    OpenModelHistoryModal,
-    OpenElementHistoryModal(Uuid),
-    CloseModelHistoryModal,
-    OpenConflictResolverModal(Vec<crate::features::model::merge::ModelConflict>),
-    CloseConflictResolverModal,
-    ResolveConflict {
-        index: usize,
-        choice: ConflictChoice,
-    },
-    ApplyResolvedConflicts,
-
-    // Git Forbindelse & Kloning (Task 049 & 050)
-    OpenGitConnectionModal,
-    CloseGitConnectionModal,
-    UpdateGitRemoteUrl(String),
-    UpdateGitTargetDir(String),
-    BrowseGitTargetDir,
-    GitTargetDirSelected(crate::ui::file_dialog::DialogResult),
-    UpdateGitToken(String),
-    UpdateGitAuthorName(String),
-    UpdateGitAuthorEmail(String),
-    SaveGitConnection,
-    RemoveGitRemote,
-
-    OpenGitCloneModal,
-    CloseGitCloneModal,
-    UpdateGitCloneUrl(String),
-    UpdateGitCloneTargetDir(String),
-    UpdateGitCloneToken(String),
-    BrowseGitCloneTargetDir,
-    GitCloneTargetDirSelected(crate::ui::file_dialog::DialogResult),
-    ExecuteGitClone,
-
     // Statusbar / Eksterne links (Task 018)
     OpenModelRules,
 
@@ -599,10 +531,7 @@ pub enum Message {
     StartPaletteDrag(PaletteDragItem),
     PaletteDragMoved(Point),
     PaletteDragDropped,
-    CanvasDropAt {
-        x: f32,
-        y: f32,
-    },
+    CanvasDropAt { x: f32, y: f32 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -646,15 +575,6 @@ pub struct App {
     metadata_modal: Option<ModelMetadataModalState>,
     active_menu: Option<MenuType>,
     show_left_sidebar: bool,
-    git_sync_status: RepoSyncStatus,
-    git_status_refresh: GitStatusRefresh,
-    git_status_generation: u64,
-    git_status_refresh_requested: bool,
-    publish_modal: Option<PublishModalState>,
-    history_modal: Option<ModelHistoryModalState>,
-    conflict_resolver_modal: Option<ConflictResolverModalState>,
-    git_connection_modal: Option<GitConnectionModalState>,
-    git_clone_modal: Option<GitCloneModalState>,
     diagnostics_modal: Option<DiagnosticsModalState>,
     excel_schema_guide_open: bool,
     excel_import_preview: Option<ExcelImportPreviewState>,
@@ -674,10 +594,6 @@ impl Default for App {
     fn default() -> Self {
         Self::new_auto_open()
     }
-}
-
-fn perform_git_status_refresh(dir: &std::path::Path) -> Result<RepoSyncStatus, String> {
-    GitService::get_sync_status(dir).map_err(|e| e.to_string())
 }
 
 impl App {
@@ -703,32 +619,6 @@ impl App {
         if let Some(ref ep) = effective_path {
             recent_store.record_opened(ep);
         }
-
-        let _repo_dir = match &effective_path {
-            Some(p) => {
-                let mut candidate = if p.is_dir() {
-                    p.clone()
-                } else {
-                    match p.parent() {
-                        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
-                        _ => PathBuf::new(),
-                    }
-                };
-                if candidate.file_name().and_then(|n| n.to_str()) == Some(".kant") {
-                    if let Some(parent) = candidate.parent() {
-                        candidate = parent.to_path_buf();
-                    }
-                }
-                if GitService::is_safe_model_repo_dir(&candidate) {
-                    Some(candidate)
-                } else {
-                    None
-                }
-            }
-            None => None,
-        };
-        // Start altid med Uninitialized uden synkrone proceskald for omgående 60fps vinduesvisning
-        let git_sync_status = RepoSyncStatus::Uninitialized;
 
         if let Some(p) = &effective_path {
             if p.exists() {
@@ -776,15 +666,6 @@ impl App {
                         metadata_modal: None,
                         active_menu: None,
                         show_left_sidebar: true,
-                        git_sync_status: git_sync_status.clone(),
-                        git_status_refresh: GitStatusRefresh::Idle,
-                        git_status_generation: 0,
-                        git_status_refresh_requested: false,
-                        publish_modal: None,
-                        history_modal: None,
-                        conflict_resolver_modal: None,
-                        git_connection_modal: None,
-                        git_clone_modal: None,
                         diagnostics_modal: None,
                         excel_schema_guide_open: false,
                         excel_import_preview: None,
@@ -856,15 +737,6 @@ impl App {
             metadata_modal: None,
             active_menu: None,
             show_left_sidebar: true,
-            git_sync_status,
-            git_status_refresh: GitStatusRefresh::Idle,
-            git_status_generation: 0,
-            git_status_refresh_requested: false,
-            publish_modal: None,
-            history_modal: None,
-            conflict_resolver_modal: None,
-            git_connection_modal: None,
-            git_clone_modal: None,
             diagnostics_modal: None,
             excel_schema_guide_open: false,
             excel_import_preview: None,
@@ -896,32 +768,8 @@ impl App {
         &self.recent_store
     }
 
-    pub fn git_sync_status(&self) -> &RepoSyncStatus {
-        &self.git_sync_status
-    }
-
     pub fn diagnostics_modal(&self) -> Option<&DiagnosticsModalState> {
         self.diagnostics_modal.as_ref()
-    }
-
-    pub fn publish_modal(&self) -> Option<&PublishModalState> {
-        self.publish_modal.as_ref()
-    }
-
-    pub fn history_modal(&self) -> Option<&ModelHistoryModalState> {
-        self.history_modal.as_ref()
-    }
-
-    pub fn conflict_resolver_modal(&self) -> Option<&ConflictResolverModalState> {
-        self.conflict_resolver_modal.as_ref()
-    }
-
-    pub fn git_connection_modal(&self) -> Option<&GitConnectionModalState> {
-        self.git_connection_modal.as_ref()
-    }
-
-    pub fn git_clone_modal(&self) -> Option<&GitCloneModalState> {
-        self.git_clone_modal.as_ref()
     }
 
     pub fn is_excel_schema_guide_open(&self) -> bool {
@@ -1046,126 +894,15 @@ impl App {
     }
 
     pub fn boot(path: Option<PathBuf>) -> (Self, Task<Message>) {
-        let mut app = match path {
+        let app = match path {
             Some(p) => Self::new_with_path(Some(p)),
             None => Self::new_auto_open(),
         };
-        let task = app.request_git_status_refresh();
-        (app, task)
+        (app, Task::none())
     }
 
     pub fn set_active_file_path(&mut self, path: Option<PathBuf>) {
         self.current_file_path = path;
-        self.git_status_generation += 1;
-        self.git_status_refresh = GitStatusRefresh::Idle;
-    }
-
-    pub fn git_status_refresh_state(&self) -> GitStatusRefresh {
-        self.git_status_refresh
-    }
-
-    pub fn git_status_generation(&self) -> u64 {
-        self.git_status_generation
-    }
-
-    pub fn request_git_status_refresh(&mut self) -> Task<Message> {
-        let dir = match self.repo_dir() {
-            Some(d) => d,
-            None => {
-                self.git_sync_status = RepoSyncStatus::Uninitialized;
-                self.git_status_refresh = GitStatusRefresh::Idle;
-                return Task::none();
-            }
-        };
-
-        match self.git_status_refresh {
-            GitStatusRefresh::Idle => {
-                let generation = self.git_status_generation;
-                self.git_status_refresh = GitStatusRefresh::InFlight { generation };
-                let dir_clone = dir.clone();
-                Task::perform(
-                    async move {
-                        let start = std::time::Instant::now();
-                        let result = if tokio::runtime::Handle::try_current().is_ok() {
-                            tokio::task::spawn_blocking(move || {
-                                perform_git_status_refresh(&dir_clone)
-                            })
-                            .await
-                            .unwrap_or_else(|e| Err(e.to_string()))
-                        } else {
-                            perform_git_status_refresh(&dir_clone)
-                        };
-                        let elapsed = start.elapsed();
-                        (generation, result, elapsed)
-                    },
-                    |(generation, result, elapsed)| Message::GitSyncStatusRefreshed {
-                        generation,
-                        result,
-                        elapsed,
-                    },
-                )
-            }
-            GitStatusRefresh::InFlight { generation } => {
-                self.git_status_refresh = GitStatusRefresh::InFlightDirty { generation };
-                Task::none()
-            }
-            GitStatusRefresh::InFlightDirty { .. } => Task::none(),
-        }
-    }
-
-    pub fn git_status_badge_text(&self) -> String {
-        match &self.git_sync_status {
-            RepoSyncStatus::Synced => "Synkroniseret".to_string(),
-            RepoSyncStatus::PendingChanges => "Lokale ændringer • Commit og send".to_string(),
-            RepoSyncStatus::UnpublishedCommits(n) => {
-                if *n == 0 {
-                    "Synkroniseret".to_string()
-                } else if *n == 1 {
-                    "1 ændring klar til server (Push)".to_string()
-                } else {
-                    format!("{} ændringer klar til server (Push)", n)
-                }
-            }
-            RepoSyncStatus::IncomingCommits(n) => {
-                if *n == 1 {
-                    "1 ny på server • Hent (Pull)".to_string()
-                } else {
-                    format!("{} nye på server • Hent (Pull)", n)
-                }
-            }
-            RepoSyncStatus::Diverged { local, remote } => {
-                format!("Afvigelse ({} lokal, {} server)", local, remote)
-            }
-            RepoSyncStatus::Uninitialized => "Lokal model • Kobl til Git".to_string(),
-        }
-    }
-
-    pub fn current_file_path(&self) -> Option<&PathBuf> {
-        self.current_file_path.as_ref()
-    }
-
-    pub fn repo_dir(&self) -> Option<PathBuf> {
-        let candidate = match &self.current_file_path {
-            Some(p) => {
-                let mut dir = if p.is_dir() {
-                    p.clone()
-                } else {
-                    match p.parent() {
-                        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
-                        _ => PathBuf::new(),
-                    }
-                };
-                if dir.file_name().and_then(|n| n.to_str()) == Some(".kant") {
-                    if let Some(parent) = dir.parent() {
-                        dir = parent.to_path_buf();
-                    }
-                }
-                Some(dir)
-            }
-            None => None,
-        };
-
-        candidate.filter(|dir| GitService::is_safe_model_repo_dir(dir))
     }
 
     pub fn save_status(&self) -> &SaveStatus {
@@ -1340,11 +1077,6 @@ impl App {
     /// Returnerer true hvis der er en aktiv modal eller overlay-dialog åben.
     pub fn has_active_modal(&self) -> bool {
         self.diagnostics_modal.is_some()
-            || self.publish_modal.is_some()
-            || self.history_modal.is_some()
-            || self.conflict_resolver_modal.is_some()
-            || self.git_connection_modal.is_some()
-            || self.git_clone_modal.is_some()
             || self.metadata_modal.is_some()
             || self.excel_schema_guide_open
             || self.excel_import_preview.is_some()
@@ -1359,21 +1091,6 @@ impl App {
         self.modal_focus.reset();
         if self.diagnostics_modal.is_some() {
             self.diagnostics_modal = None;
-            true
-        } else if self.publish_modal.is_some() {
-            self.publish_modal = None;
-            true
-        } else if self.history_modal.is_some() {
-            self.history_modal = None;
-            true
-        } else if self.conflict_resolver_modal.is_some() {
-            self.conflict_resolver_modal = None;
-            true
-        } else if self.git_connection_modal.is_some() {
-            self.git_connection_modal = None;
-            true
-        } else if self.git_clone_modal.is_some() {
-            self.git_clone_modal = None;
             true
         } else if self.metadata_modal.is_some() {
             self.metadata_modal = None;
@@ -1575,20 +1292,6 @@ impl App {
         }
     }
 
-    fn build_history_modal_targets(
-        commits: &[crate::features::git::GitCommitInfo],
-    ) -> Vec<FocusTarget> {
-        let mut targets = vec![FocusTarget::Button(HISTORY_BTN_CLOSE)];
-        if commits.is_empty() {
-            targets.push(FocusTarget::Button(HISTORY_BTN_COMMIT_NOW));
-        } else {
-            for (i, _) in commits.iter().enumerate() {
-                targets.push(FocusTarget::Button(HISTORY_COMMIT_CARD_START + i));
-            }
-        }
-        targets
-    }
-
     pub fn advance_tab_focus(&mut self, reverse: bool) -> Option<Task<Message>> {
         if self.has_active_modal() || self.editor_state.is_some() {
             return None;
@@ -1750,6 +1453,14 @@ impl App {
         false
     }
 
+    pub fn has_git_feature() -> bool {
+        false
+    }
+
+    pub fn current_file_path(&self) -> Option<&std::path::PathBuf> {
+        self.current_file_path.as_ref()
+    }
+
     pub fn available_menu_types() -> &'static [MenuType] {
         &[MenuType::File, MenuType::Export, MenuType::Help]
     }
@@ -1874,7 +1585,6 @@ impl App {
                         path: path.display().to_string(),
                         timestamp: current_timestamp(),
                     };
-                    self.git_status_refresh_requested = true;
                     crate::features::diagnostics::log_info(
                         "autosave",
                         &format!("Autosave gennemført (disk: {:?})", save_duration),
@@ -1921,14 +1631,7 @@ impl App {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
-        let task = self.update_inner(message);
-        if self.git_status_refresh_requested {
-            self.git_status_refresh_requested = false;
-            let refresh_task = self.request_git_status_refresh();
-            Task::batch(vec![task, refresh_task])
-        } else {
-            task
-        }
+        self.update_inner(message)
     }
 
     fn update_inner(&mut self, message: Message) -> Task<Message> {
@@ -2014,862 +1717,6 @@ impl App {
                 let report =
                     crate::features::diagnostics::get_system_diagnostics().formatted_report();
                 return iced::clipboard::write(report);
-            }
-            Message::RefreshGitStatus => {
-                return self.request_git_status_refresh();
-            }
-            Message::GitSyncStatusRefreshed {
-                generation,
-                result,
-                elapsed,
-            } => {
-                if generation != self.git_status_generation {
-                    crate::features::diagnostics::log_info(
-                        "git",
-                        &format!(
-                            "Kasserede forældet Git-status svar fra generation {} (aktuel generation: {})",
-                            generation, self.git_status_generation
-                        ),
-                    );
-                    if let GitStatusRefresh::InFlight { generation: g }
-                    | GitStatusRefresh::InFlightDirty { generation: g } = self.git_status_refresh
-                    {
-                        if g == generation {
-                            self.git_status_refresh = GitStatusRefresh::Idle;
-                        }
-                    }
-                    return Task::none();
-                }
-
-                if elapsed > std::time::Duration::from_millis(500) {
-                    crate::features::diagnostics::log_warn(
-                        "git",
-                        &format!(
-                            "Git-status tog lang tid: {:?} (generation: {})",
-                            elapsed, generation
-                        ),
-                    );
-                }
-
-                match &result {
-                    Ok(status) => {
-                        crate::features::diagnostics::log_info(
-                            "git",
-                            &format!(
-                                "Git-status opdateret: {:?} (varighed: {:?}, generation: {})",
-                                status, elapsed, generation
-                            ),
-                        );
-                        self.git_sync_status = status.clone();
-                    }
-                    Err(err) => {
-                        crate::features::diagnostics::log_warn(
-                            "git",
-                            &format!(
-                                "Fejl ved hentning af Git-status: {} (generation: {})",
-                                err, generation
-                            ),
-                        );
-                    }
-                }
-
-                let was_dirty = matches!(
-                    self.git_status_refresh,
-                    GitStatusRefresh::InFlightDirty { .. }
-                );
-                self.git_status_refresh = GitStatusRefresh::Idle;
-                if was_dirty {
-                    return self.request_git_status_refresh();
-                }
-                return Task::none();
-            }
-            Message::OpenPublishModal => {
-                let dir = match self.repo_dir() {
-                    Some(d) => d,
-                    None => {
-                        self.save_status = SaveStatus::Error(
-                            "Gem venligst modellen i en dedikeret modelmappe før den kan udgives med Git".into(),
-                        );
-                        return self.update(Message::SaveProjectAsDialog);
-                    }
-                };
-                let _ = ProjectStorage::save_to_directory(&self.project, &dir);
-
-                let mut preview_events = Vec::new();
-                if let Ok(status_out) =
-                    GitService::run_git(&dir, &["status", "--porcelain", "-uall", ".kant"])
-                {
-                    for line in status_out.lines() {
-                        let line = line.trim();
-                        if line.is_empty() {
-                            continue;
-                        }
-                        let status_code = line.chars().take(2).collect::<String>();
-                        let file_path = line[2..].trim();
-                        let action = if status_code.contains('D') {
-                            ChangeAction::Deleted
-                        } else if status_code.contains('A') || status_code.contains('?') {
-                            ChangeAction::Added
-                        } else {
-                            ChangeAction::Modified
-                        };
-                        let content = match action {
-                            ChangeAction::Deleted => {
-                                GitService::run_git(&dir, &["show", &format!("HEAD:{}", file_path)])
-                                    .ok()
-                            }
-                            _ => std::fs::read_to_string(dir.join(file_path)).ok(),
-                        };
-                        if let Some(ev) = DomainEventMapper::map_file_change(
-                            action,
-                            file_path,
-                            content.as_deref(),
-                        ) {
-                            preview_events.push(ev);
-                        }
-                    }
-                }
-
-                let summary = DomainEventMapper::generate_commit_summary(&preview_events);
-                let default_msg = if summary.trim().is_empty() {
-                    "Opdatering af model".to_string()
-                } else {
-                    summary
-                };
-
-                let unpushed_count = match self.git_sync_status {
-                    RepoSyncStatus::UnpublishedCommits(n) => n,
-                    _ => 0,
-                };
-                let is_clean_with_unpushed = preview_events.is_empty() && unpushed_count > 0;
-                let is_completely_synced = preview_events.is_empty() && unpushed_count == 0;
-
-                let (targets, initial_focus_id) = if is_completely_synced {
-                    (vec![FocusTarget::Button(0)], None)
-                } else if is_clean_with_unpushed {
-                    (vec![FocusTarget::Button(0), FocusTarget::Button(1)], None)
-                } else {
-                    (
-                        vec![
-                            FocusTarget::Input("publish_message_input"),
-                            FocusTarget::Button(0),
-                            FocusTarget::Button(1),
-                        ],
-                        Some("publish_message_input"),
-                    )
-                };
-                self.modal_focus = FocusCycle::with_targets(targets, Some(0));
-                self.publish_modal = Some(PublishModalState::new(default_msg, preview_events));
-                if let Some(id) = initial_focus_id {
-                    return operation::focus(id);
-                }
-            }
-            Message::ClosePublishModal => {
-                self.modal_focus.reset();
-                self.publish_modal = None;
-            }
-            Message::UpdatePublishMessage(msg) => {
-                self.modal_focus.sync_input("publish_message_input");
-                if let Some(modal) = &mut self.publish_modal {
-                    modal.message = msg;
-                }
-            }
-            Message::ConfirmPublish => {
-                fn execute_publish_workflow(
-                    dir: &std::path::Path,
-                    project: &crate::features::model::ModelProject,
-                    message: &str,
-                ) -> PublishAsyncResult {
-                    let has_pending =
-                        GitService::run_git(dir, &["status", "--porcelain", "-uall", ".kant"])
-                            .map(|s| !s.trim().is_empty())
-                            .unwrap_or(false);
-
-                    let commit_result = if has_pending {
-                        GitService::publish_model(dir, project, message)
-                    } else {
-                        Ok("clean".to_string())
-                    };
-
-                    if let Err(e) = commit_result {
-                        return PublishAsyncResult::Error(format!(
-                            "Udgivelse af model fejlede: {}",
-                            e
-                        ));
-                    }
-
-                    if let Ok(Some(_)) = GitService::get_remote_url(dir) {
-                        match GitService::pull_model(dir, "origin", "main") {
-                            Ok(PullResult::Merged { conflicts }) if !conflicts.is_empty() => {
-                                let sync_status = GitService::get_sync_status(dir)
-                                    .unwrap_or(RepoSyncStatus::Uninitialized);
-                                return PublishAsyncResult::Conflict {
-                                    conflicts,
-                                    sync_status,
-                                };
-                            }
-                            Ok(_) => {}
-                            Err(_) => {
-                                // Hvis remote fx er tom eller branch ikke findes endnu, fortsætter vi til push
-                            }
-                        }
-
-                        if let Err(e) = GitService::push_model(dir, "origin") {
-                            return PublishAsyncResult::Error(format!("Git push fejl: {}", e));
-                        }
-                    }
-
-                    let sync_status =
-                        GitService::get_sync_status(dir).unwrap_or(RepoSyncStatus::Synced);
-                    PublishAsyncResult::Success { sync_status }
-                }
-
-                let dir_opt = self.repo_dir();
-                if let Some(modal) = &mut self.publish_modal {
-                    let dir = match dir_opt {
-                        Some(d) => d,
-                        None => {
-                            modal.error =
-                                Some("Modellen er ikke gemt i en dedikeret modelmappe".into());
-                            return Task::none();
-                        }
-                    };
-                    modal.is_publishing = true;
-                    modal.error = None;
-
-                    let dir_buf = dir.clone();
-                    let project_clone = self.project.clone();
-                    let msg_clone = modal.message.clone();
-
-                    if tokio::runtime::Handle::try_current().is_ok() {
-                        return Task::perform(
-                            async move {
-                                tokio::task::spawn_blocking(move || {
-                                    execute_publish_workflow(&dir_buf, &project_clone, &msg_clone)
-                                })
-                                .await
-                                .unwrap_or_else(|e| PublishAsyncResult::Error(e.to_string()))
-                            },
-                            Message::PublishCompleted,
-                        );
-                    } else {
-                        // Kør synkront hvis vi er i en testkontekst uden aktiv tokio runtime
-                        let res = execute_publish_workflow(&dir_buf, &project_clone, &msg_clone);
-                        return self.update(Message::PublishCompleted(res));
-                    }
-                }
-            }
-            Message::PublishCompleted(res) => match res {
-                PublishAsyncResult::Success { sync_status } => {
-                    self.modal_focus.reset();
-                    self.publish_modal = None;
-                    self.git_sync_status = sync_status;
-                }
-                PublishAsyncResult::Conflict {
-                    conflicts,
-                    sync_status,
-                } => {
-                    self.publish_modal = None;
-                    if let Some(dir) = self.repo_dir() {
-                        if let Ok(p) = ProjectStorage::load(&dir) {
-                            self.project = p;
-                        }
-                    }
-                    self.modal_focus = FocusCycle::with_initial(2, Some(1));
-                    self.conflict_resolver_modal = Some(ConflictResolverModalState::new(conflicts));
-                    self.git_sync_status = sync_status;
-                }
-                PublishAsyncResult::Error(err) => {
-                    if let Some(modal) = &mut self.publish_modal {
-                        modal.is_publishing = false;
-                        modal.error = Some(err);
-                    }
-                }
-            },
-            Message::InitGitRepository => {
-                if let Some(dir) = self.repo_dir() {
-                    let _ = GitService::init_repository(&dir);
-                    return self.request_git_status_refresh();
-                } else {
-                    self.save_status = SaveStatus::Error(
-                        "Gem venligst modellen i en dedikeret modelmappe før versionsstyring aktiveres".into(),
-                    );
-                    return self.update(Message::SaveProjectAsDialog);
-                }
-            }
-            Message::PullModel => {
-                if let Some(dir) = self.repo_dir() {
-                    match GitService::pull_model(&dir, "origin", "main") {
-                        Ok(PullResult::Merged { conflicts }) if !conflicts.is_empty() => {
-                            if let Ok(p) = ProjectStorage::load(&dir) {
-                                self.project = p;
-                            }
-                            self.modal_focus = FocusCycle::with_initial(2, Some(1));
-                            self.conflict_resolver_modal =
-                                Some(ConflictResolverModalState::new(conflicts));
-                        }
-                        Ok(_) => {
-                            if let Ok(p) = ProjectStorage::load(&dir) {
-                                self.project = p;
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Fejl ved hentning af seneste model: {}", e);
-                        }
-                    }
-                    return self.request_git_status_refresh();
-                }
-            }
-            Message::OpenModelHistoryModal => {
-                if let Some(dir) = self.repo_dir() {
-                    let commits = GitService::get_commit_history(&dir, 50).unwrap_or_default();
-                    let targets = Self::build_history_modal_targets(&commits);
-                    let initial = targets
-                        .iter()
-                        .position(|t| *t == FocusTarget::Button(HISTORY_BTN_CLOSE));
-                    self.modal_focus = FocusCycle::with_targets(targets, initial);
-                    self.history_modal = Some(ModelHistoryModalState::new(None, commits));
-                }
-            }
-            Message::OpenElementHistoryModal(id) => {
-                if let Some(dir) = self.repo_dir() {
-                    let commits = GitService::get_element_history(&dir, id).unwrap_or_default();
-                    let targets = Self::build_history_modal_targets(&commits);
-                    let initial = targets
-                        .iter()
-                        .position(|t| *t == FocusTarget::Button(HISTORY_BTN_CLOSE));
-                    self.modal_focus = FocusCycle::with_targets(targets, initial);
-                    self.history_modal = Some(ModelHistoryModalState::new(Some(id), commits));
-                }
-            }
-            Message::CloseModelHistoryModal => {
-                self.modal_focus.reset();
-                self.history_modal = None;
-            }
-            Message::OpenConflictResolverModal(conflicts) => {
-                self.modal_focus = FocusCycle::with_initial(2, Some(1));
-                self.conflict_resolver_modal = Some(ConflictResolverModalState::new(conflicts));
-            }
-            Message::CloseConflictResolverModal => {
-                self.modal_focus.reset();
-                self.conflict_resolver_modal = None;
-            }
-            Message::ResolveConflict { index, choice } => {
-                if let Some(modal) = &mut self.conflict_resolver_modal {
-                    modal.resolved_choices.insert(index, choice);
-                }
-            }
-            Message::ApplyResolvedConflicts => {
-                self.modal_focus.reset();
-                if let Some(modal) = self.conflict_resolver_modal.take() {
-                    for (idx, conflict) in modal.conflicts.iter().enumerate() {
-                        let choice = modal
-                            .resolved_choices
-                            .get(&idx)
-                            .copied()
-                            .unwrap_or(ConflictChoice::Ours);
-                        let winning_value = match choice {
-                            ConflictChoice::Ours => &conflict.our_value,
-                            ConflictChoice::Theirs => &conflict.their_value,
-                        };
-                        match conflict.entity_kind {
-                            crate::features::model::merge::ConflictEntityKind::Metadata => {
-                                let meta = self.project.metadata_mut();
-                                match conflict.field_name.as_str() {
-                                    "name" => meta.set_name(winning_value),
-                                    "description" => meta.set_description(winning_value),
-                                    "uri" => meta.set_uri(winning_value),
-                                    "responsible_org" => meta.set_responsible_org(winning_value),
-                                    _ => {}
-                                }
-                            }
-                            crate::features::model::merge::ConflictEntityKind::Concept(id) => {
-                                if let Some(mut concept) = self.project.get_concept(id).cloned() {
-                                    match conflict.field_name.as_str() {
-                                        "preferred_term" => {
-                                            concept.set_preferred_term(winning_value)
-                                        }
-                                        "definition" => concept.set_definition(winning_value),
-                                        _ => {}
-                                    }
-                                    let _ = self.project.update_concept(concept);
-                                }
-                            }
-                            crate::features::model::merge::ConflictEntityKind::Class(id) => {
-                                if let Some(class) =
-                                    self.project.information_model_mut().get_class_mut(id)
-                                {
-                                    match conflict.field_name.as_str() {
-                                        "name" => class.set_name(winning_value),
-                                        "description" => {
-                                            let desc = if winning_value.is_empty() {
-                                                None
-                                            } else {
-                                                Some(winning_value.clone())
-                                            };
-                                            class.set_description(desc);
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    self.save_status = SaveStatus::Unsaved;
-                    if let Some(dir) = self.repo_dir() {
-                        let _ = GitService::publish_model(
-                            &dir,
-                            &self.project,
-                            "Løst modelfletningskonflikter",
-                        );
-                        let _ = GitService::push_model(&dir, "origin");
-                        return self.request_git_status_refresh();
-                    }
-                }
-            }
-
-            Message::OpenGitConnectionModal => {
-                self.active_menu = None;
-                let dir_opt = self.repo_dir();
-                let (raw_url, (name, email), target_dir) = if let Some(dir) = &dir_opt {
-                    let u = GitService::get_remote_url(dir)
-                        .ok()
-                        .flatten()
-                        .unwrap_or_default();
-                    let id = GitService::get_user_identity(dir)
-                        .ok()
-                        .unwrap_or((None, None));
-                    (u, id, dir.display().to_string())
-                } else {
-                    (String::new(), (None, None), String::new())
-                };
-                let (url, token) = GitService::parse_remote_url(&raw_url);
-                let has_target = !target_dir.is_empty();
-
-                let mut targets = vec![
-                    FocusTarget::Input("git_remote_url"),
-                    FocusTarget::Input("git_target_dir"),
-                    FocusTarget::Button(GIT_CONN_BTN_BROWSE),
-                    FocusTarget::Input("git_token"),
-                    FocusTarget::Input("git_author_name"),
-                    FocusTarget::Input("git_author_email"),
-                ];
-                if !url.is_empty() {
-                    targets.push(FocusTarget::Button(GIT_CONN_BTN_REMOVE));
-                }
-                targets.push(FocusTarget::Button(GIT_CONN_BTN_CANCEL));
-                targets.push(FocusTarget::Button(GIT_CONN_BTN_SAVE));
-
-                self.modal_focus = FocusCycle::with_targets(targets, Some(0));
-
-                self.git_connection_modal = Some(GitConnectionModalState {
-                    remote_url: url,
-                    target_dir,
-                    custom_target_dir: has_target,
-                    token: token.unwrap_or_default(),
-                    author_name: name.unwrap_or_default(),
-                    author_email: email.unwrap_or_default(),
-                    error_message: None,
-                });
-                return operation::focus("git_remote_url");
-            }
-
-            Message::CloseGitConnectionModal => {
-                self.git_connection_modal = None;
-                self.modal_focus.reset();
-            }
-
-            Message::UpdateGitRemoteUrl(url) => {
-                self.modal_focus.sync_input("git_remote_url");
-                if let Some(m) = &mut self.git_connection_modal {
-                    if !m.custom_target_dir {
-                        if let Some(repo_name) = GitService::parse_repo_name(&url) {
-                            let base_dir = user_home_dir();
-                            let suggested = base_dir.join("Kant Modeller").join(&repo_name);
-                            m.target_dir = suggested.display().to_string();
-                        }
-                    }
-                    m.remote_url = url;
-                    m.error_message = None;
-                }
-            }
-
-            Message::UpdateGitTargetDir(dir) => {
-                self.modal_focus.sync_input("git_target_dir");
-                if let Some(m) = &mut self.git_connection_modal {
-                    m.custom_target_dir = !dir.trim().is_empty();
-                    m.target_dir = dir;
-                    m.error_message = None;
-                }
-            }
-
-            Message::BrowseGitTargetDir => {
-                return Task::perform(
-                    async move { crate::ui::file_dialog::pick_folder() },
-                    Message::GitTargetDirSelected,
-                );
-            }
-
-            Message::GitTargetDirSelected(result) => {
-                if let Some(m) = &mut self.git_connection_modal {
-                    if let crate::ui::file_dialog::DialogResult::Selected(path) = result {
-                        let final_path =
-                            if let Some(repo_name) = GitService::parse_repo_name(&m.remote_url) {
-                                let is_non_empty_dir = path.is_dir()
-                                    && path.read_dir().is_ok_and(|mut i| i.next().is_some());
-                                if is_non_empty_dir
-                                    && path.file_name().and_then(|n| n.to_str()) != Some(&repo_name)
-                                {
-                                    path.join(repo_name)
-                                } else {
-                                    path
-                                }
-                            } else {
-                                path
-                            };
-                        m.target_dir = final_path.display().to_string();
-                        m.custom_target_dir = true;
-                        m.error_message = None;
-                    }
-                }
-            }
-
-            Message::UpdateGitToken(token) => {
-                self.modal_focus.sync_input("git_token");
-                if let Some(m) = &mut self.git_connection_modal {
-                    m.token = token;
-                    m.error_message = None;
-                }
-            }
-
-            Message::UpdateGitAuthorName(name) => {
-                self.modal_focus.sync_input("git_author_name");
-                if let Some(m) = &mut self.git_connection_modal {
-                    m.author_name = name;
-                    m.error_message = None;
-                }
-            }
-
-            Message::UpdateGitAuthorEmail(email) => {
-                self.modal_focus.sync_input("git_author_email");
-                if let Some(m) = &mut self.git_connection_modal {
-                    m.author_email = email;
-                    m.error_message = None;
-                }
-            }
-
-            Message::SaveGitConnection => {
-                if let Some(mut state) = self.git_connection_modal.take() {
-                    let target_str = state.target_dir.trim().to_string();
-                    let dir = if !target_str.is_empty() {
-                        PathBuf::from(target_str)
-                    } else if let Some(d) = self.repo_dir() {
-                        d
-                    } else {
-                        state.error_message = Some(
-                            "Vælg eller angiv en lokal målmappe, hvor modellen skal placeres på computeren".into(),
-                        );
-                        self.git_connection_modal = Some(state);
-                        return Task::none();
-                    };
-
-                    if !GitService::is_safe_model_repo_dir(&dir) {
-                        state.error_message = Some(
-                            "Den valgte mappe indeholder softwarekildekode (Cargo.toml). Vælg en dedikeret modelmappe (f.eks. i 'Kant Modeller').".into(),
-                        );
-                        self.git_connection_modal = Some(state);
-                        return Task::none();
-                    }
-
-                    let url = state.remote_url.trim().to_string();
-                    let token = state.token.trim().to_string();
-                    let name = state.author_name.trim().to_string();
-                    let email = state.author_email.trim().to_string();
-
-                    // Sørg for at forældremappen eksisterer
-                    if let Some(parent) = dir.parent() {
-                        if !parent.as_os_str().is_empty() && !parent.exists() {
-                            let _ = std::fs::create_dir_all(parent);
-                        }
-                    }
-
-                    // Tjek om mappen er et eksisterende git-repo
-                    let is_inside_repo =
-                        GitService::run_git(&dir, &["rev-parse", "--is-inside-work-tree"]).is_ok();
-
-                    if !is_inside_repo {
-                        if !url.is_empty() {
-                            let auth_url = if !token.is_empty() {
-                                GitService::build_authenticated_url(&url, &token)
-                            } else {
-                                url.clone()
-                            };
-
-                            let is_empty_dir = !dir.exists()
-                                || dir.read_dir().map_or(true, |mut i| i.next().is_none());
-                            if is_empty_dir {
-                                match GitService::clone_repository(&auth_url, &dir) {
-                                    Ok(_) => {
-                                        let mut project = match ProjectStorage::load(&dir) {
-                                            Ok(p) => p,
-                                            Err(_) => {
-                                                let mut fresh = ModelProject::default();
-                                                if let Some(repo_name) =
-                                                    GitService::parse_repo_name(&url)
-                                                {
-                                                    fresh.metadata_mut().set_name(repo_name);
-                                                }
-                                                let _ =
-                                                    ProjectStorage::save_to_directory(&fresh, &dir);
-                                                fresh
-                                            }
-                                        };
-                                        if let Some(repo_name) = GitService::parse_repo_name(&url) {
-                                            if project.metadata().name() == "Nyt FDA Modelprojekt"
-                                                || project.metadata().name().trim().is_empty()
-                                            {
-                                                project.metadata_mut().set_name(repo_name);
-                                            }
-                                        }
-                                        project.sync_concept_graph();
-                                        project.sync_information_graph();
-                                        self.project = project;
-                                    }
-                                    Err(e) => {
-                                        state.error_message =
-                                            Some(format!("Kloning fejlede: {}", e));
-                                        self.git_connection_modal = Some(state);
-                                        return Task::none();
-                                    }
-                                }
-                            } else {
-                                if let Err(e) = GitService::init_repository(&dir) {
-                                    state.error_message =
-                                        Some(format!("Kunne ikke initialisere Git: {}", e));
-                                    self.git_connection_modal = Some(state);
-                                    return Task::none();
-                                }
-                                let _ = ProjectStorage::save_to_directory(&self.project, &dir);
-                            }
-                        } else {
-                            if let Err(e) = GitService::init_repository(&dir) {
-                                state.error_message =
-                                    Some(format!("Kunne ikke initialisere Git: {}", e));
-                                self.git_connection_modal = Some(state);
-                                return Task::none();
-                            }
-                            let _ = ProjectStorage::save_to_directory(&self.project, &dir);
-                        }
-                    } else {
-                        let _ = ProjectStorage::save_to_directory(&self.project, &dir);
-                    }
-
-                    if !url.is_empty() {
-                        let final_url = GitService::build_authenticated_url(&url, &token);
-                        if let Err(e) = GitService::set_remote_url(&dir, &final_url) {
-                            state.error_message =
-                                Some(format!("Kunne ikke gemme remote URL: {}", e));
-                            self.git_connection_modal = Some(state);
-                            return Task::none();
-                        }
-                    }
-
-                    if !name.is_empty() || !email.is_empty() {
-                        if let Err(e) = GitService::set_user_identity(&dir, &name, &email) {
-                            state.error_message =
-                                Some(format!("Kunne ikke gemme forfatteridentitet: {}", e));
-                            self.git_connection_modal = Some(state);
-                            return Task::none();
-                        }
-                    }
-
-                    self.current_file_path = Some(dir.clone());
-                    self.recent_store.record_opened(&dir);
-                    self.save_status = SaveStatus::Saved {
-                        path: dir.display().to_string(),
-                        timestamp: current_timestamp(),
-                    };
-                    self.git_connection_modal = None;
-                    let _ = self.update(Message::RefreshGitStatus);
-                }
-            }
-
-            Message::RemoveGitRemote => {
-                if let Some(dir) = self.repo_dir() {
-                    let _ = GitService::remove_remote(&dir);
-                    let _ = self.update(Message::RefreshGitStatus);
-                }
-                if let Some(m) = &mut self.git_connection_modal {
-                    m.remote_url.clear();
-                    m.token.clear();
-                }
-            }
-
-            Message::OpenGitCloneModal => {
-                self.active_menu = None;
-                let targets = vec![
-                    FocusTarget::Input("git_clone_url"),
-                    FocusTarget::Input("git_clone_target_dir"),
-                    FocusTarget::Button(GIT_CLONE_BTN_BROWSE),
-                    FocusTarget::Input("git_clone_token"),
-                    FocusTarget::Button(GIT_CLONE_BTN_CANCEL),
-                    FocusTarget::Button(GIT_CLONE_BTN_CLONE),
-                ];
-                self.modal_focus = FocusCycle::with_targets(targets, Some(0));
-                self.git_clone_modal = Some(GitCloneModalState {
-                    remote_url: String::new(),
-                    target_dir: String::new(),
-                    custom_target_dir: false,
-                    token: String::new(),
-                    is_cloning: false,
-                    error_message: None,
-                });
-                return operation::focus("git_clone_url");
-            }
-
-            Message::CloseGitCloneModal => {
-                self.git_clone_modal = None;
-                self.modal_focus.reset();
-            }
-
-            Message::UpdateGitCloneUrl(url) => {
-                self.modal_focus.sync_input("git_clone_url");
-                if let Some(m) = &mut self.git_clone_modal {
-                    if !m.custom_target_dir {
-                        if let Some(repo_name) = GitService::parse_repo_name(&url) {
-                            let base_dir = user_home_dir();
-                            let suggested = base_dir.join("Kant Modeller").join(&repo_name);
-                            m.target_dir = suggested.display().to_string();
-                        }
-                    }
-                    m.remote_url = url;
-                    m.error_message = None;
-                }
-            }
-
-            Message::UpdateGitCloneTargetDir(dir) => {
-                self.modal_focus.sync_input("git_clone_target_dir");
-                if let Some(m) = &mut self.git_clone_modal {
-                    m.custom_target_dir = !dir.trim().is_empty();
-                    m.target_dir = dir;
-                    m.error_message = None;
-                }
-            }
-
-            Message::UpdateGitCloneToken(token) => {
-                self.modal_focus.sync_input("git_clone_token");
-                if let Some(m) = &mut self.git_clone_modal {
-                    m.token = token;
-                    m.error_message = None;
-                }
-            }
-
-            Message::BrowseGitCloneTargetDir => {
-                return Task::perform(
-                    async move { crate::ui::file_dialog::pick_folder() },
-                    Message::GitCloneTargetDirSelected,
-                );
-            }
-
-            Message::GitCloneTargetDirSelected(result) => {
-                if let Some(m) = &mut self.git_clone_modal {
-                    if let crate::ui::file_dialog::DialogResult::Selected(path) = result {
-                        let final_path =
-                            if let Some(repo_name) = GitService::parse_repo_name(&m.remote_url) {
-                                let is_non_empty_dir = path.is_dir()
-                                    && path.read_dir().is_ok_and(|mut i| i.next().is_some());
-                                if is_non_empty_dir
-                                    && path.file_name().and_then(|n| n.to_str()) != Some(&repo_name)
-                                {
-                                    path.join(repo_name)
-                                } else {
-                                    path
-                                }
-                            } else {
-                                path
-                            };
-                        m.target_dir = final_path.display().to_string();
-                        m.custom_target_dir = true;
-                        m.error_message = None;
-                    }
-                }
-            }
-
-            Message::ExecuteGitClone => {
-                if let Some(state) = self.git_clone_modal.as_mut() {
-                    let mut url = state.remote_url.trim().to_string();
-                    let target = state.target_dir.trim().to_string();
-                    let token = state.token.trim().to_string();
-                    if url.is_empty() || target.is_empty() {
-                        state.error_message =
-                            Some("Både Git URL og destinationsmappe skal udfyldes".into());
-                    } else {
-                        if !token.is_empty() {
-                            url = GitService::build_authenticated_url(&url, &token);
-                        }
-                        let target_path = PathBuf::from(&target);
-                        match GitService::clone_repository(&url, &target_path) {
-                            Ok(_) => {
-                                let mut project = match ProjectStorage::load(&target_path) {
-                                    Ok(p) => p,
-                                    Err(_) => {
-                                        // Tomt repository klonet: Initialiser frisk default FDA model
-                                        let mut fresh = ModelProject::default();
-                                        if let Some(repo_name) = GitService::parse_repo_name(&url) {
-                                            fresh.metadata_mut().set_name(repo_name);
-                                        }
-                                        let _ =
-                                            ProjectStorage::save_to_directory(&fresh, &target_path);
-                                        fresh
-                                    }
-                                };
-
-                                // Sæt projektnavn fra repository-navnet hvis det ikke allerede er unikt defineret
-                                if let Some(repo_name) = GitService::parse_repo_name(&url) {
-                                    if project.metadata().name() == "Nyt FDA Modelprojekt"
-                                        || project.metadata().name().trim().is_empty()
-                                    {
-                                        project.metadata_mut().set_name(repo_name);
-                                    }
-                                }
-
-                                project.sync_concept_graph();
-                                project.sync_information_graph();
-
-                                // Fuldstændig ren tavle for det klonede projekt (AC4)
-                                self.project = project;
-                                self.current_file_path = Some(target_path.clone());
-                                self.save_status = SaveStatus::Saved {
-                                    path: target_path.display().to_string(),
-                                    timestamp: current_timestamp(),
-                                };
-                                self.editor_state = None;
-                                self.is_inline_graph_editing = false;
-                                self.selected_graph_node_id = None;
-                                self.selected_edge = None;
-                                self.relation_dialog = None;
-                                self.quick_create = None;
-                                self.selected_info_class_id = None;
-                                self.selected_info_enum_id = None;
-                                self.selected_info_graph_node_id = None;
-                                self.selected_info_graph_node_ids.clear();
-                                self.selected_info_edge = None;
-                                self.search_query.clear();
-                                self.info_class_search.clear();
-                                self.active_tab = Tab::ConceptList;
-                                self.git_clone_modal = None;
-                                self.recent_store.record_opened(&target_path);
-                                let _ = self.update(Message::RefreshGitStatus);
-                            }
-                            Err(e) => {
-                                if let Some(m) = &mut self.git_clone_modal {
-                                    m.error_message = Some(format!("{}", e));
-                                }
-                            }
-                        }
-                    }
-                }
             }
 
             Message::SaveMetadataModal => {
@@ -3012,9 +1859,6 @@ impl App {
                 self.search_query.clear();
                 self.current_file_path = None;
                 self.save_status = SaveStatus::Unsaved;
-                self.git_status_generation += 1;
-                self.git_status_refresh = GitStatusRefresh::Idle;
-                self.git_sync_status = RepoSyncStatus::Uninitialized;
                 self.selected_graph_node_id = None;
                 self.selected_edge = None;
                 self.relation_dialog = None;
@@ -3241,10 +2085,7 @@ impl App {
                         if !self.project.concepts().is_empty() {
                             self.active_tab = Tab::ConceptList;
                         }
-                        self.git_status_generation += 1;
-                        self.git_sync_status = RepoSyncStatus::Uninitialized;
-                        self.git_status_refresh = GitStatusRefresh::Idle;
-                        return self.request_git_status_refresh();
+                        return Task::none();
                     }
                     Err(err) => {
                         self.save_status = SaveStatus::Error(format!(
@@ -3259,8 +2100,6 @@ impl App {
                 let effective = ProjectStorage::effective_model_path(&path);
                 self.current_file_path = Some(effective.clone());
                 self.recent_store.record_opened(&effective);
-                self.git_status_generation += 1;
-                self.git_status_refresh = GitStatusRefresh::Idle;
                 self.trigger_autosave();
                 self.file_dialog_mode = None;
             }
@@ -3521,9 +2360,6 @@ impl App {
                     self.search_query.clear();
                     self.current_file_path = None;
                     self.save_status = SaveStatus::Unsaved;
-                    self.git_status_generation += 1;
-                    self.git_status_refresh = GitStatusRefresh::Idle;
-                    self.git_sync_status = RepoSyncStatus::Uninitialized;
                     self.selected_graph_node_id = None;
                     self.selected_edge = None;
                     self.relation_dialog = None;
@@ -3813,47 +2649,6 @@ impl App {
                             }
                             _ => {}
                         }
-                    } else if self.publish_modal.is_some() {
-                        match focused {
-                            Some(0) => return self.update(Message::ClosePublishModal),
-                            Some(1) | None => return self.update(Message::ConfirmPublish),
-                            _ => {}
-                        }
-                    } else if self.git_clone_modal.is_some() {
-                        match focused {
-                            Some(GIT_CLONE_BTN_BROWSE) => {
-                                return self.update(Message::BrowseGitCloneTargetDir)
-                            }
-                            Some(GIT_CLONE_BTN_CANCEL) => {
-                                return self.update(Message::CloseGitCloneModal)
-                            }
-                            Some(GIT_CLONE_BTN_CLONE) | None => {
-                                return self.update(Message::ExecuteGitClone)
-                            }
-                            _ => {}
-                        }
-                    } else if self.git_connection_modal.is_some() {
-                        match focused {
-                            Some(GIT_CONN_BTN_BROWSE) => {
-                                return self.update(Message::BrowseGitTargetDir)
-                            }
-                            Some(GIT_CONN_BTN_REMOVE) => {
-                                return self.update(Message::RemoveGitRemote)
-                            }
-                            Some(GIT_CONN_BTN_CANCEL) => {
-                                return self.update(Message::CloseGitConnectionModal)
-                            }
-                            Some(GIT_CONN_BTN_SAVE) | None => {
-                                return self.update(Message::SaveGitConnection)
-                            }
-                            _ => {}
-                        }
-                    } else if self.conflict_resolver_modal.is_some() {
-                        match focused {
-                            Some(0) => return self.update(Message::CloseConflictResolverModal),
-                            Some(1) | None => return self.update(Message::ApplyResolvedConflicts),
-                            _ => {}
-                        }
                     } else if self.excel_import_preview.is_some() {
                         match focused {
                             Some(0) => return self.update(Message::DismissExcelImportModal),
@@ -3869,16 +2664,6 @@ impl App {
                         }
                     } else if self.excel_schema_guide_open {
                         return self.update(Message::CloseExcelSchemaGuideModal);
-                    } else if self.history_modal.is_some() {
-                        match focused {
-                            Some(HISTORY_BTN_CLOSE) | None => {
-                                return self.update(Message::CloseModelHistoryModal);
-                            }
-                            Some(HISTORY_BTN_COMMIT_NOW) => {
-                                return self.update(Message::OpenPublishModal);
-                            }
-                            _ => return self.update(Message::CloseModelHistoryModal),
-                        }
                     } else if self.file_dialog_mode.is_some() {
                         match focused {
                             Some(0) => return self.update(Message::CloseFileDialog),
@@ -6535,16 +5320,9 @@ impl App {
         .style(pill_container_style)
         .padding(3);
 
-        let header_right = row![
-            crate::features::git::ui::view_git_status_badge(
-                &self.git_sync_status,
-                &self.git_status_badge_text(),
-            ),
-            Space::new().width(8),
-            text(self.project.metadata().name())
-                .size(12)
-                .color(ThemeColors::SLATE_600),
-        ]
+        let header_right = row![text(self.project.metadata().name())
+            .size(12)
+            .color(ThemeColors::SLATE_600),]
         .align_y(Alignment::Center);
 
         let header_bar = container(
@@ -6569,35 +5347,6 @@ impl App {
             self.diagnostics_modal.as_ref().map(|modal| {
                 crate::features::diagnostics::ui::view_diagnostics_modal(modal, &self.modal_focus)
             });
-
-        let maybe_publish_modal: Option<Element<Message>> =
-            self.publish_modal.as_ref().map(|modal| {
-                crate::features::git::ui::view_publish_modal(
-                    modal,
-                    &self.git_sync_status,
-                    &self.modal_focus,
-                )
-            });
-
-        let maybe_history_modal: Option<Element<Message>> = self
-            .history_modal
-            .as_ref()
-            .map(|modal| crate::features::git::ui::view_history_modal(modal, &self.modal_focus));
-
-        let maybe_conflict_resolver_modal: Option<Element<Message>> =
-            self.conflict_resolver_modal.as_ref().map(|modal| {
-                crate::features::git::ui::view_conflict_resolver_modal(modal, &self.modal_focus)
-            });
-
-        let maybe_git_connection_modal: Option<Element<Message>> =
-            self.git_connection_modal.as_ref().map(|modal| {
-                crate::features::git::ui::view_git_connection_modal(modal, &self.modal_focus)
-            });
-
-        let maybe_git_clone_modal: Option<Element<Message>> = self
-            .git_clone_modal
-            .as_ref()
-            .map(|modal| crate::features::git::ui::view_git_clone_modal(modal, &self.modal_focus));
 
         let maybe_excel_schema_guide_modal: Option<Element<Message>> =
             if self.excel_schema_guide_open {
@@ -6954,35 +5703,6 @@ impl App {
                         "📋",
                         "Modelomslag & Metadata...",
                         Message::OpenMetadataModal,
-                    ));
-                    file_col = file_col.push(Space::new().height(4));
-                    file_col = file_col.push(make_separator());
-                    file_col = file_col.push(Space::new().height(4));
-                    file_col = file_col.push(
-                        text("VERSIONSSTYRING (GIT)")
-                            .size(10)
-                            .color(ThemeColors::TEXT_MUTED),
-                    );
-                    file_col = file_col.push(Space::new().height(2));
-                    file_col =
-                        file_col.push(menu_item("📥", "Hent ændringer (Pull)", Message::PullModel));
-                    file_col = file_col.push(menu_item(
-                        "🚀",
-                        "Commit og send ændringer (pull, add & push)...",
-                        Message::OpenPublishModal,
-                    ));
-                    file_col = file_col.push(Space::new().height(4));
-                    file_col = file_col.push(make_separator());
-                    file_col = file_col.push(Space::new().height(4));
-                    file_col = file_col.push(menu_item(
-                        "⏳",
-                        "Modelhistorik & Tidslinje...",
-                        Message::OpenModelHistoryModal,
-                    ));
-                    file_col = file_col.push(menu_item(
-                        "⚙️",
-                        "Git indstillinger...",
-                        Message::OpenGitConnectionModal,
                     ));
 
                     (136.0, file_col.width(Length::Fixed(360.0)))
@@ -7374,16 +6094,6 @@ impl App {
         };
 
         if let Some(modal) = maybe_diagnostics_modal {
-            stack![layered_layout, modal].into()
-        } else if let Some(modal) = maybe_conflict_resolver_modal {
-            stack![layered_layout, modal].into()
-        } else if let Some(modal) = maybe_history_modal {
-            stack![layered_layout, modal].into()
-        } else if let Some(modal) = maybe_publish_modal {
-            stack![layered_layout, modal].into()
-        } else if let Some(modal) = maybe_git_connection_modal {
-            stack![layered_layout, modal].into()
-        } else if let Some(modal) = maybe_git_clone_modal {
             stack![layered_layout, modal].into()
         } else if let Some(modal) = maybe_excel_schema_guide_modal {
             stack![layered_layout, modal].into()
