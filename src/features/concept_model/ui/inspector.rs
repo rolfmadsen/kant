@@ -158,11 +158,24 @@ pub fn view_inspector<'a>(
 
             let is_del_focused =
                 inspector_focused_button == Some(crate::ui::app::CONCEPT_EDGE_BTN_DELETE);
-            let actions = row![button(text("🗑️ Slet relation").size(11))
-                .style(focused_button_style(danger_button_style, is_del_focused))
-                .on_press(Message::GraphDeleteRelation(from_id, to_id))
-                .padding([4, 10]),]
-            .align_y(Alignment::Center);
+            let mut actions_items: Vec<Element<'a, Message>> =
+                vec![button(text("🗑️ Slet relation").size(11))
+                    .style(focused_button_style(danger_button_style, is_del_focused))
+                    .on_press(Message::GraphDeleteRelation(from_id, to_id))
+                    .padding([4, 10])
+                    .into()];
+
+            if edge.bends().is_some_and(|b| !b.is_empty()) {
+                actions_items.push(
+                    button(text("↺ Gendan automatisk linjeføring").size(11))
+                        .style(secondary_button_style)
+                        .on_press(Message::GraphResetEdgeRouting(from_id, to_id))
+                        .padding([4, 10])
+                        .into(),
+                );
+            }
+
+            let actions = row(actions_items).spacing(8).align_y(Alignment::Center);
 
             let insp_col = column![
                 header,

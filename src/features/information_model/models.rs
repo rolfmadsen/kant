@@ -1,4 +1,4 @@
-use crate::features::concept_model::{PortSide, RelationKind};
+use crate::features::concept_model::{BendPoint, PortSide, RelationKind};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -357,6 +357,8 @@ pub struct ClassRelation {
     source_multiplicity: Option<Multiplicity>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     target_multiplicity: Option<Multiplicity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bends: Option<Vec<BendPoint>>,
 }
 
 #[rustfmt::skip]
@@ -373,6 +375,7 @@ impl ClassRelation {
             directed: if kind == RelationKind::Association { Some(true) } else { None },
             source_multiplicity: None,
             target_multiplicity: None,
+            bends: None,
         }
     }
 
@@ -399,6 +402,7 @@ impl ClassRelation {
             directed,
             source_multiplicity,
             target_multiplicity,
+            bends: None,
         }
     }
 
@@ -419,6 +423,8 @@ impl ClassRelation {
         self.source_port = source_port;
         self.target_port = target_port;
     }
+    pub fn bends(&self) -> Option<&[BendPoint]> { self.bends.as_deref() }
+    pub fn set_bends(&mut self, bends: Option<Vec<BendPoint>>) { self.bends = bends; }
     pub fn is_directed(&self) -> bool {
         if self.kind == RelationKind::Association { self.directed.unwrap_or(true) } else { false }
     }
@@ -517,6 +523,10 @@ impl InformationModel {
 
     pub fn update_relation_ports(&mut self, from: Uuid, to: Uuid, src: Option<PortSide>, tgt: Option<PortSide>) -> bool {
         self.find_relation_mut(from, to).map(|r| r.set_ports(src, tgt)).is_some()
+    }
+
+    pub fn update_relation_bends(&mut self, from: Uuid, to: Uuid, bends: Option<Vec<BendPoint>>) -> bool {
+        self.find_relation_mut(from, to).map(|r| r.set_bends(bends)).is_some()
     }
 
     pub fn reverse_relation(&mut self, from_class: Uuid, to_class: Uuid) -> bool {

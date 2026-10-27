@@ -1,4 +1,4 @@
-use crate::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
+use crate::features::concept_model::{BendPoint, DiagramEdge, DiagramNode, PortSide, RelationKind};
 use crate::features::concepts::{Concept, ConceptValidator};
 use crate::features::information_model::{
     ClassDiagramNode, ClassRelation, InformationClass, InformationEnumeration, Multiplicity,
@@ -27,6 +27,8 @@ pub enum DecomposedRelation {
         target_port: Option<PortSide>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         directed: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        bends: Option<Vec<BendPoint>>,
     },
     ClassRelation {
         id: Uuid,
@@ -45,6 +47,8 @@ pub enum DecomposedRelation {
         source_multiplicity: Option<Multiplicity>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         target_multiplicity: Option<Multiplicity>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        bends: Option<Vec<BendPoint>>,
     },
 }
 
@@ -229,6 +233,7 @@ pub fn save_decomposed(project: &ModelProject, root_path: &Path) -> Result<(), S
             source_port: edge.source_port(),
             target_port: edge.target_port(),
             directed: edge.directed(),
+            bends: edge.bends().map(|b| b.to_vec()),
         };
         let file_path = relations_dir.join(format!("{}.json", rel_id));
         let json = to_deterministic_json(&decomposed_rel)?;
@@ -248,7 +253,7 @@ pub fn save_decomposed(project: &ModelProject, root_path: &Path) -> Result<(), S
                 .find_node(edge.to())
                 .map(|n| n.class_id())
                 .unwrap_or(edge.to());
-            info_rels.push(ClassRelation::with_multiplicities(
+            let mut rel = ClassRelation::with_multiplicities(
                 from_class,
                 to_class,
                 edge.kind(),
@@ -258,7 +263,11 @@ pub fn save_decomposed(project: &ModelProject, root_path: &Path) -> Result<(), S
                 edge.directed(),
                 edge.source_multiplicity(),
                 edge.target_multiplicity(),
-            ));
+            );
+            if let Some(b) = edge.bends() {
+                rel.set_bends(Some(b.to_vec()));
+            }
+            info_rels.push(rel);
         }
     }
 
@@ -276,6 +285,7 @@ pub fn save_decomposed(project: &ModelProject, root_path: &Path) -> Result<(), S
             directed: rel.directed(),
             source_multiplicity: rel.source_multiplicity(),
             target_multiplicity: rel.target_multiplicity(),
+            bends: rel.bends().map(|b| b.to_vec()),
         };
         let file_path = relations_dir.join(format!("{}.json", rel_id));
         let json = to_deterministic_json(&decomposed_rel)?;
@@ -422,12 +432,16 @@ pub fn load_decomposed(root_path: &Path) -> Result<ModelProject, StorageError> {
                             source_port,
                             target_port,
                             directed,
+                            bends,
                         } => {
                             let mut edge = DiagramEdge::with_label(from, to, kind, label);
                             edge.set_id(id);
                             edge.set_ports(source_port, target_port);
                             if let Some(d) = directed {
                                 edge.set_directed(d);
+                            }
+                            if let Some(b) = bends {
+                                edge.set_bends(Some(b));
                             }
                             project.concept_graph_mut().edges_mut().push(edge);
                         }
@@ -442,6 +456,7 @@ pub fn load_decomposed(root_path: &Path) -> Result<ModelProject, StorageError> {
                             directed,
                             source_multiplicity,
                             target_multiplicity,
+                            bends,
                         } => {
                             let mut rel = ClassRelation::with_multiplicities(
                                 from,
@@ -455,6 +470,9 @@ pub fn load_decomposed(root_path: &Path) -> Result<ModelProject, StorageError> {
                                 target_multiplicity,
                             );
                             rel.set_id(id);
+                            if let Some(b) = bends {
+                                rel.set_bends(Some(b));
+                            }
                             project.information_model_mut().add_relation(rel);
                         }
                     }

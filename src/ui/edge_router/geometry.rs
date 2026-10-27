@@ -1,4 +1,4 @@
-use crate::features::concept_model::PortSide;
+use crate::features::concept_model::{BendPoint, PortSide};
 use crate::ui::edge_router::types::{
     ArrowHead, BridgeHop, Diamond, HalfArrow, RoutedEdge, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH,
     CHANNEL_OFFSET, DIAMOND_LENGTH, DIAMOND_WIDTH,
@@ -151,6 +151,115 @@ pub fn build_orthogonal_path(
     simplify_path(pts)
 }
 
+pub fn build_orthogonal_path_with_bends(
+    start: Point,
+    end: Point,
+    start_side: PortSide,
+    end_side: PortSide,
+    bends: &[BendPoint],
+) -> Vec<Point> {
+    if bends.is_empty() {
+        return build_orthogonal_path(start, end, start_side, end_side, 0);
+    }
+
+    let mut pts = Vec::new();
+    pts.push(start);
+
+    let p1 = Point::new(bends[0].x, bends[0].y);
+
+    // 1. Terminal start segment til P_1
+    if start_side.is_vertical() {
+        if (start.x - p1.x).abs() < 0.5 {
+            pts.push(p1);
+        } else {
+            pts.push(Point::new(start.x, p1.y));
+            pts.push(p1);
+        }
+    } else {
+        if (start.y - p1.y).abs() < 0.5 {
+            pts.push(p1);
+        } else {
+            pts.push(Point::new(p1.x, start.y));
+            pts.push(p1);
+        }
+    }
+
+    // 2. Mellemliggende knækpunkter
+    for i in 0..bends.len() - 1 {
+        let curr = Point::new(bends[i].x, bends[i].y);
+        let next = Point::new(bends[i + 1].x, bends[i + 1].y);
+
+        if (curr.x - next.x).abs() < 0.5 || (curr.y - next.y).abs() < 0.5 {
+            pts.push(next);
+        } else {
+            let last_pt = *pts.last().unwrap();
+            let was_vertical = (last_pt.x - curr.x).abs() < 0.5;
+            if was_vertical {
+                pts.push(Point::new(next.x, curr.y));
+            } else {
+                pts.push(Point::new(curr.x, next.y));
+            }
+            pts.push(next);
+        }
+    }
+
+    // 3. Terminal slut segment fra P_k til end
+    let pk = Point::new(bends[bends.len() - 1].x, bends[bends.len() - 1].y);
+    if end_side.is_vertical() {
+        if (pk.x - end.x).abs() < 0.5 {
+            pts.push(end);
+        } else {
+            pts.push(Point::new(end.x, pk.y));
+            pts.push(end);
+        }
+    } else {
+        if (pk.y - end.y).abs() < 0.5 {
+            pts.push(end);
+        } else {
+            pts.push(Point::new(pk.x, end.y));
+            pts.push(end);
+        }
+    }
+
+    simplify_path_preserving_bends(pts, bends)
+}
+
+pub fn simplify_path_preserving_bends(points: Vec<Point>, bends: &[BendPoint]) -> Vec<Point> {
+    if points.len() <= 2 {
+        return points;
+    }
+
+    let is_bend = |p: Point| -> bool {
+        bends
+            .iter()
+            .any(|b| (b.x - p.x).abs() < 0.1 && (b.y - p.y).abs() < 0.1)
+    };
+
+    let mut simplified = Vec::new();
+    simplified.push(points[0]);
+
+    for i in 1..points.len() - 1 {
+        let prev = *simplified.last().unwrap();
+        let curr = points[i];
+        let next = points[i + 1];
+
+        if is_bend(curr) {
+            simplified.push(curr);
+            continue;
+        }
+
+        let collinear_h = (prev.y - curr.y).abs() < 0.001 && (curr.y - next.y).abs() < 0.001;
+        let collinear_v = (prev.x - curr.x).abs() < 0.001 && (curr.x - next.x).abs() < 0.001;
+
+        if !collinear_h && !collinear_v {
+            simplified.push(curr);
+        }
+    }
+
+    simplified.push(*points.last().unwrap());
+    simplified
+}
+
 pub fn simplify_path(points: Vec<Point>) -> Vec<Point> {
     if points.len() <= 2 {
         return points;
@@ -174,6 +283,54 @@ pub fn simplify_path(points: Vec<Point>) -> Vec<Point> {
 
     simplified.push(*points.last().unwrap());
     simplified
+}
+
+/// Sletter overflødige kollineære knækpunkter og mikrosegmenter ved drop-commit
+pub fn prune_collinear_bends(bends: &[BendPoint]) -> Vec<BendPoint> {
+    if bends.is_empty() {
+        return Vec::new();
+    }
+    if bends.len() == 1 {
+        return bends.to_vec();
+    }
+    if bends.len() == 2 {
+        if (bends[0].x - bends[1].x).hypot(bends[0].y - bends[1].y) < 4.0 {
+            return Vec::new();
+        }
+        return bends.to_vec();
+    }
+
+    let mut result = Vec::new();
+    result.push(bends[0]);
+
+    for i in 1..bends.len() - 1 {
+        let prev = *result.last().unwrap();
+        let curr = bends[i];
+        let next = bends[i + 1];
+
+        let collinear_h = (prev.y - curr.y).abs() < 0.5 && (curr.y - next.y).abs() < 0.5;
+        let collinear_v = (prev.x - curr.x).abs() < 0.5 && (curr.x - next.x).abs() < 0.5;
+        let is_micro = (prev.x - curr.x).hypot(prev.y - curr.y) < 4.0;
+
+        if !collinear_h && !collinear_v && !is_micro {
+            result.push(curr);
+        }
+    }
+
+    let last = *bends.last().unwrap();
+    if let Some(prev) = result.last() {
+        if (prev.x - last.x).hypot(prev.y - last.y) >= 4.0 {
+            result.push(last);
+        }
+    } else {
+        result.push(last);
+    }
+
+    if result.len() == 2 && (result[0].x - result[1].x).hypot(result[0].y - result[1].y) < 4.0 {
+        return Vec::new();
+    }
+
+    result
 }
 
 pub fn compute_label_pos(points: &[Point]) -> Option<Point> {

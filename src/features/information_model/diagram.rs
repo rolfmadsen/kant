@@ -1,4 +1,4 @@
-use crate::features::concept_model::{NodeId, PortSide, RelationKind, GRID_SIZE};
+use crate::features::concept_model::{BendPoint, NodeId, PortSide, RelationKind, GRID_SIZE};
 use crate::features::information_model::models::{ClassRelation, InformationModel, Multiplicity};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -91,6 +91,8 @@ pub struct ClassDiagramEdge {
     source_multiplicity: Option<Multiplicity>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     target_multiplicity: Option<Multiplicity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bends: Option<Vec<BendPoint>>,
 }
 
 impl ClassDiagramEdge {
@@ -109,6 +111,7 @@ impl ClassDiagramEdge {
             },
             source_multiplicity: None,
             target_multiplicity: None,
+            bends: None,
         }
     }
 
@@ -134,6 +137,7 @@ impl ClassDiagramEdge {
             },
             source_multiplicity: None,
             target_multiplicity: None,
+            bends: None,
         }
     }
 
@@ -156,6 +160,7 @@ impl ClassDiagramEdge {
             directed,
             source_multiplicity: None,
             target_multiplicity: None,
+            bends: None,
         }
     }
 
@@ -181,6 +186,7 @@ impl ClassDiagramEdge {
             directed,
             source_multiplicity,
             target_multiplicity,
+            bends: None,
         }
     }
 
@@ -239,6 +245,12 @@ impl ClassDiagramEdge {
     }
     pub fn set_target_multiplicity(&mut self, mult: Option<Multiplicity>) {
         self.target_multiplicity = mult;
+    }
+    pub fn bends(&self) -> Option<&[BendPoint]> {
+        self.bends.as_deref()
+    }
+    pub fn set_bends(&mut self, bends: Option<Vec<BendPoint>>) {
+        self.bends = bends;
     }
 }
 
@@ -408,6 +420,20 @@ impl ClassGraph {
         }
     }
 
+    pub fn update_edge_bends(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        bends: Option<Vec<BendPoint>>,
+    ) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_bends(bends);
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn update_edge_directed(&mut self, from: NodeId, to: NodeId, directed: bool) -> bool {
         if let Some(edge) = self.find_edge_mut(from, to) {
             edge.set_directed(directed);
@@ -538,9 +564,12 @@ impl ClassGraph {
                     }
                     updated.set_source_multiplicity(rel.source_multiplicity());
                     updated.set_target_multiplicity(rel.target_multiplicity());
+                    if rel.bends().is_some() {
+                        updated.set_bends(rel.bends().map(|b| b.to_vec()));
+                    }
                     expected_edges.push(updated);
                 } else {
-                    let edge = ClassDiagramEdge::with_multiplicities(
+                    let mut edge = ClassDiagramEdge::with_multiplicities(
                         from_id,
                         to_id,
                         rel.kind(),
@@ -551,6 +580,9 @@ impl ClassGraph {
                         rel.source_multiplicity(),
                         rel.target_multiplicity(),
                     );
+                    if let Some(b) = rel.bends() {
+                        edge.set_bends(Some(b.to_vec()));
+                    }
                     expected_edges.push(edge);
                 }
             }
@@ -577,7 +609,7 @@ impl ClassGraph {
                     .find_node(edge.to())
                     .map(|n| n.class_id())
                     .unwrap_or(edge.to());
-                let rel = ClassRelation::with_multiplicities(
+                let mut rel = ClassRelation::with_multiplicities(
                     from_class,
                     to_class,
                     edge.kind(),
@@ -588,6 +620,9 @@ impl ClassGraph {
                     edge.source_multiplicity(),
                     edge.target_multiplicity(),
                 );
+                if let Some(b) = edge.bends() {
+                    rel.set_bends(Some(b.to_vec()));
+                }
                 info_model.add_relation(rel);
             }
         }

@@ -12,9 +12,8 @@ use uuid::Uuid;
 #[test]
 fn test_task_094_git_integration_purged() {
     // 1. App-niveau: Git feature skal være deaktiveret/fjernet
-    assert_eq!(
-        App::has_git_feature(),
-        false,
+    assert!(
+        !App::has_git_feature(),
         "Git feature must be completely decommissioned and return false"
     );
 

@@ -14,9 +14,8 @@ fn test_task_093_collab_and_relay_purged() {
     );
 
     // AC1-AC4: Collab feature flag skal være deaktiveret/fjernet
-    assert_eq!(
-        App::has_collab_feature(),
-        false,
+    assert!(
+        !App::has_collab_feature(),
         "Collab feature must be completely decommissioned and removed"
     );
 }

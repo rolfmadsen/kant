@@ -189,6 +189,20 @@ impl DiagramNode {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct BendPoint {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Eq for BendPoint {}
+
+impl BendPoint {
+    pub const fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiagramEdge {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -203,6 +217,8 @@ pub struct DiagramEdge {
     target_port: Option<PortSide>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     directed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bends: Option<Vec<BendPoint>>,
 }
 
 impl DiagramEdge {
@@ -220,6 +236,7 @@ impl DiagramEdge {
             } else {
                 None
             },
+            bends: None,
         }
     }
 
@@ -237,6 +254,7 @@ impl DiagramEdge {
             } else {
                 None
             },
+            bends: None,
         }
     }
 
@@ -269,6 +287,7 @@ impl DiagramEdge {
             } else {
                 None
             },
+            bends: None,
         }
     }
 
@@ -290,6 +309,7 @@ impl DiagramEdge {
             source_port,
             target_port,
             directed,
+            bends: None,
         }
     }
 
@@ -331,6 +351,14 @@ impl DiagramEdge {
     pub fn set_ports(&mut self, source_port: Option<PortSide>, target_port: Option<PortSide>) {
         self.source_port = source_port;
         self.target_port = target_port;
+    }
+
+    pub fn bends(&self) -> Option<&[BendPoint]> {
+        self.bends.as_deref()
+    }
+
+    pub fn set_bends(&mut self, bends: Option<Vec<BendPoint>>) {
+        self.bends = bends;
     }
 
     pub fn is_directed(&self) -> bool {
@@ -548,6 +576,20 @@ impl ConceptGraph {
     pub fn update_edge_directed(&mut self, from: NodeId, to: NodeId, directed: bool) -> bool {
         if let Some(edge) = self.find_edge_mut(from, to) {
             edge.set_directed(directed);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_edge_bends(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        bends: Option<Vec<BendPoint>>,
+    ) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_bends(bends);
             true
         } else {
             false

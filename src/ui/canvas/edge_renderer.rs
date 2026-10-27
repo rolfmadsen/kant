@@ -1,6 +1,8 @@
 use super::{CanvasEdge, CanvasNode};
 use crate::design_system::tokens::ColorTokens;
-use crate::features::concept_model::{DiagramEdge, DiagramNode, NodeId, PortSide, RelationKind};
+use crate::features::concept_model::{
+    BendPoint, DiagramEdge, DiagramNode, NodeId, PortSide, RelationKind,
+};
 use crate::ui::edge_router::EdgeRouter;
 use crate::ui::theme::ThemeColors;
 use iced::widget::canvas::{Frame, Path, Stroke, Text};
@@ -57,9 +59,20 @@ pub fn draw_edges<N: CanvasNode, E: CanvasEdge>(
     nodes: &[N],
     edges: &[E],
     selected_edge: Option<(NodeId, NodeId)>,
+    in_progress_bends: Option<((NodeId, NodeId), &[BendPoint])>,
+    selected_bend: Option<((NodeId, NodeId), usize)>,
 ) {
     let diagram_nodes: Vec<DiagramNode> = nodes.iter().map(|n| n.to_diagram_node()).collect();
-    let diagram_edges: Vec<DiagramEdge> = edges.iter().map(|e| e.to_diagram_edge()).collect();
+    let mut diagram_edges: Vec<DiagramEdge> = edges.iter().map(|e| e.to_diagram_edge()).collect();
+
+    if let Some(((b_from, b_to), bends)) = in_progress_bends {
+        for de in &mut diagram_edges {
+            if (de.from() == b_from && de.to() == b_to) || (de.from() == b_to && de.to() == b_from)
+            {
+                de.set_bends(Some(bends.to_vec()));
+            }
+        }
+    }
 
     let routed_edges = EdgeRouter::route_edges(&diagram_nodes, &diagram_edges);
 
@@ -265,6 +278,63 @@ pub fn draw_edges<N: CanvasNode, E: CanvasEdge>(
                 let p_tgt = *routed.points.last().unwrap_or(&routed.points[0]);
                 let pos = port_multiplicity_pos(p_tgt, routed.to_side);
                 render_multiplicity_label(frame, &tgt_mult, pos, is_selected_edge);
+            }
+        }
+    }
+
+    // 3. Knækpunkthåndtag for valgt relation
+    for routed in &routed_edges {
+        let is_selected_edge = selected_edge == Some((routed.from, routed.to))
+            || selected_edge == Some((routed.to, routed.from));
+        if is_selected_edge {
+            let current_bends: Option<Vec<BendPoint>> =
+                if let Some(((b_from, b_to), bends)) = in_progress_bends {
+                    if (routed.from == b_from && routed.to == b_to)
+                        || (routed.from == b_to && routed.to == b_from)
+                    {
+                        Some(bends.to_vec())
+                    } else {
+                        edges
+                            .iter()
+                            .find(|e| {
+                                (e.from() == routed.from && e.to() == routed.to)
+                                    || (e.from() == routed.to && e.to() == routed.from)
+                            })
+                            .and_then(|e| e.bends())
+                            .map(|b| b.to_vec())
+                    }
+                } else {
+                    edges
+                        .iter()
+                        .find(|e| {
+                            (e.from() == routed.from && e.to() == routed.to)
+                                || (e.from() == routed.to && e.to() == routed.from)
+                        })
+                        .and_then(|e| e.bends())
+                        .map(|b| b.to_vec())
+                };
+
+            if let Some(bends) = current_bends {
+                for (idx, bend) in bends.iter().enumerate() {
+                    let pt = Point::new(bend.x, bend.y);
+                    let is_selected = selected_bend == Some(((routed.from, routed.to), idx))
+                        || selected_bend == Some(((routed.to, routed.from), idx));
+                    let circle = Path::circle(pt, 5.0);
+                    frame.fill(
+                        &circle,
+                        if is_selected {
+                            ThemeColors::PRIMARY
+                        } else {
+                            Color::WHITE
+                        },
+                    );
+                    frame.stroke(
+                        &circle,
+                        Stroke::default()
+                            .with_color(ThemeColors::PRIMARY)
+                            .with_width(2.0),
+                    );
+                }
             }
         }
     }

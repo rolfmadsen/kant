@@ -1,5 +1,5 @@
 use crate::design_system::tokens::ColorTokens;
-use crate::features::concept_model::{NodeId, RelationKind};
+use crate::features::concept_model::{BendPoint, NodeId, RelationKind};
 use crate::features::concepts::{BelongsToDomain, Concept};
 use crate::features::export::{
     export_concept_model_svg, export_concepts_to_csv, export_information_model_svg,
@@ -406,6 +406,8 @@ pub enum Message {
     GraphRelationLabelChanged(String),
     GraphCreateRelation,
     GraphDeleteRelation(NodeId, NodeId),
+    GraphResetEdgeRouting(NodeId, NodeId),
+    GraphUpdateEdgeBends(NodeId, NodeId, Option<Vec<BendPoint>>),
     GraphSyncNodes,
     AddConceptToDiagram(Uuid),
     AddConceptToDiagramAt(Uuid, f32, f32),
@@ -504,6 +506,8 @@ pub enum Message {
     InfoNodeDoubleClicked(NodeId),
     AddClassRelation(NodeId, NodeId, RelationKind, Option<String>),
     DeleteClassRelation(NodeId, NodeId),
+    InfoResetEdgeRouting(NodeId, NodeId),
+    InfoUpdateEdgeBends(NodeId, NodeId, Option<Vec<BendPoint>>),
     InfoCanvasViewportChanged(crate::ui::graph_canvas::CanvasViewport),
     ToggleInfoSnapToGrid,
     InfoCanvasZoomIn,
@@ -3366,6 +3370,18 @@ impl App {
                 }
                 self.trigger_autosave();
             }
+            Message::GraphResetEdgeRouting(from, to) => {
+                self.project
+                    .concept_graph_mut()
+                    .update_edge_bends(from, to, None);
+                self.trigger_autosave();
+            }
+            Message::GraphUpdateEdgeBends(from, to, bends) => {
+                self.project
+                    .concept_graph_mut()
+                    .update_edge_bends(from, to, bends);
+                self.trigger_autosave();
+            }
             Message::GraphSyncNodes => {
                 self.project.sync_concept_graph();
                 self.trigger_autosave();
@@ -4882,6 +4898,48 @@ impl App {
                 {
                     self.selected_info_edge = None;
                 }
+                self.trigger_autosave();
+            }
+            Message::InfoResetEdgeRouting(from, to) => {
+                let from_class = self
+                    .project
+                    .information_graph()
+                    .find_node(from)
+                    .map(|n| n.class_id())
+                    .unwrap_or(from);
+                let to_class = self
+                    .project
+                    .information_graph()
+                    .find_node(to)
+                    .map(|n| n.class_id())
+                    .unwrap_or(to);
+                self.project
+                    .information_graph_mut()
+                    .update_edge_bends(from, to, None);
+                self.project
+                    .information_model_mut()
+                    .update_relation_bends(from_class, to_class, None);
+                self.trigger_autosave();
+            }
+            Message::InfoUpdateEdgeBends(from, to, bends) => {
+                let from_class = self
+                    .project
+                    .information_graph()
+                    .find_node(from)
+                    .map(|n| n.class_id())
+                    .unwrap_or(from);
+                let to_class = self
+                    .project
+                    .information_graph()
+                    .find_node(to)
+                    .map(|n| n.class_id())
+                    .unwrap_or(to);
+                self.project
+                    .information_graph_mut()
+                    .update_edge_bends(from, to, bends.clone());
+                self.project
+                    .information_model_mut()
+                    .update_relation_bends(from_class, to_class, bends);
                 self.trigger_autosave();
             }
             Message::InfoCanvasViewportChanged(vp) => {

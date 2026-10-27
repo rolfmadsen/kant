@@ -17,13 +17,32 @@ pub fn compute_port_assignments(
             continue;
         };
 
-        let (from_side, to_side) = select_ports(
-            from,
-            to,
-            edge.kind(),
-            edge.source_port(),
-            edge.target_port(),
-        );
+        let (from_side, to_side) = if let Some(bends) = edge.bends() {
+            if !bends.is_empty() {
+                let p1 = Point::new(bends[0].x, bends[0].y);
+                let pk = Point::new(bends[bends.len() - 1].x, bends[bends.len() - 1].y);
+                (
+                    select_port_towards_point(from, p1),
+                    select_port_towards_point(to, pk),
+                )
+            } else {
+                select_ports(
+                    from,
+                    to,
+                    edge.kind(),
+                    edge.source_port(),
+                    edge.target_port(),
+                )
+            }
+        } else {
+            select_ports(
+                from,
+                to,
+                edge.kind(),
+                edge.source_port(),
+                edge.target_port(),
+            )
+        };
 
         side_attachments
             .entry((from.id(), from_side))
@@ -343,5 +362,51 @@ pub fn port_point(node: &DiagramNode, side: PortSide, slot_offset: f32) -> Point
         PortSide::Bottom => Point::new(cx + slot_offset, node.y() + node.height()),
         PortSide::Left => Point::new(node.x(), cy + slot_offset),
         PortSide::Right => Point::new(node.x() + node.width(), cy + slot_offset),
+    }
+}
+
+pub fn select_port_towards_point(node: &DiagramNode, pt: Point) -> PortSide {
+    let node_right = node.x() + node.width();
+    let node_bottom = node.y() + node.height();
+    let node_left = node.x();
+    let node_top = node.y();
+
+    let (cx, cy) = node.center();
+    let dx = pt.x - cx;
+    let dy = pt.y - cy;
+
+    if pt.x >= node_right && (pt.y >= node_top && pt.y <= node_bottom) {
+        PortSide::Right
+    } else if pt.x <= node_left && (pt.y >= node_top && pt.y <= node_bottom) {
+        PortSide::Left
+    } else if pt.y >= node_bottom && (pt.x >= node_left && pt.x <= node_right) {
+        PortSide::Bottom
+    } else if pt.y <= node_top && (pt.x >= node_left && pt.x <= node_right) {
+        PortSide::Top
+    } else if dx.abs() > dy.abs() {
+        if dx > 0.0 {
+            PortSide::Right
+        } else {
+            PortSide::Left
+        }
+    } else if dy > 0.0 {
+        PortSide::Bottom
+    } else {
+        PortSide::Top
+    }
+}
+
+pub fn compute_sliding_port_point(node: &DiagramNode, side: PortSide, target_pt: Point) -> Point {
+    const MARGIN: f32 = 8.0;
+    let min_x = node.x() + MARGIN;
+    let max_x = (node.x() + node.width() - MARGIN).max(min_x);
+    let min_y = node.y() + MARGIN;
+    let max_y = (node.y() + node.height() - MARGIN).max(min_y);
+
+    match side {
+        PortSide::Top => Point::new(target_pt.x.clamp(min_x, max_x), node.y()),
+        PortSide::Bottom => Point::new(target_pt.x.clamp(min_x, max_x), node.y() + node.height()),
+        PortSide::Left => Point::new(node.x(), target_pt.y.clamp(min_y, max_y)),
+        PortSide::Right => Point::new(node.x() + node.width(), target_pt.y.clamp(min_y, max_y)),
     }
 }

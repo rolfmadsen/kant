@@ -1,8 +1,10 @@
 use crate::features::concept_model::{DiagramEdge, DiagramNode, NodeId, PortSide, RelationKind};
-use crate::ui::edge_router::channels::{compute_port_assignments, port_point, select_ports};
+use crate::ui::edge_router::channels::{
+    compute_port_assignments, compute_sliding_port_point, port_point, select_ports,
+};
 use crate::ui::edge_router::geometry::{
-    build_orthogonal_path, compute_arrow_head, compute_diamond, compute_half_arrow,
-    compute_label_pos, detect_bridges,
+    build_orthogonal_path, build_orthogonal_path_with_bends, compute_arrow_head, compute_diamond,
+    compute_half_arrow, compute_label_pos, detect_bridges,
 };
 use crate::ui::edge_router::types::{
     EdgePortAssignment, RoutedEdge, ARROW_HEAD_LENGTH, DIAMOND_LENGTH,
@@ -72,8 +74,26 @@ impl EdgeRouter {
         edge: &DiagramEdge,
         assign: &EdgePortAssignment,
     ) -> RoutedEdge {
-        let start_pt = port_point(from_node, assign.from_side, assign.from_slot_offset);
-        let end_pt = port_point(to_node, assign.to_side, assign.to_slot_offset);
+        let (start_pt, end_pt) = if let Some(bends) = edge.bends() {
+            if !bends.is_empty() {
+                let p1 = Point::new(bends[0].x, bends[0].y);
+                let pk = Point::new(bends[bends.len() - 1].x, bends[bends.len() - 1].y);
+                (
+                    compute_sliding_port_point(from_node, assign.from_side, p1),
+                    compute_sliding_port_point(to_node, assign.to_side, pk),
+                )
+            } else {
+                (
+                    port_point(from_node, assign.from_side, assign.from_slot_offset),
+                    port_point(to_node, assign.to_side, assign.to_slot_offset),
+                )
+            }
+        } else {
+            (
+                port_point(from_node, assign.from_side, assign.from_slot_offset),
+                port_point(to_node, assign.to_side, assign.to_slot_offset),
+            )
+        };
 
         // Beregn pilehoved (Generalisering trekant eller Dependency åben pil)
         let arrow_head = if assign.kind == RelationKind::Generalization
@@ -116,13 +136,33 @@ impl EdgeRouter {
         };
 
         // Generer 90-graders ortogonale punkter
-        let points = build_orthogonal_path(
-            line_start_pt,
-            line_end_pt,
-            assign.from_side,
-            assign.to_side,
-            assign.channel_index,
-        );
+        let points = if let Some(bends) = edge.bends() {
+            if !bends.is_empty() {
+                build_orthogonal_path_with_bends(
+                    line_start_pt,
+                    line_end_pt,
+                    assign.from_side,
+                    assign.to_side,
+                    bends,
+                )
+            } else {
+                build_orthogonal_path(
+                    line_start_pt,
+                    line_end_pt,
+                    assign.from_side,
+                    assign.to_side,
+                    assign.channel_index,
+                )
+            }
+        } else {
+            build_orthogonal_path(
+                line_start_pt,
+                line_end_pt,
+                assign.from_side,
+                assign.to_side,
+                assign.channel_index,
+            )
+        };
 
         // FDA label-semantik: Generalisering har ingen tekst-label
         let label = if assign.kind == RelationKind::Generalization {

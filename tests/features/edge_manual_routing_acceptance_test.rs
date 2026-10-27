@@ -1,9 +1,7 @@
 use iced::Point;
-use kant::features::concept_model::{
-    BendPoint, DiagramEdge, DiagramNode, NodeId, PortSide, RelationKind, GRID_SIZE,
-};
+use kant::features::concept_model::{BendPoint, DiagramEdge, DiagramNode, RelationKind, GRID_SIZE};
 use kant::features::concepts::{BelongsToDomain, Concept};
-use kant::features::information_model::{ClassDiagramEdge, ClassDiagramNode, InformationClass};
+use kant::features::information_model::ClassDiagramEdge;
 use kant::features::model::decomposed::{load_decomposed, save_decomposed};
 use kant::features::model::ModelProject;
 use kant::ui::canvas::viewport::CanvasViewport;
@@ -20,10 +18,7 @@ fn test_ac1_bendpoint_and_edge_bends_accessors() {
     let mut edge = DiagramEdge::new(from_id, to_id, RelationKind::Association);
     assert!(edge.bends().is_none());
 
-    let bends = vec![
-        BendPoint::new(100.0, 200.0),
-        BendPoint::new(100.0, 400.0),
-    ];
+    let bends = vec![BendPoint::new(100.0, 200.0), BendPoint::new(100.0, 400.0)];
     edge.set_bends(Some(bends.clone()));
     assert_eq!(edge.bends(), Some(bends.as_slice()));
 
@@ -50,10 +45,7 @@ fn test_ac2_decomposed_persistence_of_bends() {
     let n2 = project.concept_graph_mut().add_node(&c2);
 
     let mut edge = DiagramEdge::new(n1, n2, RelationKind::Association);
-    let bends = vec![
-        BendPoint::new(120.0, 240.0),
-        BendPoint::new(260.0, 240.0),
-    ];
+    let bends = vec![BendPoint::new(120.0, 240.0), BendPoint::new(260.0, 240.0)];
     edge.set_bends(Some(bends.clone()));
     project.concept_graph_mut().edges_mut().push(edge);
 
@@ -62,7 +54,11 @@ fn test_ac2_decomposed_persistence_of_bends() {
 
     // Load back
     let loaded = load_decomposed(&kant_dir).expect("load_decomposed should succeed");
-    let loaded_edge = loaded.concept_graph().edges().first().expect("edge should exist");
+    let loaded_edge = loaded
+        .concept_graph()
+        .edges()
+        .first()
+        .expect("edge should exist");
     assert_eq!(loaded_edge.bends(), Some(bends.as_slice()));
 
     let _ = std::fs::remove_dir_all(&temp_dir);
@@ -77,9 +73,7 @@ fn test_ac3_ac4_orthogonal_routing_with_bends_and_port_sliding() {
 
     // Bend at (220, 280), shifted toward right flank of node A (220 is within [108, 252])
     let mut edge = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Association);
-    edge.set_bends(Some(vec![
-        BendPoint::new(220.0, 280.0),
-    ]));
+    edge.set_bends(Some(vec![BendPoint::new(220.0, 280.0)]));
 
     let routes = EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[edge]);
     assert_eq!(routes.len(), 1);
@@ -87,12 +81,21 @@ fn test_ac3_ac4_orthogonal_routing_with_bends_and_port_sliding() {
 
     // AC4: Port-sliding - start point should have x = 220.0 (sliding to align with P_1)
     let start_pt = route.points[0];
-    assert_eq!(start_pt.y, 180.0, "Source port should be on bottom of Node A");
-    assert_eq!(start_pt.x, 220.0, "Source port should slide along bottom edge to align with P_1.x");
+    assert_eq!(
+        start_pt.y, 180.0,
+        "Source port should be on bottom of Node A"
+    );
+    assert_eq!(
+        start_pt.x, 220.0,
+        "Source port should slide along bottom edge to align with P_1.x"
+    );
 
     // AC3: Route should contain the bend (220.0, 280.0)
     assert!(
-        route.points.iter().any(|p| (p.x - 220.0).abs() < 0.1 && (p.y - 280.0).abs() < 0.1),
+        route
+            .points
+            .iter()
+            .any(|p| (p.x - 220.0).abs() < 0.1 && (p.y - 280.0).abs() < 0.1),
         "Route must pass through bend (220.0, 280.0)"
     );
 }
@@ -129,10 +132,7 @@ fn test_ac9_anchored_bends_when_nodes_moved() {
     let node_b = DiagramNode::custom(Uuid::new_v4(), "B".to_string(), 400.0, 100.0, 160.0, 80.0);
 
     let mut edge = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Association);
-    let original_bends = vec![
-        BendPoint::new(200.0, 260.0),
-        BendPoint::new(350.0, 260.0),
-    ];
+    let original_bends = vec![BendPoint::new(200.0, 260.0), BendPoint::new(350.0, 260.0)];
     edge.set_bends(Some(original_bends.clone()));
 
     // Move Node A from (100, 100) to (120, 80)
@@ -148,4 +148,74 @@ fn test_ac9_anchored_bends_when_nodes_moved() {
         Some(original_bends.as_slice()),
         "Edge bends must remain anchored and untouched when node moves"
     );
+}
+
+#[test]
+fn test_ac11_reset_edge_routing_and_models_sync() {
+    let mut project = ModelProject::default();
+    let c1 = Concept::new("Vare", "En fysisk vare", BelongsToDomain::Yes);
+    let c2 = Concept::new("Lager", "En lokation", BelongsToDomain::Yes);
+    let n1 = project.concept_graph_mut().add_node(&c1);
+    let n2 = project.concept_graph_mut().add_node(&c2);
+
+    let mut edge = DiagramEdge::new(n1, n2, RelationKind::Association);
+    edge.set_bends(Some(vec![BendPoint::new(200.0, 300.0)]));
+    project.concept_graph_mut().edges_mut().push(edge);
+
+    assert!(project.concept_graph().edges()[0].bends().is_some());
+
+    // Nulstil rute via update_edge_bends(None)
+    project.concept_graph_mut().update_edge_bends(n1, n2, None);
+    assert!(project.concept_graph().edges()[0].bends().is_none());
+}
+
+#[test]
+fn test_ac7_ac8_orthogonal_segment_dragging_and_split() {
+    // Node A at (100, 100), size 160x80 -> right edge is x = 260, center y = 140
+    let node_a = DiagramNode::custom(Uuid::new_v4(), "A".to_string(), 100.0, 100.0, 160.0, 80.0);
+    // Node B at (440, 100), size 160x80 -> left edge is x = 440, center y = 140
+    let node_b = DiagramNode::custom(Uuid::new_v4(), "B".to_string(), 440.0, 100.0, 160.0, 80.0);
+
+    let mut edge = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Association);
+
+    // AC8: Split straight line segment into 3 segments with 2 bends on grid (GRID_SIZE = 20)
+    let b1 = BendPoint::new(320.0, 220.0);
+    let b2 = BendPoint::new(380.0, 220.0);
+    edge.set_bends(Some(vec![b1, b2]));
+
+    let routes = EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[edge.clone()]);
+    assert_eq!(routes.len(), 1);
+    let pts = &routes[0].points;
+
+    // Must pass through the two split bends at y = 220.0
+    assert!(pts
+        .iter()
+        .any(|p| (p.x - 320.0).abs() < 0.1 && (p.y - 220.0).abs() < 0.1));
+    assert!(pts
+        .iter()
+        .any(|p| (p.x - 380.0).abs() < 0.1 && (p.y - 220.0).abs() < 0.1));
+
+    // AC7: Dragging the horizontal segment (b1 to b2) in Y from 220 to 260 preserves X
+    let dragged_b1 = BendPoint::new(320.0, 260.0);
+    let dragged_b2 = BendPoint::new(380.0, 260.0);
+    edge.set_bends(Some(vec![dragged_b1, dragged_b2]));
+
+    let routes_dragged = EdgeRouter::route_edges(&[node_a, node_b], &[edge]);
+    assert_eq!(routes_dragged.len(), 1);
+    let dragged_pts = &routes_dragged[0].points;
+
+    assert!(dragged_pts
+        .iter()
+        .any(|p| (p.x - 320.0).abs() < 0.1 && (p.y - 260.0).abs() < 0.1));
+    assert!(dragged_pts
+        .iter()
+        .any(|p| (p.x - 380.0).abs() < 0.1 && (p.y - 260.0).abs() < 0.1));
+}
+
+#[test]
+fn test_ac10_microsegment_absorption() {
+    // Two bends closer than 4px should be absorbed into empty
+    let micro_pts = vec![BendPoint::new(100.0, 100.0), BendPoint::new(102.0, 101.0)];
+    let pruned = prune_collinear_bends(&micro_pts);
+    assert!(pruned.is_empty(), "Microsegment under 4px must be absorbed");
 }

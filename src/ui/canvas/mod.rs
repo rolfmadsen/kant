@@ -7,170 +7,96 @@
 //! - `minimap`: Svævende kontrolpanel og oversigtskort
 //! - `interaction`: Mus- og tastaturinteraktion, drag-select og marquee
 
+pub mod edge_interaction;
 pub mod edge_renderer;
 pub mod interaction;
 pub mod minimap;
 pub mod node_renderer;
+pub mod traits;
 pub mod viewport;
 
+pub use edge_interaction::*;
 pub use edge_renderer::*;
 pub use interaction::*;
 pub use minimap::*;
 pub use node_renderer::*;
+pub use traits::*;
 pub use viewport::*;
 
 use crate::design_system::tokens::ColorTokens;
-use crate::features::concept_model::{
-    DiagramEdge, DiagramNode, NodeId, PortSide, RelationKind, GRID_SIZE,
-};
-use crate::features::information_model::{ClassDiagramEdge, ClassDiagramNode};
+use crate::features::concept_model::{BendPoint, NodeId, GRID_SIZE};
 use crate::ui::theme::ThemeColors;
 use iced::mouse;
 use iced::widget::canvas::{Action, Event, Frame, Geometry, Path, Program, Stroke};
 use iced::{Point, Rectangle, Renderer, Theme};
+use std::time::Instant;
 
-/// Abstraktion for noder på et diagram
-pub trait CanvasNode {
-    fn id(&self) -> NodeId;
-    fn position(&self) -> (f32, f32);
-    fn size(&self) -> (f32, f32);
-    fn contains(&self, px: f32, py: f32) -> bool {
-        let (x, y) = self.position();
-        let (w, h) = self.size();
-        px >= x && px <= x + w && py >= y && py <= y + h
-    }
-    fn to_diagram_node(&self) -> DiagramNode {
-        let (x, y) = self.position();
-        let (w, h) = self.size();
-        DiagramNode::custom(self.id(), String::new(), x, y, w, h)
+pub const CLICK_SLOP_PX: f32 = 4.0;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClickTarget {
+    Node(NodeId),
+    Bend((NodeId, NodeId), usize),
+    Empty,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ClickRecord {
+    pub position: Point,
+    pub world_position: Point,
+    pub time: Instant,
+    pub target: ClickTarget,
+}
+
+/// Tilstand for rektangulær drag-select (marquee)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MarqueeState {
+    pub start: Point,
+    pub current: Point,
+}
+
+impl MarqueeState {
+    pub fn select_nodes<N: CanvasNode>(&self, nodes: &[N]) -> std::collections::HashSet<NodeId> {
+        let min_x = self.start.x.min(self.current.x);
+        let max_x = self.start.x.max(self.current.x);
+        let min_y = self.start.y.min(self.current.y);
+        let max_y = self.start.y.max(self.current.y);
+        nodes
+            .iter()
+            .filter(|n| {
+                let (nx, ny) = n.position();
+                let (nw, nh) = n.size();
+                nx >= min_x && nx + nw <= max_x && ny >= min_y && ny + nh <= max_y
+            })
+            .map(|n| n.id())
+            .collect()
     }
 }
 
-/// Abstraktion for kanter/relationer på et diagram
-pub trait CanvasEdge {
-    fn from(&self) -> NodeId;
-    fn to(&self) -> NodeId;
-    fn kind(&self) -> RelationKind;
-    fn label(&self) -> Option<&str>;
-    fn source_port(&self) -> Option<PortSide> {
-        None
-    }
-    fn target_port(&self) -> Option<PortSide> {
-        None
-    }
-    fn source_multiplicity(&self) -> Option<String> {
-        None
-    }
-    fn target_multiplicity(&self) -> Option<String> {
-        None
-    }
-    fn is_directed(&self) -> bool {
-        true
-    }
-    fn to_diagram_edge(&self) -> DiagramEdge {
-        let mut edge = DiagramEdge::with_ports(
-            self.from(),
-            self.to(),
-            self.kind(),
-            self.label().map(|s| s.to_string()),
-            self.source_port(),
-            self.target_port(),
-        );
-        edge.set_directed(self.is_directed());
-        edge
-    }
+/// Tilstand for synkron parallelforskydning af noder (bulk drag)
+#[derive(Debug, Clone, PartialEq)]
+pub struct BulkDragState {
+    pub leader_id: NodeId,
+    pub start_world_pos: Point,
+    pub initial_positions: Vec<(NodeId, (f32, f32))>,
+    pub last_delta: Option<(f32, f32)>,
+    pub start_time: Instant,
 }
 
-impl CanvasNode for DiagramNode {
-    fn id(&self) -> NodeId {
-        self.id()
-    }
-    fn position(&self) -> (f32, f32) {
-        (self.x(), self.y())
-    }
-    fn size(&self) -> (f32, f32) {
-        (self.width(), self.height())
-    }
-    fn contains(&self, px: f32, py: f32) -> bool {
-        DiagramNode::contains(self, px, py)
-    }
+#[derive(Debug, Clone)]
+pub struct DragBendState {
+    pub edge: (NodeId, NodeId),
+    pub bend_index: usize,
+    pub current_bends: Vec<BendPoint>,
 }
 
-impl CanvasNode for ClassDiagramNode {
-    fn id(&self) -> NodeId {
-        self.id()
-    }
-    fn position(&self) -> (f32, f32) {
-        (self.x(), self.y())
-    }
-    fn size(&self) -> (f32, f32) {
-        (self.width(), self.height())
-    }
-    fn contains(&self, px: f32, py: f32) -> bool {
-        ClassDiagramNode::contains(self, px, py)
-    }
-}
-
-impl CanvasEdge for DiagramEdge {
-    fn from(&self) -> NodeId {
-        self.from()
-    }
-    fn to(&self) -> NodeId {
-        self.to()
-    }
-    fn kind(&self) -> RelationKind {
-        self.kind()
-    }
-    fn label(&self) -> Option<&str> {
-        self.label()
-    }
-    fn source_port(&self) -> Option<PortSide> {
-        self.source_port()
-    }
-    fn target_port(&self) -> Option<PortSide> {
-        self.target_port()
-    }
-    fn is_directed(&self) -> bool {
-        DiagramEdge::is_directed(self)
-    }
-}
-
-impl CanvasEdge for ClassDiagramEdge {
-    fn from(&self) -> NodeId {
-        self.from()
-    }
-    fn to(&self) -> NodeId {
-        self.to()
-    }
-    fn kind(&self) -> RelationKind {
-        self.kind()
-    }
-    fn label(&self) -> Option<&str> {
-        self.label()
-    }
-    fn source_port(&self) -> Option<PortSide> {
-        self.source_port()
-    }
-    fn target_port(&self) -> Option<PortSide> {
-        self.target_port()
-    }
-    fn is_directed(&self) -> bool {
-        ClassDiagramEdge::is_directed(self)
-    }
-    fn source_multiplicity(&self) -> Option<String> {
-        if self.kind() == RelationKind::Generalization {
-            None
-        } else {
-            ClassDiagramEdge::source_multiplicity(self).map(|m| m.to_display_string())
-        }
-    }
-    fn target_multiplicity(&self) -> Option<String> {
-        if self.kind() == RelationKind::Generalization {
-            None
-        } else {
-            ClassDiagramEdge::target_multiplicity(self).map(|m| m.to_display_string())
-        }
-    }
+#[derive(Debug, Clone)]
+pub struct DragSegmentState {
+    pub edge: (NodeId, NodeId),
+    pub segment_index: usize,
+    pub is_horizontal: bool,
+    pub bend_indices: Vec<usize>,
+    pub current_bends: Vec<BendPoint>,
 }
 
 #[derive(Debug, Default)]
@@ -190,10 +116,16 @@ pub struct DiagramCanvasState {
     pub hovered_target_node: Option<NodeId>,
     pub selected_node_ids: std::collections::HashSet<NodeId>,
     pub last_canvas_selection: Option<std::collections::HashSet<NodeId>>,
+    pub selected_bend: Option<((NodeId, NodeId), usize)>,
+    pub dragging_bend: Option<DragBendState>,
+    pub dragging_segment: Option<DragSegmentState>,
 }
 
-type EdgeSelectHandler<'a, Message> = Box<dyn Fn(Option<(NodeId, NodeId)>) -> Message + 'a>;
-type EdgeCreateHandler<'a, Message> = Box<dyn Fn(NodeId, NodeId) -> Message + 'a>;
+pub(crate) type EdgeSelectHandler<'a, Message> =
+    Box<dyn Fn(Option<(NodeId, NodeId)>) -> Message + 'a>;
+pub(crate) type EdgeCreateHandler<'a, Message> = Box<dyn Fn(NodeId, NodeId) -> Message + 'a>;
+pub(crate) type EdgeBendsChangeHandler<'a, Message> =
+    Box<dyn Fn((NodeId, NodeId), Option<Vec<BendPoint>>) -> Message + 'a>;
 type SelectionChangeHandler<'a, Message> =
     Box<dyn Fn(std::collections::HashSet<NodeId>) -> Message + 'a>;
 type NodesMovedHandler<'a, Message> = Box<dyn Fn(Vec<(NodeId, f32, f32)>) -> Message + 'a>;
@@ -218,6 +150,7 @@ where
     pub(crate) on_selection_changed: Option<SelectionChangeHandler<'a, Message>>,
     pub(crate) on_edge_selected: Option<EdgeSelectHandler<'a, Message>>,
     pub(crate) on_edge_created: Option<EdgeCreateHandler<'a, Message>>,
+    pub(crate) on_edge_bends_changed: Option<EdgeBendsChangeHandler<'a, Message>>,
     pub(crate) on_node_moved: Box<dyn Fn(NodeId, f32, f32) -> Message + 'a>,
     pub(crate) on_nodes_moved: Option<NodesMovedHandler<'a, Message>>,
     pub(crate) on_canvas_double_clicked: Box<dyn Fn(f32, f32) -> Message + 'a>,
@@ -266,6 +199,7 @@ where
             on_selection_changed: None,
             on_edge_selected: None,
             on_edge_created: None,
+            on_edge_bends_changed: None,
             on_node_moved: Box::new(on_node_moved),
             on_nodes_moved: None,
             on_canvas_double_clicked: Box::new(on_canvas_double_clicked),
@@ -334,6 +268,14 @@ where
 
     pub fn on_edge_created(mut self, handler: impl Fn(NodeId, NodeId) -> Message + 'a) -> Self {
         self.on_edge_created = Some(Box::new(handler));
+        self
+    }
+
+    pub fn on_edge_bends_changed(
+        mut self,
+        handler: impl Fn((NodeId, NodeId), Option<Vec<BendPoint>>) -> Message + 'a,
+    ) -> Self {
+        self.on_edge_bends_changed = Some(Box::new(handler));
         self
     }
 
@@ -442,7 +384,25 @@ where
             }
         }
 
-        draw_edges(&mut frame, self.nodes, self.edges, self.selected_edge);
+        let in_progress_bends = state
+            .dragging_bend
+            .as_ref()
+            .map(|d| (d.edge, d.current_bends.as_slice()))
+            .or_else(|| {
+                state
+                    .dragging_segment
+                    .as_ref()
+                    .map(|d| (d.edge, d.current_bends.as_slice()))
+            });
+
+        draw_edges(
+            &mut frame,
+            self.nodes,
+            self.edges,
+            self.selected_edge,
+            in_progress_bends,
+            state.selected_bend,
+        );
 
         for node in self.nodes {
             let is_selected = self.is_node_selected(node.id());

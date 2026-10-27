@@ -1,64 +1,12 @@
-use super::edge_renderer::distance_to_segment;
 use super::minimap;
 use super::viewport::{handle_wheel_scroll, CanvasViewport};
+pub use super::{BulkDragState, ClickRecord, ClickTarget, MarqueeState, CLICK_SLOP_PX};
 use super::{CanvasEdge, CanvasNode, DiagramCanvas, DiagramCanvasState};
-use crate::features::concept_model::{DiagramEdge, DiagramNode, NodeId, GRID_SIZE};
-use crate::ui::edge_router::EdgeRouter;
+use crate::features::concept_model::{NodeId, GRID_SIZE};
 use iced::mouse;
 use iced::widget::canvas::{Action, Event, Frame};
-use iced::{Point, Rectangle, Vector};
+use iced::{Rectangle, Vector};
 use std::time::Instant;
-
-pub const CLICK_SLOP_PX: f32 = 4.0;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ClickTarget {
-    Node(NodeId),
-    Empty,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ClickRecord {
-    pub position: Point,
-    pub world_position: Point,
-    pub time: Instant,
-    pub target: ClickTarget,
-}
-
-/// Tilstand for rektangulær drag-select (marquee)
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct MarqueeState {
-    pub start: Point,
-    pub current: Point,
-}
-
-impl MarqueeState {
-    pub fn select_nodes<N: CanvasNode>(&self, nodes: &[N]) -> std::collections::HashSet<NodeId> {
-        let min_x = self.start.x.min(self.current.x);
-        let max_x = self.start.x.max(self.current.x);
-        let min_y = self.start.y.min(self.current.y);
-        let max_y = self.start.y.max(self.current.y);
-        nodes
-            .iter()
-            .filter(|n| {
-                let (nx, ny) = n.position();
-                let (nw, nh) = n.size();
-                nx >= min_x && nx + nw <= max_x && ny >= min_y && ny + nh <= max_y
-            })
-            .map(|n| n.id())
-            .collect()
-    }
-}
-
-/// Tilstand for synkron parallelforskydning af noder (bulk drag)
-#[derive(Debug, Clone, PartialEq)]
-pub struct BulkDragState {
-    pub leader_id: NodeId,
-    pub start_world_pos: Point,
-    pub initial_positions: Vec<(NodeId, (f32, f32))>,
-    pub last_delta: Option<(f32, f32)>,
-    pub start_time: Instant,
-}
 
 fn publish_selection<Message>(
     on_selection_changed: &Option<Box<dyn Fn(std::collections::HashSet<NodeId>) -> Message + '_>>,
@@ -92,8 +40,24 @@ where
     let cursor_pos = cursor.position_in(bounds)?;
 
     match event {
-        Event::Keyboard(iced::keyboard::Event::KeyPressed { modifiers, .. })
-        | Event::Keyboard(iced::keyboard::Event::KeyReleased { modifiers, .. })
+        Event::Keyboard(iced::keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+            state.modifiers = *modifiers;
+            if matches!(
+                key,
+                iced::keyboard::Key::Named(iced::keyboard::key::Named::Delete)
+                    | iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
+            ) {
+                if let Some(action) = super::edge_interaction::handle_delete_bend_key(
+                    state,
+                    canvas.edges,
+                    &canvas.on_edge_bends_changed,
+                ) {
+                    return Some(action);
+                }
+            }
+            None
+        }
+        Event::Keyboard(iced::keyboard::Event::KeyReleased { modifiers, .. })
         | Event::Keyboard(iced::keyboard::Event::ModifiersChanged(modifiers)) => {
             state.modifiers = *modifiers;
             None
@@ -138,19 +102,25 @@ where
             let world_pos = canvas.viewport.to_world(cursor_pos);
 
             // 1. Tjek forbindelseshåndtag
-            if let Some(sel_id) = canvas.selected_node_id {
-                if let Some(node) = canvas.nodes.iter().find(|n| n.id() == sel_id) {
-                    let (nx, ny) = node.position();
-                    let (nw, nh) = node.size();
-                    let handle_center = Point::new(nx + nw, ny + nh / 2.0);
-                    let dist = (world_pos.x - handle_center.x).hypot(world_pos.y - handle_center.y);
-                    if dist <= 14.0 {
-                        state.connecting_from = Some(sel_id);
-                        state.connecting_cursor = Some(world_pos);
-                        state.hovered_target_node = None;
-                        return Some(Action::request_redraw().and_capture());
-                    }
-                }
+            if let Some(action) = super::edge_interaction::check_connect_handle_click(
+                canvas.selected_node_id,
+                canvas.nodes,
+                state,
+                world_pos,
+            ) {
+                return Some(action);
+            }
+
+            // 1.5. Tjek knækpunkthåndtag på valgt relation
+            if let Some(action) = super::edge_interaction::check_bend_handle_click(
+                canvas.selected_edge,
+                canvas.edges,
+                state,
+                cursor_pos,
+                world_pos,
+                &canvas.on_edge_bends_changed,
+            ) {
+                return Some(action);
             }
 
             let is_ctrl = state.modifiers.control() || state.modifiers.command();
@@ -255,39 +225,20 @@ where
             }
 
             // 3. Klik på en relation
-            let diagram_nodes: Vec<DiagramNode> =
-                canvas.nodes.iter().map(|n| n.to_diagram_node()).collect();
-            let diagram_edges: Vec<DiagramEdge> =
-                canvas.edges.iter().map(|e| e.to_diagram_edge()).collect();
-            let routed_edges = EdgeRouter::route_edges(&diagram_nodes, &diagram_edges);
-
-            for routed in routed_edges.iter().rev() {
-                let hit_segment = routed
-                    .points
-                    .windows(2)
-                    .any(|w| distance_to_segment(world_pos, w[0], w[1]) <= 7.0);
-                let hit_label = if let (Some(label), Some(pos)) = (&routed.label, routed.label_pos)
-                {
-                    let approx_w = label.trim().len() as f32 * 6.8 + 16.0;
-                    world_pos.x >= pos.x - approx_w / 2.0
-                        && world_pos.x <= pos.x + approx_w / 2.0
-                        && world_pos.y >= pos.y - 10.0
-                        && world_pos.y <= pos.y + 10.0
-                } else {
-                    false
-                };
-
-                if hit_segment || hit_label {
-                    if let Some(ref on_edge_selected) = canvas.on_edge_selected {
-                        return Some(
-                            Action::publish((on_edge_selected)(Some((routed.from, routed.to))))
-                                .and_capture(),
-                        );
-                    }
-                }
+            if let Some(action) = super::edge_interaction::check_edge_click(
+                canvas.nodes,
+                canvas.edges,
+                canvas.selected_edge,
+                state,
+                cursor_pos,
+                world_pos,
+                &canvas.on_edge_selected,
+            ) {
+                return Some(action);
             }
 
             // 4. Klik på tomt lærred
+            state.selected_bend = None;
             if let Some(ref on_edge_selected) = canvas.on_edge_selected {
                 let _ = (on_edge_selected)(None);
             }
@@ -304,6 +255,13 @@ where
                     state.pending_double = None;
                     state.last_click = None;
                 }
+            }
+
+            let world_pos = canvas.viewport.to_world(cursor_pos);
+            if let Some(action) =
+                super::edge_interaction::handle_bend_or_segment_cursor_drag(state, world_pos)
+            {
+                return Some(action);
             }
 
             if state.is_panning_minimap {
@@ -325,16 +283,12 @@ where
                 return Some(Action::publish((canvas.on_viewport_changed)(new_vp)).and_capture());
             }
 
-            if let Some(source_id) = state.connecting_from {
-                let world_pos = canvas.viewport.to_world(cursor_pos);
-                state.connecting_cursor = Some(world_pos);
-                state.hovered_target_node = canvas
-                    .nodes
-                    .iter()
-                    .rev()
-                    .find(|n| n.id() != source_id && n.contains(world_pos.x, world_pos.y))
-                    .map(|n| n.id());
-                return Some(Action::request_redraw().and_capture());
+            if let Some(action) = super::edge_interaction::handle_connecting_cursor_move(
+                state,
+                canvas.nodes,
+                world_pos,
+            ) {
+                return Some(action);
             }
 
             if let Some(ref mut marquee) = state.marquee {
@@ -436,20 +390,17 @@ where
                 return Some(Action::capture());
             }
 
-            if let Some(source_id) = state.connecting_from.take() {
-                state.connecting_cursor = None;
-                let target = state.hovered_target_node.take();
-                if let Some(target_id) = target {
-                    if target_id != source_id {
-                        if let Some(ref on_edge_created) = canvas.on_edge_created {
-                            return Some(
-                                Action::publish((on_edge_created)(source_id, target_id))
-                                    .and_capture(),
-                            );
-                        }
-                    }
-                }
-                return Some(Action::request_redraw().and_capture());
+            if let Some(action) =
+                super::edge_interaction::handle_connecting_release(state, &canvas.on_edge_created)
+            {
+                return Some(action);
+            }
+
+            if let Some(action) = super::edge_interaction::handle_bend_or_segment_release(
+                state,
+                &canvas.on_edge_bends_changed,
+            ) {
+                return Some(action);
             }
 
             let press_pos = state.press_screen_pos.take();
@@ -467,6 +418,16 @@ where
                         ClickTarget::Node(id) => {
                             return Some(
                                 Action::publish((canvas.on_node_double_clicked)(id)).and_capture(),
+                            );
+                        }
+                        ClickTarget::Bend((from, to), idx) => {
+                            return super::edge_interaction::handle_bend_double_click(
+                                from,
+                                to,
+                                idx,
+                                canvas.edges,
+                                state,
+                                &canvas.on_edge_bends_changed,
                             );
                         }
                         ClickTarget::Empty => {

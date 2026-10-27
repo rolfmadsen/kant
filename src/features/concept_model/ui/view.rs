@@ -114,6 +114,7 @@ pub fn view<'a>(
         .selected_edge(selected_edge)
         .on_edge_selected(Message::GraphEdgeSelected)
         .on_edge_created(Message::GraphEdgeCreated)
+        .on_edge_bends_changed(|(from, to), bends| Message::GraphUpdateEdgeBends(from, to, bends))
         .is_palette_dragging(is_palette_dragging)
         .on_canvas_drop(|x, y| Message::CanvasDropAt { x, y })
         .on_drag_released(|| Message::CanvasNodesDragFinished),
