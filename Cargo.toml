@@ -91,3 +91,7 @@ path = "tests/features/palette_search_and_header_cleanup_acceptance_test.rs"
 name = "collab_purge_acceptance"
 path = "tests/features/collab_purge_acceptance_test.rs"
 
+[[test]]
+name = "git_purge_acceptance"
+path = "tests/features/git_purge_acceptance_test.rs"
+
