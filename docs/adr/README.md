@@ -9,7 +9,7 @@
 | [ADR 005](005-orthogonal-edge-routing-and-port-bus.md) | Ortogonal Manhattan Routing, Krydsningsbroer og Port-Bus | `accepted` | 2026-09-19 |
 | [ADR 006](006-information-model-and-concept-traceability.md) | Informationsmodel med FDA Primitives og M:N Begrebssporing | `accepted` | 2026-09-19 |
 | [ADR 007](007-canvas-studio-paradigm-and-uml-class-canvas.md) | Canvas Studio Paradigmet og UML Klassediagram Canvas | `accepted` | 2026-09-19 |
-| [ADR 008](008-e2ee-realtime-collaboration-and-stateless-relay.md) | E2EE Realtids-kollaborering og Stateless WebSocket Relay | `accepted` | 2026-09-20 |
+| [ADR 008](008-e2ee-realtime-collaboration-and-stateless-relay.md) | E2EE Realtids-kollaborering og Stateless WebSocket Relay | `deprecated` | 2026-09-20 |
 | [ADR 009](009-rebranding-from-edge-to-kant.md) | Rebranding fra Edge til Kant og Filendelsesstyring | `accepted` | 2026-09-20 |
 | [ADR 010](010-cross-platform-native-dialogs-and-os-packaging.md) | Native Cross-Platform Fildialoger (rfd), Windows Ressource-Indlejring og Rendering Optimering | `accepted` | 2026-09-21 |
 | [ADR 011](011-decomposed-model-persistence-and-git-integration.md) | Dekomponeret Model-Persistens (.kant) og Semantisk Git Model-Integration | `accepted` | 2026-09-27 |

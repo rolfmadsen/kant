@@ -1,14 +1,14 @@
 ---
 type: Architectural Decision Record
 title: 'ADR 008: E2EE Realtids-kollaborering og Stateless WebSocket Relay'
-status: accepted
+status: deprecated
 tags: [architecture, adr, collaboration, e2ee, websocket, relay, privacy, git]
 ---
 
 # 8. E2EE Realtids-kollaborering og Stateless WebSocket Relay
 
-**Status**: `accepted`  
-**Dato**: `2026-09-20`  
+**Status**: `deprecated` (Fjernet til fordel for asynkront Git-samarbejde jf. ADR 011)  
+**Dato**: `2026-09-20` (Deprekeret `2026-10-27`)  
 
 ## Kontekst
 Kant anvender p.t. en lokal disk-baseret persistensmodel ([ADR 003](003-project-persistence-and-autosave.md)), hvor FDA-modeller gemmes lokalt som JSON og versionsstyres via Git. Brugere har et stærkt ønske om at kunne samarbejde synkront i realtid (f.eks. under faciliterede modelleringsworkshops på tværs af organisationer).

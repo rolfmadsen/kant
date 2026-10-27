@@ -27,8 +27,7 @@ tags: [specification, architecture, invariants]
 - `src/features/concepts/`: Begreber, termer, synonymer og strukturerede definitioner (Bilag D & E).
 - `src/features/concept_model/`: Begrebsmodel-graf med noder, generaliseringer og associationer.
 - `src/features/information_model/`: Informationsmodel med klasser, attributter, standard datatyper og multipliciteter.
-- `src/features/collab/`: E2EE krypto, sessionsbilletter, WebSocket sync og mutation bridge.
-- `crates/kant-relay/`: Ultralet, in-memory, blind Axum WebSocket pub/sub relay.
+- `src/features/git/`: Git-baseret modelsamarbejde, versionskontrol og synkronisering.
 - `src/ui/`: Iced shell, faner, tema og præsentationslogik.
 - `tasks/`: Eksekverbare opgavepakker med acceptkriterier.
 - `docs/adr/`: Arkitektoniske beslutningsreferater:
@@ -39,7 +38,7 @@ tags: [specification, architecture, invariants]
   - [ADR 005: Ortogonal Manhattan Routing & Port-Bus](docs/adr/005-orthogonal-edge-routing-and-port-bus.md)
   - [ADR 006: Informationsmodel & Begrebssporing](docs/adr/006-information-model-and-concept-traceability.md)
   - [ADR 007: Canvas Studio Paradigmet & UML Klassediagram](docs/adr/007-canvas-studio-paradigm-and-uml-class-canvas.md)
-  - [ADR 008: E2EE Realtids-kollaborering & Relay](docs/adr/008-e2ee-realtime-collaboration-and-stateless-relay.md)
+  - [ADR 008: E2EE Realtids-kollaborering & Relay (Deprecated)](docs/adr/008-e2ee-realtime-collaboration-and-stateless-relay.md)
   - [ADR 009: Rebranding fra Edge til Kant](docs/adr/009-rebranding-from-edge-to-kant.md)
   - [ADR 010: Cross-Platform Native Fildialoger](docs/adr/010-cross-platform-native-dialogs-and-os-packaging.md)
   - [ADR 011: Dekomponeret Model-Persistens & Git](docs/adr/011-decomposed-model-persistence-and-git-integration.md)
