@@ -125,4 +125,3 @@ fn test_task_095_app_integration_overflow_navigation() {
         let _view = app.view();
     }
 }
-

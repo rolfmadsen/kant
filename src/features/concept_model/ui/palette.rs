@@ -193,4 +193,3 @@ pub fn view_palette<'a>(
     .height(Length::Fill)
     .into()
 }
-
