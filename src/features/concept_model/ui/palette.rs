@@ -12,7 +12,9 @@ use iced::widget::{
 use iced::{mouse, Alignment, Element, Length};
 
 pub const PALETTE_WIDTH: f32 = 268.0;
-pub const SCROLLBAR_WIDTH: f32 = 4.0;
+pub const SCROLLBAR_WIDTH: f32 = 6.0;
+pub const PALETTE_RIGHT_EDGE_FUGE: f32 = 2.0;
+pub const PALETTE_ACTIONS_CLEARANCE_PADDING: f32 = 10.0;
 pub const SEARCH_INPUT_PADDING: [f32; 2] = [7.0, 9.0];
 
 pub fn view_palette<'a>(
@@ -70,9 +72,20 @@ pub fn view_palette<'a>(
             .on_submit(Message::ConceptPaletteSubmit)
             .padding(SEARCH_INPUT_PADDING),
     ]
-    .spacing(8);
+    .spacing(8)
+    .padding(iced::Padding {
+        top: 0.0,
+        right: PALETTE_ACTIONS_CLEARANCE_PADDING + PALETTE_RIGHT_EDGE_FUGE,
+        bottom: 0.0,
+        left: 0.0,
+    });
 
-    let mut concept_items = column![].spacing(4);
+    let mut concept_items = column![].spacing(4).padding(iced::Padding {
+        top: 0.0,
+        right: PALETTE_ACTIONS_CLEARANCE_PADDING,
+        bottom: 0.0,
+        left: 0.0,
+    });
     for (idx, concept) in filtered_concepts.into_iter().enumerate() {
         let concept_id = concept.id();
         let is_on_canvas = concept_graph.is_concept_on_diagram(concept_id);
@@ -170,8 +183,14 @@ pub fn view_palette<'a>(
         .height(Length::Fill),
     )
     .style(card_container_style)
-    .padding(12)
+    .padding(iced::Padding {
+        top: 12.0,
+        right: PALETTE_RIGHT_EDGE_FUGE,
+        bottom: 12.0,
+        left: 12.0,
+    })
     .width(Length::Fixed(PALETTE_WIDTH))
     .height(Length::Fill)
     .into()
 }
+

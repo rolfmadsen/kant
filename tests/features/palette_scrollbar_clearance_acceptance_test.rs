@@ -76,8 +76,8 @@ fn test_task_091_concept_palette_scrollbar_dimensions_and_width() {
     );
     assert_eq!(
         palette::SCROLLBAR_WIDTH,
-        4.0,
-        "AC2: Begrebspalettens scrollbar bredde skal være 4px (slank, moderne pill)"
+        6.0,
+        "AC2: Begrebspalettens scrollbar bredde skal være 6px (ergonomisk, moderne pill)"
     );
 
     // Verificer rendering med 20 begreber
@@ -95,7 +95,7 @@ fn test_task_091_concept_palette_scrollbar_dimensions_and_width() {
 
 #[test]
 fn test_task_091_information_model_palette_scrollbar_dimensions_and_width() {
-    // AC2, AC3 & AC4: Klasselisten skal have en bredde på 268px og en slank scrollbar på 4px
+    // AC2, AC3 & AC4: Klasselisten skal have en bredde på 268px og en ergonomisk scrollbar på 6px
     assert_eq!(
         class_list::PALETTE_WIDTH,
         268.0,
@@ -103,8 +103,8 @@ fn test_task_091_information_model_palette_scrollbar_dimensions_and_width() {
     );
     assert_eq!(
         class_list::SCROLLBAR_WIDTH,
-        4.0,
-        "AC2: Klasselistens scrollbar bredde skal være 4px"
+        6.0,
+        "AC2: Klasselistens scrollbar bredde skal være 6px"
     );
 
     // Verificer rendering med 20 klasser

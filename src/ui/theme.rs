@@ -156,7 +156,7 @@ pub fn modern_scrollable_style(
                 scroller: scrollable::Scroller {
                     background: Background::Color(scroller_color),
                     border: Border {
-                        radius: 2.0.into(),
+                        radius: 3.0.into(),
                         ..Border::default()
                     },
                 },
@@ -179,7 +179,7 @@ pub fn modern_scrollable_style(
                         ColorTokens::SLATE_600.with_alpha(0.85).into_color(),
                     ),
                     border: Border {
-                        radius: 2.0.into(),
+                        radius: 3.0.into(),
                         ..Border::default()
                     },
                 },

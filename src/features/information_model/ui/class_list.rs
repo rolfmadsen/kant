@@ -16,7 +16,9 @@ use iced::{mouse, Alignment, Element, Length};
 use uuid::Uuid;
 
 pub const PALETTE_WIDTH: f32 = 268.0;
-pub const SCROLLBAR_WIDTH: f32 = 4.0;
+pub const SCROLLBAR_WIDTH: f32 = 6.0;
+pub const PALETTE_RIGHT_EDGE_FUGE: f32 = 2.0;
+pub const PALETTE_ACTIONS_CLEARANCE_PADDING: f32 = 10.0;
 pub const SEARCH_INPUT_PADDING: [f32; 2] = [7.0, 9.0];
 
 pub fn view<'a>(
@@ -73,9 +75,20 @@ pub fn view<'a>(
             .on_submit(Message::InfoPaletteSubmit)
             .padding(SEARCH_INPUT_PADDING),
     ]
-    .spacing(8);
+    .spacing(8)
+    .padding(iced::Padding {
+        top: 0.0,
+        right: PALETTE_ACTIONS_CLEARANCE_PADDING + PALETTE_RIGHT_EDGE_FUGE,
+        bottom: 0.0,
+        left: 0.0,
+    });
 
-    let mut class_items = column![].spacing(4);
+    let mut class_items = column![].spacing(4).padding(iced::Padding {
+        top: 0.0,
+        right: PALETTE_ACTIONS_CLEARANCE_PADDING,
+        bottom: 0.0,
+        left: 0.0,
+    });
     for (idx, class) in filtered_classes.into_iter().enumerate() {
         let is_selected = selected_class_id == Some(class.id());
         let class_id = class.id();
@@ -213,9 +226,20 @@ pub fn view<'a>(
         .padding([2, 7]),
     ]
     .spacing(6)
-    .align_y(Alignment::Center);
+    .align_y(Alignment::Center)
+    .padding(iced::Padding {
+        top: 0.0,
+        right: PALETTE_ACTIONS_CLEARANCE_PADDING + PALETTE_RIGHT_EDGE_FUGE,
+        bottom: 0.0,
+        left: 0.0,
+    });
 
-    let mut enum_items = column![].spacing(4);
+    let mut enum_items = column![].spacing(4).padding(iced::Padding {
+        top: 0.0,
+        right: PALETTE_ACTIONS_CLEARANCE_PADDING,
+        bottom: 0.0,
+        left: 0.0,
+    });
     for e in filtered_enums {
         let is_selected = selected_enum_id == Some(e.id());
         let enum_id = e.id();
@@ -339,7 +363,12 @@ pub fn view<'a>(
         .height(Length::Fill),
     )
     .style(card_container_style)
-    .padding(12)
+    .padding(iced::Padding {
+        top: 12.0,
+        right: PALETTE_RIGHT_EDGE_FUGE,
+        bottom: 12.0,
+        left: 12.0,
+    })
     .width(Length::Fixed(PALETTE_WIDTH))
     .height(Length::Fill)
     .into()
