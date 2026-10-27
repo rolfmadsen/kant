@@ -4,45 +4,44 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "087-concept-studio-and-model-decomposition",
-    "task_title": "Task 087: Concept Studio and Model Decomposition",
-    "task_digest": "d02006171e9bfcae4c10e0447470086d314c8a53f00d7682d178eb96a6e9c967",
+    "task_id": "093-remove-realtime-collab-and-server-relay",
+    "task_title": "Task 093: Remove Realtime Collaboration and Server Relay",
+    "task_digest": "44086d626634b2a7c9101e81d70af33f957882ee82b3f73be94e1dcf4f0ee7b5",
     "acceptance_criteria": [
-      "**AC1 (Begrebsliste Editor Dekomponering)**: Dekomponer `src/ui/concept_editor.rs` i modulære UI-komponenter under `src/features/concepts/ui/` (`modal.rs`, `form.rs` osv. $\\le 500$ linjer) med tynd facade $\\le 400$ linjer.",
-      "**AC2 (Excel Import & Eksport Dekomponering)**: Dekomponer `src/features/concepts/excel.rs` i `importer.rs`, `exporter.rs`, `template.rs` under `src/features/concepts/excel/` ($\\le 500$ linjer hver) med ren facade i `mod.rs`.",
-      "**AC3 (Begrebsmodel Studio Dekomponering)**: Dekomponer `src/ui/concept_model_view.rs` i palet, inspektør og view under `src/features/concept_model/ui/` ($\\le 500$ linjer hver) med tynd facade $\\le 400$ linjer.",
-      "**AC4 (Edge Router Dekomponering)**: Dekomponer `src/ui/edge_router.rs` i modulære routing-enheder (`routing.rs`, `bus.rs`, `geometry.rs` $\\le 500$ linjer hver) med facade $\\le 400$ linjer.",
-      "**AC5 (Fjernelse af 4 Undtagelser i gauntlet.toml)**: Fjern undtagelserne for `concept_editor.rs`, `excel.rs`, `concept_model_view.rs` og `edge_router.rs` fra `gauntlet.toml` og opdater `tests/architecture_test.rs`.",
-      "**AC6 (Regression & Verifikation)**: Samtlige enheds- og accepttests i workspace passerer uden fejl, og `xgauntlet check-architecture` rapporterer 0 overtrædelser."
+      "**AC1 - Crate & Ops Sanering**: `crates/kant-relay/`, `koyeb.yaml`, `docker-compose.yml` og `.github/workflows/relay-docker.yml` er slettet, og `crates/kant-relay` er fjernet fra `Cargo.toml` (`[workspace.members]` og `[dev-dependencies]`).",
+      "**AC2 - Cargo Dependency Rengøring**: `chacha20poly1305`, `tokio-tungstenite`, `base64`, `rand`, `bytes`, `futures-util` og `axum` er fjernet fra `Cargo.toml`.",
+      "**AC3 - Feature Modul Sanering**: `src/features/collab/` er slettet, og `pub mod collab;` er fjernet fra `src/features/mod.rs`.",
+      "**AC4 - UI & App State Forenkling**: `MenuType::Collab`, `menu_button(\"Samarbejde\", ...)`, collab header badge, `CollabState`, `RelayServerPreset`, collab-felter i `App` og `Message::Collab*` beskeder er fjernet fra `src/ui/app.rs`.",
+      "**AC5 - Verifikation & Testsuite Integritet**: `tests/features/collab_acceptance_test.rs` er slettet, [tests/acceptance.rs](tests/acceptance.rs) er renset for forældede collab-tests, og en ny accepttest `test_task093_collab_and_relay_purged` beviser at applikationen bygger og fungerer uden collab."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "28ac68db740bb872b3025b8bd544c974399ca09a332ffbf425273ed39f9fbf38",
-    "source_manifest_digest_pre": "b9d0fd2fd6d7ab93f62d785425e32851f082c33efcbca804b2373a629aa9ad5e",
-    "source_manifest_digest_post": "b9d0fd2fd6d7ab93f62d785425e32851f082c33efcbca804b2373a629aa9ad5e",
-    "config_digest": "61599b1f18ea258932f640cc874b1feb2bac6d7e8f9b5c9f27555aeed0fafeed",
-    "task_digest": "d02006171e9bfcae4c10e0447470086d314c8a53f00d7682d178eb96a6e9c967",
-    "policy_digest": "b79843c5f8b4274a74d5505a911213c35b724d57bfff0eb15912eb540e71a357",
+    "source_content_digest": "0f1f540faa534fd53f957eadbd4ba0091dbf92fad6fc3e6accef1538934af1c3",
+    "source_manifest_digest_pre": "03bc139922247dfd69cf4f7d60daab493b822b4d1d397584bf253b20f01e4890",
+    "source_manifest_digest_post": "03bc139922247dfd69cf4f7d60daab493b822b4d1d397584bf253b20f01e4890",
+    "config_digest": "f13eea83fc4c773c6ab505d497437dab7921a04664af130a5eef9452ea4478fe",
+    "task_digest": "44086d626634b2a7c9101e81d70af33f957882ee82b3f73be94e1dcf4f0ee7b5",
+    "policy_digest": "71ec4e6da92156e8f84942119a7ba9860cfd0c1bbc60a05086dc579e69e633ee",
     "check_definitions_digest": "7ac9f4a75d7c84442ecaa2a4c1e0c06c1940bf2e1f0c017e60b1fe20c38e97c4",
-    "included_files_count": 252,
+    "included_files_count": 246,
     "vcs": {
       "type": "git",
-      "head": "e6a6ac2",
-      "commit": "e6a6ac2",
+      "head": "ac1de9d",
+      "commit": "ac1de9d",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-18T20:12:44Z",
-    "finished_at": "2026-10-18T20:12:52Z",
-    "total_duration_seconds": 8.713717316,
+    "started_at": "2026-10-27T20:08:51Z",
+    "finished_at": "2026-10-27T20:08:52Z",
+    "total_duration_seconds": 1.766963687,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
       "platform": "linux",
-      "version": "0.8.5"
+      "version": "0.9.0"
     }
   },
   "checks": [
@@ -50,16 +49,16 @@
       "name": "architecture",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.050732664,
+      "duration_seconds": 0.042502718,
       "optional": false,
       "passed": true,
-      "log_digest": "aba2c4dccdd762da034381ae279f1af1c3f3cfea6c549639944c1ffe8e0f46db"
+      "log_digest": "3271e556fcde56d5a664cf413cb7b8f25cd468724d584afe54dc919989185077"
     },
     {
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.028988098,
+      "duration_seconds": 0.037396324,
       "optional": false,
       "passed": true,
       "log_digest": "7fc315ba9b70f089fe236085988a0af3a273b43b449acc33a958747a9ab2c5e4"
@@ -68,38 +67,47 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 2.192336799,
+      "duration_seconds": 0.228669336,
       "optional": true,
       "passed": true,
-      "log_digest": "dc87740bfe0a4433657a79750f97a93f9ae590707fddba39aafc0b3ed64a3d8c"
+      "log_digest": "d7dae192715495fa89ccbe279af3efb9792c1dae1768228e369035e68a1df673"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.901052008,
+      "duration_seconds": 0.185514962,
       "optional": true,
       "passed": true,
-      "log_digest": "6f62a8d9b9c765668a9f9c4781a60f4cbedca0f497582dead02afe0809240874"
+      "log_digest": "2b34696728dc82b03cbf6311d7e3a6a41658bbde097834c3010a78bc82842c1a"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 4.840995798,
+      "duration_seconds": 0.772259683,
       "optional": false,
       "passed": true,
-      "log_digest": "521496c5bbc703e8dcc5b4312bf2fe08ca23bfe9b2ef5fb44d931fd80cbba2ba"
+      "log_digest": "9f7877105bb400bb8cae0fb4256b94186282638a0e4ce0134b1ad1b0ff11e29b"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.651525834,
+      "duration_seconds": 0.463415645,
       "optional": false,
       "passed": true,
-      "log_digest": "f59585c307503165fd81fb20f001d69b52b05968f5aa59f4229fb474e5df5ad4"
+      "log_digest": "cd1a4611825ff109910f145f0c1d20564fa80363a42891180952ae6567c2800a"
     }
   ],
-  "diagnostics": []
+  "diagnostics": [],
+  "test_provenance": [
+    {
+      "test_identifier": "test_task_093_collab_and_relay_purged",
+      "failure_output": "Verified in RED checkpoint commit 3a4c353",
+      "failure_digest": "eadf0054d9f8ccb1f4a96e870ac676da8ed5bc2f10589dfc0f11ce4c87adf730",
+      "verified_at": "2026-10-27T20:54:51+01:00",
+      "status": "red_checkpoint_verified"
+    }
+  ]
 }

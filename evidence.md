@@ -1,22 +1,21 @@
 # Verification Report
 
-**Task ID**: `087-concept-studio-and-model-decomposition`  
-**Task Title**: Task 087: Concept Studio and Model Decomposition  
+**Task ID**: `093-remove-realtime-collab-and-server-relay`  
+**Task Title**: Task 093: Remove Realtime Collaboration and Server Relay  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `b9d0fd2fd6d7ab93f62d785425e32851f082c33efcbca804b2373a629aa9ad5e`  
-**Timestamp**: `2026-10-18T20:12:52Z`  
-**Head**: `e6a6ac2`  
-**Commit**: `e6a6ac2`  
+**Source Manifest Digest**: `03bc139922247dfd69cf4f7d60daab493b822b4d1d397584bf253b20f01e4890`  
+**Timestamp**: `2026-10-27T20:08:52Z`  
+**Head**: `ac1de9d`  
+**Commit**: `ac1de9d`  
 
 ## Acceptance Criteria
 
-- [x] **AC1 (Begrebsliste Editor Dekomponering)**: Dekomponer `src/ui/concept_editor.rs` i modulære UI-komponenter under `src/features/concepts/ui/` (`modal.rs`, `form.rs` osv. $\le 500$ linjer) med tynd facade $\le 400$ linjer.
-- [x] **AC2 (Excel Import & Eksport Dekomponering)**: Dekomponer `src/features/concepts/excel.rs` i `importer.rs`, `exporter.rs`, `template.rs` under `src/features/concepts/excel/` ($\le 500$ linjer hver) med ren facade i `mod.rs`.
-- [x] **AC3 (Begrebsmodel Studio Dekomponering)**: Dekomponer `src/ui/concept_model_view.rs` i palet, inspektør og view under `src/features/concept_model/ui/` ($\le 500$ linjer hver) med tynd facade $\le 400$ linjer.
-- [x] **AC4 (Edge Router Dekomponering)**: Dekomponer `src/ui/edge_router.rs` i modulære routing-enheder (`routing.rs`, `bus.rs`, `geometry.rs` $\le 500$ linjer hver) med facade $\le 400$ linjer.
-- [x] **AC5 (Fjernelse af 4 Undtagelser i gauntlet.toml)**: Fjern undtagelserne for `concept_editor.rs`, `excel.rs`, `concept_model_view.rs` og `edge_router.rs` fra `gauntlet.toml` og opdater `tests/architecture_test.rs`.
-- [x] **AC6 (Regression & Verifikation)**: Samtlige enheds- og accepttests i workspace passerer uden fejl, og `xgauntlet check-architecture` rapporterer 0 overtrædelser.
+- [x] **AC1 - Crate & Ops Sanering**: `crates/kant-relay/`, `koyeb.yaml`, `docker-compose.yml` og `.github/workflows/relay-docker.yml` er slettet, og `crates/kant-relay` er fjernet fra `Cargo.toml` (`[workspace.members]` og `[dev-dependencies]`).
+- [x] **AC2 - Cargo Dependency Rengøring**: `chacha20poly1305`, `tokio-tungstenite`, `base64`, `rand`, `bytes`, `futures-util` og `axum` er fjernet fra `Cargo.toml`.
+- [x] **AC3 - Feature Modul Sanering**: `src/features/collab/` er slettet, og `pub mod collab;` er fjernet fra `src/features/mod.rs`.
+- [x] **AC4 - UI & App State Forenkling**: `MenuType::Collab`, `menu_button("Samarbejde", ...)`, collab header badge, `CollabState`, `RelayServerPreset`, collab-felter i `App` og `Message::Collab*` beskeder er fjernet fra `src/ui/app.rs`.
+- [x] **AC5 - Verifikation & Testsuite Integritet**: `tests/features/collab_acceptance_test.rs` er slettet, [tests/acceptance.rs](tests/acceptance.rs) er renset for forældede collab-tests, og en ny accepttest `test_task093_collab_and_relay_purged` beviser at applikationen bygger og fungerer uden collab.
 
 ---
 
@@ -24,11 +23,19 @@
 
 | Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `architecture` | `PASSED` | `0` | `0.051s` |
-| `spec` | `PASSED` | `0` | `0.029s` |
-| `lint` | `PASSED` | `0` | `2.192s` |
-| `types` | `PASSED` | `0` | `0.901s` |
-| `unit` | `PASSED` | `0` | `4.841s` |
-| `invariants` | `PASSED` | `0` | `0.652s` |
+| `architecture` | `PASSED` | `0` | `0.043s` |
+| `spec` | `PASSED` | `0` | `0.037s` |
+| `lint` | `PASSED` | `0` | `0.229s` |
+| `types` | `PASSED` | `0` | `0.186s` |
+| `unit` | `PASSED` | `0` | `0.772s` |
+| `invariants` | `PASSED` | `0` | `0.463s` |
+
+---
+
+### 🧪 Test Provenance & Born-Green Verification
+
+| Test Identifier | Status | Baseline Failure Digest | Verified At |
+|---|---|---|---|
+| `test_task_093_collab_and_relay_purged` | `RedCheckpointVerified` | `eadf0054d9f8ccb1...` | `2026-10-27T20:54:51+01:00` |
 
 ---
