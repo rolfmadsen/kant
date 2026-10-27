@@ -7,8 +7,13 @@ tags: [architecture, adr, git, persistence, decomposed-storage, semantic-merge, 
 
 # 11. Dekomponeret Model-Persistens (.kant) og Semantisk Git Model-Integration
 
-**Status**: `accepted`  
-**Date**: `2026-09-27`  
+**Status**: `accepted` (Delvist ændret: Del 1 `.kant/` persistens er aktiv; Del 2 & 3 Git-integration og 3-vejs merge er udfaset og fjernet jf. Task 094)  
+**Date**: `2026-09-27` (Opdateret `2026-10-27`)  
+
+> [!NOTE]
+> **Opdatering (Task 094 - 2026-10-27):**
+> Den indbyggede Git-integration (Del 3 `GitBackend`/git service/modaler) og Del 2 (semantisk 3-vejs merge motor `merge_models`) er fuldstændig fjernet fra Kant for at reducere kompleksitet og fastholde en ren desktop-modelleringsarkitektur.
+> Del 1 (**Dekomponeret Katalogsæt `.kant/`**) forbliver 100% aktiv og understøttes fuldt ud til ekstern versionsstyring.
 
 ## Context
 Kant gemmer modeller i et monolitisk JSON-format (`model.kant.json`).

@@ -27,7 +27,6 @@ tags: [specification, architecture, invariants]
 - `src/features/concepts/`: Begreber, termer, synonymer og strukturerede definitioner (Bilag D & E).
 - `src/features/concept_model/`: Begrebsmodel-graf med noder, generaliseringer og associationer.
 - `src/features/information_model/`: Informationsmodel med klasser, attributter, standard datatyper og multipliciteter.
-- `src/features/git/`: Git-baseret modelsamarbejde, versionskontrol og synkronisering.
 - `src/ui/`: Iced shell, faner, tema og præsentationslogik.
 - `tasks/`: Eksekverbare opgavepakker med acceptkriterier.
 - `docs/adr/`: Arkitektoniske beslutningsreferater:
@@ -41,7 +40,7 @@ tags: [specification, architecture, invariants]
   - [ADR 008: E2EE Realtids-kollaborering & Relay (Deprecated)](docs/adr/008-e2ee-realtime-collaboration-and-stateless-relay.md)
   - [ADR 009: Rebranding fra Edge til Kant](docs/adr/009-rebranding-from-edge-to-kant.md)
   - [ADR 010: Cross-Platform Native Fildialoger](docs/adr/010-cross-platform-native-dialogs-and-os-packaging.md)
-  - [ADR 011: Dekomponeret Model-Persistens & Git](docs/adr/011-decomposed-model-persistence-and-git-integration.md)
+  - [ADR 011: Dekomponeret Model-Persistens (.kant)](docs/adr/011-decomposed-model-persistence-and-git-integration.md)
   - [ADR 012: Maskinlæsbar Modeludveksling XMI & RDF](docs/adr/012-machine-readable-model-interchange.md)
   - [ADR 013: Rendering Diagnostics & WGPU på Windows](docs/adr/013-windows-rendering-diagnostics-and-wgpu-restoration.md)
   - [ADR 014: Windows MSIX Packaging & Store Distribution](docs/adr/014-windows-msix-packaging-and-microsoft-store-distribution.md)

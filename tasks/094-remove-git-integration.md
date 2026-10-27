@@ -2,7 +2,7 @@
 type: Task Package
 title: "Task 094: Remove Git Integration"
 description: "Fuldstændig sanering og fjernelse af indbygget Git-integration (src/features/git), 3-vejs merge motor (src/features/model/merge.rs) samt tilhørende Git UI-elementer, modaler og tests i Kant"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-27T21:17:00Z" }
 tags: [refactor, cleanup, zero-daemon, architecture, git-purge]
 scope:
@@ -17,7 +17,7 @@ test_refs:
 
 # Task 094: Remove Git Integration
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🔄 REFACTOR`
 **Oprettet**: `2026-10-27`
 
@@ -25,11 +25,11 @@ test_refs:
 Fuldstændig fjernelse af den indbyggede Git-integration (`src/features/git`) og den dertilhørende semantiske 3-vejs merge motor (`src/features/model/merge.rs`). Kant rendyrkes som en fokuseret FDA-modelleringsapplikation med lokal diskpersistens (herunder `.kant/` dekomponeret katalog-lagring), mens versionsstyring overlades til brugerens eksterne værktøjer.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Modul Sanering**: `src/features/git/` er fuldstændig slettet, og `pub mod git;` er fjernet fra `src/features/mod.rs`.
-- [ ] **AC2 - Merge Motor Sanering**: `src/features/model/merge.rs` er slettet, og `pub mod merge;` er fjernet fra `src/features/model/mod.rs`.
-- [ ] **AC3 - UI & App State Forenkling**: Git status badge i headeren, Git-modaler (Publish, History, Clone, Connection, Conflict Resolver) og samtlige Git-relaterede beskeder og tilstandsfelter i `src/ui/app.rs` er fjernet uden efterladte referencer.
-- [ ] **AC4 - Testsuite & Cargo Sanering**: `tests/features/git_acceptance_test.rs` er slettet, `Cargo.toml` er renset for `git_acceptance`, `tests/acceptance.rs` er renset for Git-tests, og `tests/architecture_test.rs` er opdateret.
-- [ ] **AC5 - Dokumentation & Verifikation**: `docs/adr/011-decomposed-model-persistence-and-git-integration.md` og `spec.md` er opdateret, og en ny accepttest `tests/features/git_purge_acceptance_test.rs` beviser at applikationen bygger og fungerer fejlfrit uden Git.
+- [x] **AC1 - Modul Sanering**: `src/features/git/` er fuldstændig slettet, og `pub mod git;` er fjernet fra `src/features/mod.rs`.
+- [x] **AC2 - Merge Motor Sanering**: `src/features/model/merge.rs` er slettet, og `pub mod merge;` er fjernet fra `src/features/model/mod.rs`.
+- [x] **AC3 - UI & App State Forenkling**: Git status badge i headeren, Git-modaler (Publish, History, Clone, Connection, Conflict Resolver) og samtlige Git-relaterede beskeder og tilstandsfelter i `src/ui/app.rs` er fjernet uden efterladte referencer.
+- [x] **AC4 - Testsuite & Cargo Sanering**: `tests/features/git_acceptance_test.rs` er slettet, `Cargo.toml` er renset for `git_acceptance`, `tests/acceptance.rs` er renset for Git-tests, og `tests/architecture_test.rs` er opdateret.
+- [x] **AC5 - Dokumentation & Verifikation**: `docs/adr/011-decomposed-model-persistence-and-git-integration.md` og `spec.md` er opdateret, og en ny accepttest `tests/features/git_purge_acceptance_test.rs` beviser at applikationen bygger og fungerer fejlfrit uden Git.
 
 ## 🚫 Must NOT
 - Må IKKE berøre eller fjerne den dekomponerede katalog-lagring (`.kant/` layout) i `src/features/persistence/`.
@@ -39,6 +39,7 @@ Fuldstændig fjernelse af den indbyggede Git-integration (`src/features/git`) og
 
 ## 📝 Revisions
 - 2026-10-27: Oprettet opgavepakke til fuldstændig sanering af Git-integration.
+- 2026-10-27: Fuldstændig sanering gennemført, testsuite og gauntlet verificeret, task markeret DONE.
 
 ## 🧪 Verifikation
 - `cargo check --workspace`
