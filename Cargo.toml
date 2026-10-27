@@ -1,8 +1,5 @@
 [workspace]
-members = [
-    ".",
-    "crates/kant-relay",
-]
+members = ["."]
 resolver = "2"
 
 [workspace.package]
@@ -44,13 +41,7 @@ uuid = { version = "1.10", features = ["v4", "serde"] }
 url = { version = "2.5", features = ["serde"] }
 thiserror = "1.0"
 libc = "0.2"
-chacha20poly1305 = "0.10"
-tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
 tokio = { version = "1.43", features = ["rt", "rt-multi-thread", "sync", "time", "macros"] }
-base64 = "0.22"
-rand = "0.9"
-futures-util = "0.3"
-bytes = "1.10"
 rfd = "0.15"
 calamine = "0.26"
 rust_xlsxwriter = "0.80"
@@ -60,8 +51,6 @@ winres = "0.1"
 
 [dev-dependencies]
 proptest = "1.5"
-kant-relay = { path = "crates/kant-relay" }
-axum = "0.8"
 resvg = "0.45"
 usvg = "0.45"
 tiny-skia = "0.11"
@@ -70,10 +59,6 @@ png = "0.17"
 [[test]]
 name = "export_acceptance"
 path = "tests/features/export_acceptance_test.rs"
-
-[[test]]
-name = "collab_acceptance"
-path = "tests/features/collab_acceptance_test.rs"
 
 [[test]]
 name = "canvas_acceptance"

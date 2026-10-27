@@ -3516,154 +3516,6 @@ fn test_task024_desktop_menu_bar_and_sidebar_toggle() {
     let _ = app.view();
 }
 
-#[tokio::test]
-async fn test_task_026_e2ee_crypto_and_network_channel() {
-    use kant::features::collab::crypto::{
-        decrypt, encrypt, CollabKey, CryptoError, RoomId, SessionTicket,
-    };
-    use kant::features::collab::network::{
-        build_relay_ws_url, CollabChannel, CollabNetworkEvent, ConnectionStatus,
-    };
-    use kant_relay::{create_app, AppState, RelayConfig};
-    use std::time::Duration;
-    use tokio::net::TcpListener;
-
-    // 1. Krypto Invarianter: CollabKey generering og base64 serialisering
-    let host_key = CollabKey::generate();
-    let guest_wrong_key = CollabKey::generate();
-    assert_ne!(host_key, guest_wrong_key);
-
-    let b64_key = host_key.to_base64();
-    let recovered_key = CollabKey::from_base64(&b64_key).expect("Skal kunne parses fra base64");
-    assert_eq!(host_key, recovered_key);
-
-    // 2. RoomId og URL Sikkerhed: Nøglen må ALDRIG lekke i URL
-    let room_id = RoomId::generate();
-    assert!(room_id.as_str().contains('-'));
-
-    let ws_url =
-        build_relay_ws_url("http://127.0.0.1:3000", &room_id).expect("Gyldig URL skal konstrueres");
-    assert_eq!(
-        ws_url.as_str(),
-        format!("ws://127.0.0.1:3000/ws?room={}", room_id.as_str())
-    );
-    assert!(!ws_url.as_str().contains(b64_key.as_str()));
-    assert!(!ws_url.as_str().contains("key"));
-
-    // 3. Sessionsbillet (Token) serialisering og parsing
-    let ticket = SessionTicket::new(
-        "https://relay.kant.internal",
-        room_id.clone(),
-        host_key.clone(),
-    );
-    let ticket_str = ticket.to_ticket_string();
-    assert!(ticket_str.starts_with("kant:v1:"));
-
-    let parsed_ticket =
-        SessionTicket::from_ticket_string(&ticket_str).expect("Billet skal parses uden fejl");
-    assert_eq!(ticket, parsed_ticket);
-
-    // Verificer bagudkompatibilitet for ældre edge:v1: billetter
-    let legacy_ticket_str = ticket_str.replacen("kant:v1:", "edge:v1:", 1);
-    let parsed_legacy = SessionTicket::from_ticket_string(&legacy_ticket_str)
-        .expect("Ældre edge:v1: billet skal parses fejlfrit");
-    assert_eq!(ticket, parsed_legacy);
-
-    // 4. ChaCha20-Poly1305 kryptering og dekryptering af model-data
-    let model_data = br#"{"name":"FDA Grunddata Model","version":"1.0.0"}"#;
-    let encrypted_payload = encrypt(&host_key, model_data).expect("Kryptering skal lykkes");
-    assert_ne!(encrypted_payload, model_data);
-
-    // Tabsløs dekryptering med korrekt nøgle
-    let decrypted = decrypt(&host_key, &encrypted_payload).expect("Dekryptering skal lykkes");
-    assert_eq!(decrypted, model_data);
-
-    // Dekryptering med forkert nøgle afvises af AEAD auth tag
-    let wrong_decrypt = decrypt(&guest_wrong_key, &encrypted_payload);
-    assert_eq!(wrong_decrypt, Err(CryptoError::AuthenticationFailed));
-
-    // Manipuleret ciphertext afvises
-    let mut tampered = encrypted_payload.clone();
-    let len = tampered.len();
-    tampered[len - 1] ^= 0x42;
-    assert_eq!(
-        decrypt(&host_key, &tampered),
-        Err(CryptoError::AuthenticationFailed)
-    );
-
-    // 5. End-to-End WebSocket netværkskanal integrationstest mod in-memory relay
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("TcpListener binding fejlede");
-    let addr = listener.local_addr().expect("Local addr fejlede");
-    let relay_state = AppState::new(RelayConfig::default());
-    let relay_app = create_app(relay_state);
-
-    tokio::spawn(async move {
-        axum::serve(listener, relay_app).await.ok();
-    });
-
-    let relay_url = format!("ws://{}", addr);
-
-    // Etabler tovejs kanal for Host og Guest
-    let (host_channel, mut host_rx) = CollabChannel::connect(&relay_url, &room_id);
-    let (guest_channel, mut guest_rx) = CollabChannel::connect(&relay_url, &room_id);
-
-    // Vent på at begge er forbundet
-    let mut host_ok = false;
-    for _ in 0..10 {
-        if let Ok(Some(CollabNetworkEvent::StatusChanged(ConnectionStatus::Connected))) =
-            tokio::time::timeout(Duration::from_millis(500), host_rx.recv()).await
-        {
-            host_ok = true;
-            break;
-        }
-    }
-    assert!(host_ok, "Host kanal forbandt ikke");
-
-    let mut guest_ok = false;
-    for _ in 0..10 {
-        if let Ok(Some(CollabNetworkEvent::StatusChanged(ConnectionStatus::Connected))) =
-            tokio::time::timeout(Duration::from_millis(500), guest_rx.recv()).await
-        {
-            guest_ok = true;
-            break;
-        }
-    }
-    assert!(guest_ok, "Guest kanal forbandt ikke");
-
-    // Host sender krypteret payload over WebSocket
-    host_channel
-        .send_mutation(encrypted_payload.clone())
-        .expect("Host afsendelse fejlede");
-
-    // Guest modtager den krypterede payload og dekrypterer den
-    let mut received_bytes = None;
-    for _ in 0..5 {
-        if let Ok(Some(CollabNetworkEvent::MessageReceived(bytes))) =
-            tokio::time::timeout(Duration::from_millis(500), guest_rx.recv()).await
-        {
-            received_bytes = Some(bytes);
-            break;
-        }
-    }
-    let received_bytes = received_bytes.expect("Guest modtog ikke MessageReceived");
-    assert_eq!(received_bytes, encrypted_payload);
-    let recovered =
-        decrypt(&host_key, &received_bytes).expect("Guest kunne ikke dekryptere besked");
-    assert_eq!(recovered, model_data);
-
-    // Host modtager IKKE sin egen besked (loopback beskyttelse)
-    let host_echo = tokio::time::timeout(Duration::from_millis(150), host_rx.recv()).await;
-    if let Ok(Some(CollabNetworkEvent::MessageReceived(bytes))) = host_echo {
-        panic!("Host modtog sit eget ekko: {:?}", bytes);
-    }
-
-    // Pæn afbrydelse
-    host_channel.disconnect();
-    guest_channel.disconnect();
-}
-
 #[test]
 fn test_task_030_canvas_ergonomics_and_edge_geometry() {
     let mut app = App::new_with_path(None);
@@ -3945,33 +3797,6 @@ fn test_task033_rebranding_application_to_kant_defaults_and_compatibility() {
     );
 
     let _ = std::fs::remove_dir_all(&temp_dir);
-
-    // 3. Kollaborering: sessionsbillet har præfiks kant:v1: og accepterer edge:v1:
-    use kant::features::collab::crypto::{CollabKey, RoomId, SessionTicket};
-    let ticket = SessionTicket::new(
-        "wss://kant.koyeb.app/ws",
-        RoomId::new("RUM-1"),
-        CollabKey::generate(),
-    );
-    let token = ticket.to_token();
-    assert!(
-        token.starts_with("kant:v1:"),
-        "Billet skal starte med kant:v1:"
-    );
-    let parsed = SessionTicket::from_token(&token).expect("Billet skal deserialiseres");
-    assert_eq!(ticket, parsed);
-
-    let legacy_token = token.replacen("kant:v1:", "edge:v1:", 1);
-    let legacy_parsed =
-        SessionTicket::from_token(&legacy_token).expect("Legacy edge:v1: skal deserialiseres");
-    assert_eq!(ticket, legacy_parsed);
-
-    // 4. RelayPreset standard URL skal pege på kant-relay
-    use kant::ui::app::RelayServerPreset;
-    assert_eq!(
-        RelayServerPreset::Koyeb.default_url(),
-        "wss://kant.koyeb.app/ws"
-    );
 }
 
 #[test]
@@ -5809,13 +5634,6 @@ fn test_task_063_controlled_vocabulary_enumeration_ui_and_canvas() {
         "AC5: Dependency-kant skal persisteres og genindlæses"
     );
 
-    // AC5: Collab mutationer serialisering
-    use kant::features::collab::protocol::ModelMutation;
-    let mut_added = ModelMutation::InformationEnumerationAdded(updated_enum.clone());
-    let json_mut = serde_json::to_string(&mut_added).expect("collab serialisering");
-    let des_mut: ModelMutation = serde_json::from_str(&json_mut).expect("collab deserialisering");
-    assert_eq!(mut_added, des_mut);
-
     // 7. Slet enumeration permanent
     let _ = app.update(Message::DeleteInformationEnumeration(enum_id));
     assert_eq!(
@@ -6979,30 +6797,6 @@ fn test_task_069_escape_hierarchy_all_nine_modals_closing() {
         "Metadata modal skal lukkes på Esc"
     );
 
-    // 8. Start Session Modal
-    let _ = app.update(Message::OpenStartSessionModal);
-    assert!(
-        app.start_session_modal().is_some(),
-        "Start session modal skal være åben"
-    );
-    let _ = app.update(Message::EscapePressed);
-    assert!(
-        app.start_session_modal().is_none(),
-        "Start session modal skal lukkes på Esc"
-    );
-
-    // 9. Join Session Modal
-    let _ = app.update(Message::OpenJoinSessionModal);
-    assert!(
-        app.join_session_modal().is_some(),
-        "Join session modal skal være åben"
-    );
-    let _ = app.update(Message::EscapePressed);
-    assert!(
-        app.join_session_modal().is_none(),
-        "Join session modal skal lukkes på Esc"
-    );
-
     // Bonus: Excel Schema Guide Modal
     let _ = app.update(Message::OpenExcelSchemaGuideModal);
     assert!(
@@ -7110,53 +6904,6 @@ fn test_task_069_tab_direct_shortcuts_ctrl_1_2_3() {
 }
 
 #[test]
-fn test_task_070_start_session_modal_tab_cycle_and_enter_confirm() {
-    use kant::ui::app::{App, Message};
-
-    let mut app = App::new();
-    let _ = app.update(Message::OpenStartSessionModal);
-    assert!(
-        app.start_session_modal().is_some(),
-        "Start live session modal skal være åben"
-    );
-
-    // 1. Enter i StartSessionModal uden inputfelter skal som standard bekræfte/starte sessionen
-    // Eller Tab skifter mellem knapperne (Kopiér -> Annuller -> Start)
-    assert!(
-        app.modal_focused_button_index().is_some(),
-        "En modal uden tekstfelter skal have en fokuseret handlingsknap fra start"
-    );
-
-    // Tab cykler til næste knap
-    let init_idx = app.modal_focused_button_index().unwrap();
-    let _ = app.update(Message::FocusNext);
-    let next_idx = app.modal_focused_button_index().unwrap();
-    assert_ne!(
-        init_idx, next_idx,
-        "Tab skal skifte fokuseret knap i modalen"
-    );
-
-    // Tab baglæns med FocusPrevious
-    let _ = app.update(Message::FocusPrevious);
-    assert_eq!(
-        app.modal_focused_button_index(),
-        Some(init_idx),
-        "Shift+Tab skal gå baglæns"
-    );
-
-    // Enter på Annuller-knap lukker modalen
-    // Cykl indtil Annuller-knappen (Cancel) er valgt
-    while app.modal_focused_button_index() != Some(1) {
-        let _ = app.update(Message::FocusNext);
-    }
-    let _ = app.update(Message::EnterPressed);
-    assert!(
-        app.start_session_modal().is_none(),
-        "Enter på fokuseret Annuller-knap skal lukke modalen"
-    );
-}
-
-#[test]
 fn test_task_070_concept_editor_tab_cycle_to_buttons() {
     use kant::features::concepts::{BelongsToDomain, Concept};
     use kant::ui::app::{App, Message};
@@ -7258,34 +7005,6 @@ fn test_task_070_concept_editor_tab_cycle_to_buttons() {
     assert!(
         app.concept_editor().is_none(),
         "Enter på fokuseret Annuller skal lukke editoren"
-    );
-}
-
-#[test]
-fn test_task_070_join_session_modal_tab_cycle_and_enter() {
-    use kant::ui::app::{App, Message};
-
-    let mut app = App::new();
-    let _ = app.update(Message::OpenJoinSessionModal);
-    assert!(
-        app.join_session_modal().is_some(),
-        "Join session modal skal være åben"
-    );
-
-    let _ = app.update(Message::FocusNext);
-    assert!(
-        app.modal_focused_button_index().is_some(),
-        "Tab skal fokusere en modal knap"
-    );
-
-    // Annuller (indeks 0) lukker modalen
-    while app.modal_focused_button_index() != Some(0) {
-        let _ = app.update(Message::FocusNext);
-    }
-    let _ = app.update(Message::EnterPressed);
-    assert!(
-        app.join_session_modal().is_none(),
-        "Enter på Annuller skal lukke JoinSessionModal"
     );
 }
 
@@ -7712,65 +7431,6 @@ fn test_task_071_history_modal_focuses_close_button_and_enter_closes() {
 }
 
 #[test]
-fn test_task_071_start_session_custom_url_in_tab_cycle() {
-    use kant::ui::app::{App, Message, RelayServerPreset};
-
-    let mut app = App::new();
-    let _ = app.update(Message::OpenStartSessionModal);
-    assert!(app.start_session_modal().is_some());
-
-    // Skift til Custom preset, så custom URL inputfeltet bliver aktivt
-    let _ = app.update(Message::CollabPresetSelected(RelayServerPreset::Custom));
-
-    // Fokus starter på tekstfeltet (custom url) -> modal_focused_button_index == None
-    // Tab 1 -> Remember checkbox
-    let _ = app.update(Message::FocusNext);
-    assert_eq!(
-        app.modal_focused_button_index(),
-        Some(kant::ui::app::START_SESSION_BTN_REMEMBER)
-    );
-
-    // Tab 2 -> Kopiér (knap 0)
-    let _ = app.update(Message::FocusNext);
-    assert_eq!(
-        app.modal_focused_button_index(),
-        Some(kant::ui::app::START_SESSION_BTN_COPY)
-    );
-
-    // Tab 3 -> Annuller (knap 1)
-    let _ = app.update(Message::FocusNext);
-    assert_eq!(
-        app.modal_focused_button_index(),
-        Some(kant::ui::app::START_SESSION_BTN_CANCEL)
-    );
-
-    // Tab 4 -> Start Session (knap 2)
-    let _ = app.update(Message::FocusNext);
-    assert_eq!(
-        app.modal_focused_button_index(),
-        Some(kant::ui::app::START_SESSION_BTN_START)
-    );
-
-    // Tab 5 -> Preset dropdown knap
-    let _ = app.update(Message::FocusNext);
-    assert_eq!(
-        app.modal_focused_button_index(),
-        Some(kant::ui::app::START_SESSION_BTN_PRESET)
-    );
-
-    // Tab 6 -> Looper tilbage til custom url tekstfeltet (None)
-    let _ = app.update(Message::FocusNext);
-    assert_eq!(app.modal_focused_button_index(), None);
-
-    // Shift+Tab looper tilbage til Preset dropdown
-    let _ = app.update(Message::FocusPrevious);
-    assert_eq!(
-        app.modal_focused_button_index(),
-        Some(kant::ui::app::START_SESSION_BTN_PRESET)
-    );
-}
-
-#[test]
 fn test_task_071_inline_graph_editing_inspector_tab_cycle_and_cancel() {
     use kant::features::concepts::{BelongsToDomain, Concept};
     use kant::ui::app::{App, Message, Tab};
@@ -8020,63 +7680,6 @@ fn test_task_072_concept_table_rows_tab_cycle_and_activation() {
         "Enter på Rediger skal åbne ConceptEditor"
     );
     assert_eq!(app.concept_editor().unwrap().preferred_term, "Aftale");
-}
-
-#[test]
-fn test_task_072_start_session_modal_preset_cycle_and_remember() {
-    use kant::ui::app::{
-        App, Message, RelayServerPreset, START_SESSION_BTN_PRESET, START_SESSION_BTN_REMEMBER,
-    };
-
-    let mut app = App::new();
-    let _ = app.update(Message::OpenStartSessionModal);
-    assert!(app.start_session_modal().is_some());
-
-    let initial_remember = app.start_session_modal().unwrap().remember_choice;
-    let initial_preset = app.start_session_modal().unwrap().preset;
-    assert_eq!(initial_preset, RelayServerPreset::Koyeb);
-
-    // Shift+Tab fra startfokus (Start Session knap) baglæns gennem Annuller, Kopiér, til Remember checkbox
-    // Cyklussen indeholder: Preset dropdown, [Custom URL hvis aktiv], Remember checkbox, Kopiér, Annuller, Start Session
-    let _ = app.update(Message::FocusPrevious); // Annuller
-    let _ = app.update(Message::FocusPrevious); // Kopiér
-    let _ = app.update(Message::FocusPrevious); // Remember checkbox
-    assert_eq!(
-        app.modal_focused_button_index(),
-        Some(START_SESSION_BTN_REMEMBER),
-        "Remember checkbox skal være fokuserbar"
-    );
-
-    // Enter på Remember checkbox skal toggle værdien
-    let _ = app.update(Message::EnterPressed);
-    assert_ne!(
-        app.start_session_modal().unwrap().remember_choice,
-        initial_remember,
-        "Enter på checkbox skal toggle remember_choice"
-    );
-
-    // Shift+Tab til START_SESSION_BTN_PRESET
-    let _ = app.update(Message::FocusPrevious);
-    assert_eq!(
-        app.modal_focused_button_index(),
-        Some(START_SESSION_BTN_PRESET),
-        "Preset dropdown skal være fokuserbar"
-    );
-
-    // Enter på Preset dropdown cykler preset til næste preset
-    let _ = app.update(Message::EnterPressed);
-    assert_eq!(
-        app.start_session_modal().unwrap().preset,
-        RelayServerPreset::InternalOrg,
-        "Enter på preset dropdown skal cykle til næste preset"
-    );
-
-    // Esc lukker modalen jf. reglen om at modalvinduer lukkes med Esc i stedet for Tab til kryds
-    let _ = app.update(Message::EscapePressed);
-    assert!(
-        app.start_session_modal().is_none(),
-        "Escape skal lukke start session modalen"
-    );
 }
 
 #[test]

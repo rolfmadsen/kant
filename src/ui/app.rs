@@ -38,12 +38,6 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
-pub use crate::features::collab::ui::{
-    view_guest_ended_modal, view_join_session_modal, view_start_session_modal,
-    GuestEndedNoticeModalState, JoinSessionModalState, RelayServerPreset, StartSessionModalState,
-    START_SESSION_BTN_CANCEL, START_SESSION_BTN_COPY, START_SESSION_BTN_PRESET,
-    START_SESSION_BTN_REMEMBER, START_SESSION_BTN_START,
-};
 pub use crate::features::diagnostics::ui::{view_diagnostics_modal, DiagnosticsModalState};
 pub use crate::features::export::ui::{
     view_excel_import_preview_modal, view_excel_schema_guide_modal, ExcelImportPreviewState,
@@ -130,8 +124,6 @@ pub use crate::features::concept_model::ui::QuickCreateState;
 pub use crate::ui::concept_editor::ConceptFormField;
 
 // (MetadataField & ModelMetadataModalState moved to crate::features::model::ui)
-
-// (Collab modal states moved to crate::features::collab::ui)
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Tab {
@@ -251,7 +243,6 @@ fn is_running_under_test() -> bool {
         if exe_str.contains("deps/acceptance")
             || exe_str.contains("deps/kant-")
             || exe_str.contains("deps/proptests")
-            || exe_str.contains("deps/relay_integration_tests")
         {
             return true;
         }
@@ -334,53 +325,12 @@ pub enum MenuType {
     File,
     Export,
     Help,
-    Collab,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub enum CollabState {
-    #[default]
-    None,
-    Host,
-    Guest,
-}
-
-impl CollabState {
-    pub fn is_guest(&self) -> bool {
-        matches!(self, Self::Guest)
-    }
-
-    pub fn is_host(&self) -> bool {
-        matches!(self, Self::Host)
-    }
-
-    pub fn is_active(&self) -> bool {
-        !matches!(self, Self::None)
-    }
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     SelectTab(Tab),
     NewProject,
-
-    // Live Kollaborering (Task 027 & Task 028)
-    CollabNetworkEventReceived(crate::features::collab::CollabNetworkEvent),
-    CollabApplyMutation(Box<crate::features::collab::protocol::ModelMutation>),
-    CollabApplySnapshot(Box<crate::features::model::ModelProject>),
-
-    OpenStartSessionModal,
-    CloseCollabModal,
-    CollabPresetSelected(RelayServerPreset),
-    CollabCustomUrlChanged(String),
-    CollabToggleRememberPreset(bool),
-    CollabCopyTicket,
-    CollabStartSession,
-    OpenJoinSessionModal,
-    CollabJoinTokenChanged(String),
-    CollabJoinSession,
-    CollabDisconnect,
-    CollabGuestDismissEndedModal,
 
     // Desktop Menulinje & Sidebar Toggle (Task 024)
     ToggleMenu(MenuType),
@@ -696,17 +646,6 @@ pub struct App {
     metadata_modal: Option<ModelMetadataModalState>,
     active_menu: Option<MenuType>,
     show_left_sidebar: bool,
-    collab_state: CollabState,
-    collab_channel: Option<crate::features::collab::CollabChannel>,
-    collab_key: Option<crate::features::collab::CollabKey>,
-    last_node_broadcast: Option<std::time::Instant>,
-    start_session_modal: Option<StartSessionModalState>,
-    join_session_modal: Option<JoinSessionModalState>,
-    guest_ended_notice: Option<GuestEndedNoticeModalState>,
-    collab_participant_count: usize,
-    collab_connection_status: crate::features::collab::ConnectionStatus,
-    collab_seq: std::sync::atomic::AtomicU64,
-    collab_last_seen_seq: u64,
     git_sync_status: RepoSyncStatus,
     git_status_refresh: GitStatusRefresh,
     git_status_generation: u64,
@@ -837,18 +776,6 @@ impl App {
                         metadata_modal: None,
                         active_menu: None,
                         show_left_sidebar: true,
-                        collab_state: CollabState::None,
-                        collab_channel: None,
-                        collab_key: None,
-                        last_node_broadcast: None,
-                        start_session_modal: None,
-                        join_session_modal: None,
-                        guest_ended_notice: None,
-                        collab_participant_count: 1,
-                        collab_connection_status:
-                            crate::features::collab::ConnectionStatus::Disconnected,
-                        collab_seq: std::sync::atomic::AtomicU64::new(0),
-                        collab_last_seen_seq: 0,
                         git_sync_status: git_sync_status.clone(),
                         git_status_refresh: GitStatusRefresh::Idle,
                         git_status_generation: 0,
@@ -929,17 +856,6 @@ impl App {
             metadata_modal: None,
             active_menu: None,
             show_left_sidebar: true,
-            collab_state: CollabState::None,
-            collab_channel: None,
-            collab_key: None,
-            last_node_broadcast: None,
-            start_session_modal: None,
-            join_session_modal: None,
-            guest_ended_notice: None,
-            collab_participant_count: 1,
-            collab_connection_status: crate::features::collab::ConnectionStatus::Disconnected,
-            collab_seq: std::sync::atomic::AtomicU64::new(0),
-            collab_last_seen_seq: 0,
             git_sync_status,
             git_status_refresh: GitStatusRefresh::Idle,
             git_status_generation: 0,
@@ -1257,18 +1173,8 @@ impl App {
     }
 
     pub fn footer_status_text(&self) -> String {
-        if self.collab_state.is_guest() {
-            "👥 Live Session (Guest) - Autosave deaktiveret (Brug 'Gem som...')".to_string()
-        } else if self.collab_state.is_host() {
-            format!(
-                "👑 Live Session (Host) • {}",
-                self.save_status
-                    .display_text(self.current_file_path.as_ref())
-            )
-        } else {
-            self.save_status
-                .display_text(self.current_file_path.as_ref())
-        }
+        self.save_status
+            .display_text(self.current_file_path.as_ref())
     }
 
     pub fn theme(&self) -> iced::Theme {
@@ -1440,9 +1346,6 @@ impl App {
             || self.git_connection_modal.is_some()
             || self.git_clone_modal.is_some()
             || self.metadata_modal.is_some()
-            || self.start_session_modal.is_some()
-            || self.join_session_modal.is_some()
-            || self.guest_ended_notice.is_some()
             || self.excel_schema_guide_open
             || self.excel_import_preview.is_some()
             || self.file_dialog_mode.is_some()
@@ -1474,15 +1377,6 @@ impl App {
             true
         } else if self.metadata_modal.is_some() {
             self.metadata_modal = None;
-            true
-        } else if self.start_session_modal.is_some() {
-            self.start_session_modal = None;
-            true
-        } else if self.join_session_modal.is_some() {
-            self.join_session_modal = None;
-            true
-        } else if self.guest_ended_notice.is_some() {
-            self.guest_ended_notice = None;
             true
         } else if self.excel_schema_guide_open {
             self.excel_schema_guide_open = false;
@@ -1681,20 +1575,6 @@ impl App {
         }
     }
 
-    fn build_start_session_targets(modal: &StartSessionModalState) -> Vec<FocusTarget> {
-        let mut targets = vec![FocusTarget::Button(START_SESSION_BTN_PRESET)];
-        if modal.preset == RelayServerPreset::Custom
-            || modal.preset == RelayServerPreset::InternalOrg
-        {
-            targets.push(FocusTarget::Input("start_session_custom_url"));
-        }
-        targets.push(FocusTarget::Button(START_SESSION_BTN_REMEMBER));
-        targets.push(FocusTarget::Button(START_SESSION_BTN_COPY));
-        targets.push(FocusTarget::Button(START_SESSION_BTN_CANCEL));
-        targets.push(FocusTarget::Button(START_SESSION_BTN_START));
-        targets
-    }
-
     fn build_history_modal_targets(
         commits: &[crate::features::git::GitCommitInfo],
     ) -> Vec<FocusTarget> {
@@ -1867,75 +1747,11 @@ impl App {
     }
 
     pub fn has_collab_feature() -> bool {
-        true
+        false
     }
 
     pub fn available_menu_types() -> &'static [MenuType] {
-        &[
-            MenuType::File,
-            MenuType::Export,
-            MenuType::Help,
-            MenuType::Collab,
-        ]
-    }
-
-    pub fn collab_state(&self) -> CollabState {
-        self.collab_state
-    }
-
-    pub fn set_collab_state(&mut self, state: CollabState) {
-        self.collab_state = state;
-    }
-
-    pub fn collab_channel(&self) -> Option<&crate::features::collab::CollabChannel> {
-        self.collab_channel.as_ref()
-    }
-
-    pub fn set_collab_session(
-        &mut self,
-        channel: crate::features::collab::CollabChannel,
-        key: crate::features::collab::CollabKey,
-        role: CollabState,
-    ) {
-        self.collab_channel = Some(channel);
-        self.collab_key = Some(key);
-        self.collab_state = role;
-        self.collab_last_seen_seq = 0;
-    }
-
-    pub fn disconnect_collab(&mut self) {
-        if let Some(channel) = &self.collab_channel {
-            if self.collab_state.is_host() {
-                let _ = channel.send_host_left();
-            }
-            channel.disconnect();
-        }
-        self.collab_channel = None;
-        self.collab_key = None;
-        self.collab_state = CollabState::None;
-        self.collab_connection_status = crate::features::collab::ConnectionStatus::Disconnected;
-        self.collab_last_seen_seq = 0;
-    }
-
-    pub fn start_session_modal(&self) -> Option<&StartSessionModalState> {
-        self.start_session_modal.as_ref()
-    }
-
-    pub fn join_session_modal(&self) -> Option<&JoinSessionModalState> {
-        self.join_session_modal.as_ref()
-    }
-
-    pub fn guest_ended_notice(&self) -> Option<&GuestEndedNoticeModalState> {
-        self.guest_ended_notice.as_ref()
-    }
-
-    pub fn collab_participant_count(&self) -> usize {
-        self.collab_participant_count
-    }
-
-    /// Returnerer den aktuelle sekvensnummer-tæller — primært til test-inspektion.
-    pub fn collab_seq_value(&self) -> u64 {
-        self.collab_seq.load(std::sync::atomic::Ordering::Relaxed)
+        &[MenuType::File, MenuType::Export, MenuType::Help]
     }
 
     pub fn reroute_info_graph_edges(&mut self) {
@@ -1976,565 +1792,6 @@ impl App {
         }
     }
 
-    pub fn set_collab_participant_count(&mut self, count: usize) {
-        let previous = self.collab_participant_count;
-        self.collab_participant_count = count;
-        // Lag 2-forsvar: vært re-broadcaster snapshot når en ny deltager tilslutter sig,
-        // som sikkerhedsnet hvis relay's last_snapshot-cache ikke nåede at modtage
-        // snapshot inden gæsten forbandt (timing race ved session-opstart).
-        if self.collab_state.is_host() && count > previous {
-            self.broadcast_snapshot();
-        }
-    }
-
-    pub fn collab_connection_status(&self) -> crate::features::collab::ConnectionStatus {
-        self.collab_connection_status
-    }
-
-    pub fn set_collab_connection_status(
-        &mut self,
-        status: crate::features::collab::ConnectionStatus,
-    ) {
-        self.collab_connection_status = status;
-    }
-
-    pub fn notify_host_ended_session(&mut self) {
-        if self.collab_state.is_guest() {
-            self.collab_state = CollabState::None;
-            self.collab_channel = None;
-            self.collab_key = None;
-            self.collab_connection_status = crate::features::collab::ConnectionStatus::Disconnected;
-            self.guest_ended_notice = Some(GuestEndedNoticeModalState {
-                message: "Værten har afsluttet sessionen. Vil du gemme en kopi af modellen lokalt?"
-                    .to_string(),
-            });
-        }
-    }
-
-    pub fn collab_status_summary(&self) -> String {
-        match self.collab_state {
-            CollabState::None => "Offline".to_string(),
-            CollabState::Host => {
-                let suffix = if self.collab_participant_count == 1 {
-                    "1 deltager".to_string()
-                } else {
-                    format!("{} deltagere", self.collab_participant_count)
-                };
-                match self.collab_connection_status {
-                    crate::features::collab::ConnectionStatus::Connected => {
-                        format!("Live: Vært ({suffix})")
-                    }
-                    crate::features::collab::ConnectionStatus::Reconnecting => {
-                        "Genforbinder...".to_string()
-                    }
-                    _ => format!("Live: Vært ({})", self.collab_connection_status),
-                }
-            }
-            CollabState::Guest => match self.collab_connection_status {
-                crate::features::collab::ConnectionStatus::Connected => {
-                    "Live: Gæst (Forbundet til Vært)".to_string()
-                }
-                crate::features::collab::ConnectionStatus::Reconnecting => {
-                    "Genforbinder...".to_string()
-                }
-                _ => format!("Live: Gæst ({})", self.collab_connection_status),
-            },
-        }
-    }
-
-    pub fn broadcast_mutation(&self, mutation: &crate::features::collab::protocol::ModelMutation) {
-        if !self.collab_state.is_active() {
-            return;
-        }
-        if let (Some(channel), Some(key)) = (&self.collab_channel, &self.collab_key) {
-            let seq = self
-                .collab_seq
-                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                + 1;
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
-            let envelope = crate::features::collab::protocol::CollabEnvelope::new(
-                seq,
-                now,
-                crate::features::collab::protocol::CollabPayload::Mutation(mutation.clone()),
-            );
-            if let Ok(json_bytes) = serde_json::to_vec(&envelope) {
-                if let Ok(encrypted) = crate::features::collab::crypto::encrypt(key, &json_bytes) {
-                    let _ = channel.send_mutation(encrypted);
-                }
-            }
-        }
-    }
-
-    pub fn broadcast_snapshot(&self) {
-        if !self.collab_state.is_active() {
-            return;
-        }
-        if let (Some(channel), Some(key)) = (&self.collab_channel, &self.collab_key) {
-            let seq = self
-                .collab_seq
-                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                + 1;
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
-            let envelope = crate::features::collab::protocol::CollabEnvelope::new(
-                seq,
-                now,
-                crate::features::collab::protocol::CollabPayload::Snapshot(self.project.clone()),
-            );
-            if let Ok(json_bytes) = serde_json::to_vec(&envelope) {
-                if let Ok(encrypted) = crate::features::collab::crypto::encrypt(key, &json_bytes) {
-                    let _ = channel.send_snapshot(encrypted);
-                }
-            }
-        }
-    }
-
-    pub fn broadcast_node_moved_throttled(&mut self, id: Uuid, x: f32, y: f32) {
-        if !self.collab_state.is_active() {
-            return;
-        }
-        let now = std::time::Instant::now();
-        let should_send = match self.last_node_broadcast {
-            Some(last) => now.duration_since(last) >= std::time::Duration::from_millis(66), // ~15 Hz
-            None => true,
-        };
-        if should_send {
-            self.last_node_broadcast = Some(now);
-            self.broadcast_mutation(
-                &crate::features::collab::protocol::ModelMutation::NodeMoved { id, x, y },
-            );
-        }
-    }
-
-    pub fn apply_mutation(&mut self, mutation: crate::features::collab::protocol::ModelMutation) {
-        use crate::features::collab::protocol::ModelMutation::*;
-        match mutation {
-            ConceptAdded(concept) => {
-                let c_id = concept.id();
-                if !self.project.concepts().iter().any(|c| c.id() == c_id) {
-                    self.project.concepts_mut().push(concept.clone());
-                    if !self.project.concept_graph().is_concept_on_diagram(c_id) {
-                        self.project.concept_graph_mut().add_node(&concept);
-                    }
-                }
-            }
-            ConceptUpdated(concept) => {
-                let c_id = concept.id();
-                if let Some(existing) = self
-                    .project
-                    .concepts_mut()
-                    .iter_mut()
-                    .find(|c| c.id() == c_id)
-                {
-                    *existing = concept.clone();
-                }
-                if let Some(node) = self
-                    .project
-                    .concept_graph_mut()
-                    .find_node_by_concept_mut(c_id)
-                {
-                    node.set_label(concept.preferred_term().to_string());
-                }
-            }
-            ConceptDeleted(c_id) => {
-                self.project.concepts_mut().retain(|c| c.id() != c_id);
-                if let Some(node) = self.project.concept_graph().find_node_by_concept(c_id) {
-                    let node_id = node.id();
-                    self.project.concept_graph_mut().remove_node(node_id);
-                }
-                if self
-                    .selected_graph_node_id
-                    .is_some_and(|nid| self.project.concept_graph().find_node(nid).is_none())
-                {
-                    self.selected_graph_node_id = None;
-                }
-            }
-            ConceptDiagramNodeAdded(concept_id) => {
-                if !self
-                    .project
-                    .concept_graph()
-                    .is_concept_on_diagram(concept_id)
-                {
-                    if let Some(concept) = self.project.get_concept(concept_id).cloned() {
-                        self.project.concept_graph_mut().add_node(&concept);
-                    }
-                }
-            }
-            ConceptDiagramNodeRemoved(concept_id) => {
-                if let Some(node) = self
-                    .project
-                    .concept_graph()
-                    .find_node_by_concept(concept_id)
-                {
-                    let node_id = node.id();
-                    self.project.concept_graph_mut().remove_node(node_id);
-                }
-                if self
-                    .selected_graph_node_id
-                    .is_some_and(|nid| self.project.concept_graph().find_node(nid).is_none())
-                {
-                    self.selected_graph_node_id = None;
-                }
-            }
-            InformationClassAdded(class) => {
-                let class_id = class.id();
-                if !self
-                    .project
-                    .information_model()
-                    .classes()
-                    .iter()
-                    .any(|c| c.id() == class_id)
-                {
-                    let attr_count = class.attributes().len();
-                    self.project
-                        .information_model_mut()
-                        .classes_mut()
-                        .push(class);
-                    if !self
-                        .project
-                        .information_graph()
-                        .is_class_on_diagram(class_id)
-                    {
-                        self.project
-                            .information_graph_mut()
-                            .add_node(class_id, attr_count);
-                    }
-                }
-            }
-            InformationClassUpdated(class) => {
-                let class_id = class.id();
-                let attr_count = class.attributes().len();
-                if let Some(existing) = self
-                    .project
-                    .information_model_mut()
-                    .classes_mut()
-                    .iter_mut()
-                    .find(|c| c.id() == class_id)
-                {
-                    *existing = class;
-                }
-                self.project
-                    .information_graph_mut()
-                    .update_class_dimensions(class_id, attr_count);
-                let ig = self.project.information_graph_mut();
-                let nodes: Vec<crate::features::concept_model::DiagramNode> =
-                    ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
-                let edges: Vec<crate::features::concept_model::DiagramEdge> =
-                    ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
-                let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                for r in routes {
-                    ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
-                }
-            }
-            InformationClassDeleted(class_id) => {
-                self.project.remove_information_class(class_id);
-                if self.selected_info_class_id == Some(class_id) {
-                    self.selected_info_class_id = None;
-                }
-                if let Some(nid) = self.selected_info_graph_node_id {
-                    if self.project.information_graph().find_node(nid).is_none() {
-                        self.selected_info_graph_node_id = None;
-                        self.selected_info_graph_node_ids.remove(&nid);
-                    }
-                }
-            }
-            InformationEnumerationAdded(e) => {
-                let enum_id = e.id();
-                if !self
-                    .project
-                    .information_model()
-                    .enumerations()
-                    .iter()
-                    .any(|x| x.id() == enum_id)
-                {
-                    self.project.information_model_mut().add_enumeration(e);
-                }
-            }
-            InformationEnumerationUpdated(e) => {
-                let enum_id = e.id();
-                let val_count = e.values().len();
-                if let Some(existing) = self
-                    .project
-                    .information_model_mut()
-                    .get_enumeration_mut(enum_id)
-                {
-                    *existing = e;
-                }
-                self.project
-                    .information_graph_mut()
-                    .update_class_dimensions(enum_id, val_count);
-            }
-            InformationEnumerationDeleted(enum_id) => {
-                self.project.remove_information_enumeration(enum_id);
-                if self.selected_info_enum_id == Some(enum_id) {
-                    self.selected_info_enum_id = None;
-                }
-                if let Some(nid) = self.selected_info_graph_node_id {
-                    if self.project.information_graph().find_node(nid).is_none() {
-                        self.selected_info_graph_node_id = None;
-                        self.selected_info_graph_node_ids.remove(&nid);
-                    }
-                }
-            }
-            ClassDiagramNodeAdded(class_id) => {
-                if !self
-                    .project
-                    .information_graph()
-                    .is_class_on_diagram(class_id)
-                {
-                    let count =
-                        if let Some(c) = self.project.information_model().get_class(class_id) {
-                            c.attributes().len()
-                        } else if let Some(e) =
-                            self.project.information_model().get_enumeration(class_id)
-                        {
-                            e.values().len()
-                        } else {
-                            0
-                        };
-                    self.project
-                        .information_graph_mut()
-                        .add_node(class_id, count);
-                    self.project.sync_information_graph();
-                    let ig = self.project.information_graph_mut();
-                    let nodes: Vec<crate::features::concept_model::DiagramNode> =
-                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
-                    let edges: Vec<crate::features::concept_model::DiagramEdge> =
-                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
-                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                    for r in routes {
-                        ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
-                    }
-                }
-            }
-            ClassDiagramNodeRemoved(class_id) => {
-                if let Some(node) = self
-                    .project
-                    .information_graph()
-                    .find_node_by_class(class_id)
-                {
-                    let node_id = node.id();
-                    self.project.information_graph_mut().remove_node(node_id);
-                    self.selected_info_graph_node_ids.remove(&node_id);
-                }
-                if let Some(nid) = self.selected_info_graph_node_id {
-                    if self.project.information_graph().find_node(nid).is_none() {
-                        self.selected_info_graph_node_id = None;
-                        self.selected_info_graph_node_ids.remove(&nid);
-                    }
-                }
-            }
-            RelationAdded(rel) => {
-                if self
-                    .project
-                    .concept_graph()
-                    .find_edge(rel.from, rel.to)
-                    .is_none()
-                {
-                    self.project
-                        .concept_graph_mut()
-                        .add_relation_full(rel.id, rel.from, rel.to, rel.kind, rel.label);
-                    if let Some(directed) = rel.directed {
-                        self.project
-                            .concept_graph_mut()
-                            .update_edge_directed(rel.from, rel.to, directed);
-                    }
-                    let cg = self.project.concept_graph_mut();
-                    let nodes = cg.nodes().to_vec();
-                    let edges = cg.edges().to_vec();
-                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                    for r in routes {
-                        cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
-                    }
-                }
-            }
-            RelationUpdated(rel) => {
-                if let Some(edge) = self
-                    .project
-                    .concept_graph_mut()
-                    .find_edge_mut(rel.from, rel.to)
-                {
-                    edge.set_kind(rel.kind);
-                    edge.set_label(rel.label);
-                    if let Some(directed) = rel.directed {
-                        edge.set_directed(directed);
-                    }
-                    let cg = self.project.concept_graph_mut();
-                    let nodes = cg.nodes().to_vec();
-                    let edges = cg.edges().to_vec();
-                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                    for r in routes {
-                        cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
-                    }
-                }
-            }
-            RelationDeleted { from, to } => {
-                self.project.concept_graph_mut().remove_relation(from, to);
-                if self.selected_edge == Some((from, to)) || self.selected_edge == Some((to, from))
-                {
-                    self.selected_edge = None;
-                }
-            }
-            ClassRelationAdded {
-                from_class,
-                to_class,
-                kind,
-                label,
-                source_multiplicity,
-                target_multiplicity,
-                directed,
-            } => {
-                let rel = ClassRelation::with_multiplicities(
-                    from_class,
-                    to_class,
-                    kind,
-                    label,
-                    None,
-                    None,
-                    directed,
-                    source_multiplicity,
-                    target_multiplicity,
-                );
-                self.project.information_model_mut().add_relation(rel);
-                self.project.sync_information_graph();
-                let routes = {
-                    let ig = self.project.information_graph();
-                    let nodes: Vec<crate::features::concept_model::DiagramNode> =
-                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
-                    let edges: Vec<crate::features::concept_model::DiagramEdge> =
-                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
-                    crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges)
-                };
-                for r in &routes {
-                    self.project.information_graph_mut().update_edge_ports(
-                        r.from,
-                        r.to,
-                        Some(r.from_side),
-                        Some(r.to_side),
-                    );
-                }
-                let port_updates: Vec<_> = {
-                    let ig = self.project.information_graph();
-                    routes
-                        .into_iter()
-                        .map(|r| {
-                            let fc = ig.find_node(r.from).map(|n| n.class_id()).unwrap_or(r.from);
-                            let tc = ig.find_node(r.to).map(|n| n.class_id()).unwrap_or(r.to);
-                            (fc, tc, r.from_side, r.to_side)
-                        })
-                        .collect()
-                };
-                for (fc, tc, from_side, to_side) in port_updates {
-                    self.project.information_model_mut().update_relation_ports(
-                        fc,
-                        tc,
-                        Some(from_side),
-                        Some(to_side),
-                    );
-                }
-            }
-            ClassRelationDeleted {
-                from_class,
-                to_class,
-            } => {
-                self.project
-                    .information_model_mut()
-                    .remove_relation(from_class, to_class);
-                let ig = self.project.information_graph();
-                let from_id = ig
-                    .find_node_by_class(from_class)
-                    .map(|n| n.id())
-                    .unwrap_or(from_class);
-                let to_id = ig
-                    .find_node_by_class(to_class)
-                    .map(|n| n.id())
-                    .unwrap_or(to_class);
-                self.project
-                    .information_graph_mut()
-                    .remove_relation(from_id, to_id);
-                if self.selected_info_edge == Some((from_id, to_id))
-                    || self.selected_info_edge == Some((to_id, from_id))
-                {
-                    self.selected_info_edge = None;
-                }
-            }
-            NodeMoved { id, x, y } => {
-                if let Some(node) = self.project.concept_graph_mut().find_node_mut(id) {
-                    node.set_position(x, y);
-                    let cg = self.project.concept_graph_mut();
-                    let nodes = cg.nodes().to_vec();
-                    let edges = cg.edges().to_vec();
-                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                    for r in routes {
-                        cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
-                    }
-                } else if let Some(node) = self
-                    .project
-                    .concept_graph_mut()
-                    .find_node_by_concept_mut(id)
-                {
-                    node.set_position(x, y);
-                    let cg = self.project.concept_graph_mut();
-                    let nodes = cg.nodes().to_vec();
-                    let edges = cg.edges().to_vec();
-                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                    for r in routes {
-                        cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
-                    }
-                } else if let Some(class_node) =
-                    self.project.information_graph_mut().find_node_mut(id)
-                {
-                    class_node.set_position(x, y);
-                    let ig = self.project.information_graph_mut();
-                    let nodes: Vec<crate::features::concept_model::DiagramNode> =
-                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
-                    let edges: Vec<crate::features::concept_model::DiagramEdge> =
-                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
-                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                    for r in routes {
-                        ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
-                    }
-                } else if let Some(class_node) = self
-                    .project
-                    .information_graph_mut()
-                    .find_node_by_class_mut(id)
-                {
-                    class_node.set_position(x, y);
-                    let ig = self.project.information_graph_mut();
-                    let nodes: Vec<crate::features::concept_model::DiagramNode> =
-                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
-                    let edges: Vec<crate::features::concept_model::DiagramEdge> =
-                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
-                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                    for r in routes {
-                        ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
-                    }
-                }
-            }
-        }
-        self.trigger_autosave();
-    }
-
-    pub fn apply_snapshot(&mut self, snapshot: crate::features::model::ModelProject) {
-        if self.collab_state.is_host() {
-            return;
-        }
-        self.project = snapshot;
-        self.selected_graph_node_id = None;
-        self.selected_graph_node_ids.clear();
-        self.selected_edge = None;
-        self.selected_info_class_id = None;
-        self.selected_info_graph_node_id = None;
-        self.selected_info_graph_node_ids.clear();
-        self.selected_info_edge = None;
-        self.trigger_autosave();
-    }
-
     pub fn close_concept_editor(&mut self) {
         if let Some(pending_id) = self.pending_quick_create.take() {
             let is_empty = self
@@ -2549,9 +1806,6 @@ impl App {
                     .find_node_by_concept(pending_id)
                     .map(|n| n.id());
                 self.project.remove_concept(pending_id);
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::ConceptDeleted(pending_id),
-                );
                 if let Some(nid) = node_id {
                     if self.selected_graph_node_id == Some(nid) {
                         self.selected_graph_node_id = None;
@@ -2604,16 +1858,6 @@ impl App {
                 ),
             );
 
-            self.broadcast_mutation(
-                &crate::features::collab::protocol::ModelMutation::ConceptAdded(concept),
-            );
-            self.broadcast_mutation(
-                &crate::features::collab::protocol::ModelMutation::NodeMoved {
-                    id: concept_id,
-                    x: nx,
-                    y: ny,
-                },
-            );
             self.trigger_autosave();
             return operation::focus("preferred_term_input");
         }
@@ -2621,9 +1865,6 @@ impl App {
     }
 
     pub fn trigger_autosave(&mut self) {
-        if self.collab_state.is_guest() {
-            return;
-        }
         if let Some(path) = &self.current_file_path {
             let save_start = std::time::Instant::now();
             match ProjectStorage::save(&self.project, path) {
@@ -2692,170 +1933,6 @@ impl App {
 
     fn update_inner(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::CollabNetworkEventReceived(event) => {
-                match event {
-                    crate::features::collab::CollabNetworkEvent::StatusChanged(status) => {
-                        self.set_collab_connection_status(status);
-                    }
-                    crate::features::collab::CollabNetworkEvent::PresenceUpdated(count) => {
-                        self.set_collab_participant_count(count);
-                    }
-                    crate::features::collab::CollabNetworkEvent::HostEndedSession => {
-                        self.notify_host_ended_session();
-                    }
-                    crate::features::collab::CollabNetworkEvent::MessageReceived(bytes) => {
-                        if let Some(key) = &self.collab_key {
-                            if let Ok(decrypted) =
-                                crate::features::collab::crypto::decrypt(key, &bytes)
-                            {
-                                if let Ok(envelope) = serde_json::from_slice::<
-                                    crate::features::collab::protocol::CollabEnvelope,
-                                >(&decrypted)
-                                {
-                                    if envelope.is_newer_than(self.collab_last_seen_seq) {
-                                        self.collab_last_seen_seq = envelope.seq;
-                                        match envelope.payload {
-                                            crate::features::collab::protocol::CollabPayload::Snapshot(proj) => {
-                                                self.apply_snapshot(proj);
-                                            }
-                                            crate::features::collab::protocol::CollabPayload::Mutation(mutation) => {
-                                                self.apply_mutation(mutation);
-                                            }
-                                        }
-                                    }
-                                } else if let Ok(payload) =
-                                    serde_json::from_slice::<
-                                        crate::features::collab::protocol::CollabPayload,
-                                    >(&decrypted)
-                                {
-                                    match payload {
-                                        crate::features::collab::protocol::CollabPayload::Snapshot(proj) => {
-                                            self.apply_snapshot(proj);
-                                        }
-                                        crate::features::collab::protocol::CollabPayload::Mutation(mutation) => {
-                                            self.apply_mutation(mutation);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    crate::features::collab::CollabNetworkEvent::Error(err) => {
-                        eprintln!("Kollaborations netværksfejl: {err}");
-                    }
-                }
-            }
-            Message::CollabApplyMutation(mutation) => {
-                self.apply_mutation(*mutation);
-            }
-            Message::CollabApplySnapshot(snapshot) => {
-                self.apply_snapshot(*snapshot);
-            }
-            Message::OpenStartSessionModal => {
-                if !self.collab_state.is_active() {
-                    self.active_menu = None;
-                    let modal = StartSessionModalState::new();
-                    let targets = Self::build_start_session_targets(&modal);
-                    let initial = targets
-                        .iter()
-                        .position(|t| *t == FocusTarget::Button(START_SESSION_BTN_START));
-                    self.modal_focus = FocusCycle::with_targets(targets, initial);
-                    self.start_session_modal = Some(modal);
-                }
-            }
-            Message::CloseCollabModal => {
-                self.start_session_modal = None;
-                self.join_session_modal = None;
-                self.guest_ended_notice = None;
-                self.modal_focus.reset();
-            }
-            Message::CollabPresetSelected(preset) => {
-                if let Some(modal) = &mut self.start_session_modal {
-                    modal.set_preset(preset);
-                    let targets = Self::build_start_session_targets(modal);
-                    self.modal_focus.update_targets(targets);
-                    if preset == RelayServerPreset::Custom
-                        || preset == RelayServerPreset::InternalOrg
-                    {
-                        self.modal_focus.sync_input("start_session_custom_url");
-                    }
-                }
-            }
-            Message::CollabCustomUrlChanged(url) => {
-                if let Some(modal) = &mut self.start_session_modal {
-                    modal.set_custom_url(url);
-                }
-            }
-            Message::CollabToggleRememberPreset(rem) => {
-                if let Some(modal) = &mut self.start_session_modal {
-                    modal.remember_choice = rem;
-                }
-            }
-            Message::CollabCopyTicket => {
-                if let Some(modal) = &mut self.start_session_modal {
-                    modal.copied = true;
-                    let token = modal.ticket.to_token();
-                    return iced::clipboard::write(token);
-                }
-            }
-            Message::CollabStartSession => {
-                if let Some(modal) = self.start_session_modal.take() {
-                    self.active_menu = None;
-                    let ticket = modal.ticket;
-                    let channel = crate::features::collab::CollabChannel::connect_registered(
-                        &ticket.relay_url,
-                        &ticket.room_id,
-                    );
-                    self.set_collab_session(channel, ticket.key, CollabState::Host);
-                    self.set_collab_connection_status(
-                        crate::features::collab::ConnectionStatus::Connecting,
-                    );
-                    self.set_collab_participant_count(1);
-                    self.broadcast_snapshot();
-                }
-            }
-            Message::OpenJoinSessionModal => {
-                if !self.collab_state.is_active() {
-                    self.active_menu = None;
-                    self.join_session_modal = Some(JoinSessionModalState::new());
-                    let targets = vec![
-                        FocusTarget::Input("collab_ticket_input"),
-                        FocusTarget::Button(0),
-                        FocusTarget::Button(1),
-                    ];
-                    self.modal_focus = FocusCycle::with_targets(targets, Some(0));
-                    return operation::focus("collab_ticket_input");
-                }
-            }
-            Message::CollabJoinTokenChanged(tok) => {
-                self.modal_focus.sync_input("collab_ticket_input");
-                if let Some(modal) = &mut self.join_session_modal {
-                    modal.set_token_input(tok);
-                }
-            }
-            Message::CollabJoinSession => {
-                if let Some(modal) = self.join_session_modal.take() {
-                    if let Some(ticket) = modal.parsed_ticket {
-                        self.active_menu = None;
-                        let channel = crate::features::collab::CollabChannel::connect_registered(
-                            &ticket.relay_url,
-                            &ticket.room_id,
-                        );
-                        self.set_collab_session(channel, ticket.key, CollabState::Guest);
-                        self.set_collab_connection_status(
-                            crate::features::collab::ConnectionStatus::Connecting,
-                        );
-                    }
-                }
-            }
-
-            Message::CollabDisconnect => {
-                self.active_menu = None;
-                self.disconnect_collab();
-            }
-            Message::CollabGuestDismissEndedModal => {
-                self.guest_ended_notice = None;
-            }
             Message::SelectTab(tab) => {
                 if self.is_inline_graph_editing {
                     self.close_concept_editor();
@@ -3973,9 +3050,6 @@ impl App {
                         self.is_inline_graph_editing = false;
                     }
                 }
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::ConceptDeleted(id),
-                );
                 self.trigger_autosave();
             }
             Message::SaveConcept => {
@@ -3995,19 +3069,6 @@ impl App {
 
                             match result {
                                 Ok(()) => {
-                                    if is_edit {
-                                        self.broadcast_mutation(
-                                            &crate::features::collab::protocol::ModelMutation::ConceptUpdated(
-                                                concept,
-                                            ),
-                                        );
-                                    } else {
-                                        self.broadcast_mutation(
-                                            &crate::features::collab::protocol::ModelMutation::ConceptAdded(
-                                                concept,
-                                            ),
-                                        );
-                                    }
                                     self.pending_quick_create = None;
                                     self.editor_state = None;
                                     self.is_inline_graph_editing = false;
@@ -4059,9 +3120,6 @@ impl App {
             // Persistens & Filhåndtering
             Message::SaveProject => {
                 self.active_menu = None;
-                if self.collab_state.is_guest() {
-                    return self.update(Message::SaveProjectAsDialog);
-                }
                 if self.current_file_path.is_some() {
                     self.trigger_autosave();
                 } else {
@@ -4745,44 +3803,7 @@ impl App {
                 // 1. Åbne modaler
                 if self.has_active_modal() {
                     let focused = self.modal_focus.focused_button();
-                    if self.start_session_modal.is_some() {
-                        match focused {
-                            Some(START_SESSION_BTN_PRESET) => {
-                                if let Some(modal) = &self.start_session_modal {
-                                    let current_idx = RelayServerPreset::ALL
-                                        .iter()
-                                        .position(|&p| p == modal.preset)
-                                        .unwrap_or(0);
-                                    let next_preset = RelayServerPreset::ALL
-                                        [(current_idx + 1) % RelayServerPreset::ALL.len()];
-                                    return self.update(Message::CollabPresetSelected(next_preset));
-                                }
-                            }
-                            Some(START_SESSION_BTN_CANCEL) => {
-                                return self.update(Message::CloseCollabModal);
-                            }
-                            Some(START_SESSION_BTN_REMEMBER) => {
-                                if let Some(modal) = &self.start_session_modal {
-                                    return self.update(Message::CollabToggleRememberPreset(
-                                        !modal.remember_choice,
-                                    ));
-                                }
-                            }
-                            Some(START_SESSION_BTN_COPY) => {
-                                return self.update(Message::CollabCopyTicket)
-                            }
-                            Some(START_SESSION_BTN_START) | None => {
-                                return self.update(Message::CollabStartSession)
-                            }
-                            _ => {}
-                        }
-                    } else if self.join_session_modal.is_some() {
-                        match focused {
-                            Some(0) => return self.update(Message::CloseCollabModal),
-                            Some(1) | None => return self.update(Message::CollabJoinSession),
-                            _ => {}
-                        }
-                    } else if self.metadata_modal.is_some() {
+                    if self.metadata_modal.is_some() {
                         match focused {
                             Some(META_BTN_CANCEL) => {
                                 return self.update(Message::CloseMetadataModal)
@@ -4846,8 +3867,6 @@ impl App {
                             Some(1) | None => return self.update(Message::CloseDiagnosticsModal),
                             _ => {}
                         }
-                    } else if self.guest_ended_notice.is_some() {
-                        return self.update(Message::CollabGuestDismissEndedModal);
                     } else if self.excel_schema_guide_open {
                         return self.update(Message::CloseExcelSchemaGuideModal);
                     } else if self.history_modal.is_some() {
@@ -5319,18 +4338,6 @@ impl App {
                         for r in routes {
                             cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
                         }
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::RelationAdded(
-                                crate::features::collab::protocol::Relation::with_all(
-                                    rel_id,
-                                    from,
-                                    to,
-                                    RelationKind::Association,
-                                    None,
-                                    Some(true),
-                                ),
-                            ),
-                        );
                         self.trigger_autosave();
                     }
                     self.selected_graph_node_id = None;
@@ -5344,27 +4351,6 @@ impl App {
                     .concept_graph_mut()
                     .update_edge_kind(from, to, kind)
                 {
-                    let label = self
-                        .project
-                        .concept_graph()
-                        .find_edge(from, to)
-                        .and_then(|e| e.label().map(String::from));
-                    let directed = self
-                        .project
-                        .concept_graph()
-                        .find_edge(from, to)
-                        .and_then(|e| e.directed());
-                    let rel = crate::features::collab::protocol::Relation::with_all(
-                        Uuid::new_v4(),
-                        from,
-                        to,
-                        kind,
-                        label,
-                        directed,
-                    );
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::RelationUpdated(rel),
-                    );
                     self.trigger_autosave();
                 }
             }
@@ -5379,28 +4365,6 @@ impl App {
                     .concept_graph_mut()
                     .update_edge_label(from, to, lbl.clone())
                 {
-                    let kind = self
-                        .project
-                        .concept_graph()
-                        .find_edge(from, to)
-                        .map(|e| e.kind())
-                        .unwrap_or(RelationKind::Association);
-                    let directed = self
-                        .project
-                        .concept_graph()
-                        .find_edge(from, to)
-                        .and_then(|e| e.directed());
-                    let rel = crate::features::collab::protocol::Relation::with_all(
-                        Uuid::new_v4(),
-                        from,
-                        to,
-                        kind,
-                        lbl,
-                        directed,
-                    );
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::RelationUpdated(rel),
-                    );
                     self.trigger_autosave();
                 }
             }
@@ -5410,53 +4374,12 @@ impl App {
                     .concept_graph_mut()
                     .update_edge_directed(from, to, directed)
                 {
-                    let kind = self
-                        .project
-                        .concept_graph()
-                        .find_edge(from, to)
-                        .map(|e| e.kind())
-                        .unwrap_or(RelationKind::Association);
-                    let label = self
-                        .project
-                        .concept_graph()
-                        .find_edge(from, to)
-                        .and_then(|e| e.label().map(String::from));
-                    let rel = crate::features::collab::protocol::Relation::with_all(
-                        Uuid::new_v4(),
-                        from,
-                        to,
-                        kind,
-                        label,
-                        Some(directed),
-                    );
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::RelationUpdated(rel),
-                    );
                     self.trigger_autosave();
                 }
             }
             Message::GraphReverseEdge(from, to) => {
                 if self.project.concept_graph_mut().reverse_relation(from, to) {
                     self.selected_edge = Some((to, from));
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::RelationDeleted {
-                            from,
-                            to,
-                        },
-                    );
-                    if let Some(edge) = self.project.concept_graph().find_edge(to, from) {
-                        let rel = crate::features::collab::protocol::Relation::with_all(
-                            Uuid::new_v4(),
-                            to,
-                            from,
-                            edge.kind(),
-                            edge.label().map(String::from),
-                            edge.directed(),
-                        );
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::RelationAdded(rel),
-                        );
-                    }
                     self.trigger_autosave();
                 }
             }
@@ -5464,72 +4387,24 @@ impl App {
                 Tab::ConceptModel => {
                     if let Some((from, to)) = self.selected_edge.take() {
                         self.project.concept_graph_mut().remove_relation(from, to);
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::RelationDeleted {
-                                from,
-                                to,
-                            },
-                        );
                         self.trigger_autosave();
                     } else if !self.selected_graph_node_ids.is_empty() {
                         let to_remove: Vec<NodeId> = self.selected_graph_node_ids.drain().collect();
                         self.selected_graph_node_id = None;
                         for node_id in to_remove {
-                            let concept_id = self
-                                .project
-                                .concept_graph()
-                                .find_node(node_id)
-                                .map(|n| n.concept_id());
                             self.project.concept_graph_mut().remove_node(node_id);
-                            if let Some(cid) = concept_id {
-                                self.broadcast_mutation(
-                                    &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeRemoved(
-                                        cid,
-                                    ),
-                                );
-                            }
                         }
                         self.trigger_autosave();
                     } else if let Some(node_id) = self.selected_graph_node_id.take() {
-                        let concept_id = self
-                            .project
-                            .concept_graph()
-                            .find_node(node_id)
-                            .map(|n| n.concept_id());
                         self.project.concept_graph_mut().remove_node(node_id);
-                        if let Some(cid) = concept_id {
-                            self.broadcast_mutation(
-                                &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeRemoved(
-                                    cid,
-                                ),
-                            );
-                        }
                         self.trigger_autosave();
                     }
                 }
                 Tab::InformationModel => {
                     if let Some((from, to)) = self.selected_info_edge.take() {
-                        let from_class = self
-                            .project
-                            .information_graph()
-                            .find_node(from)
-                            .map(|n| n.class_id());
-                        let to_class = self
-                            .project
-                            .information_graph()
-                            .find_node(to)
-                            .map(|n| n.class_id());
                         self.project
                             .information_graph_mut()
                             .remove_relation(from, to);
-                        if let (Some(fc), Some(tc)) = (from_class, to_class) {
-                            self.broadcast_mutation(
-                                &crate::features::collab::protocol::ModelMutation::ClassRelationDeleted {
-                                    from_class: fc,
-                                    to_class: tc,
-                                },
-                            );
-                        }
                         self.trigger_autosave();
                     } else if !self.selected_info_graph_node_ids.is_empty() {
                         let to_remove: Vec<NodeId> =
@@ -5537,35 +4412,11 @@ impl App {
                         self.selected_info_graph_node_id = None;
                         self.selected_info_class_id = None;
                         for node_id in to_remove {
-                            let class_id = self
-                                .project
-                                .information_graph()
-                                .find_node(node_id)
-                                .map(|n| n.class_id());
                             self.project.information_graph_mut().remove_node(node_id);
-                            if let Some(cid) = class_id {
-                                self.broadcast_mutation(
-                                    &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeRemoved(
-                                        cid,
-                                    ),
-                                );
-                            }
                         }
                         self.trigger_autosave();
                     } else if let Some(node_id) = self.selected_info_graph_node_id.take() {
-                        let class_id = self
-                            .project
-                            .information_graph()
-                            .find_node(node_id)
-                            .map(|n| n.class_id());
                         self.project.information_graph_mut().remove_node(node_id);
-                        if let Some(cid) = class_id {
-                            self.broadcast_mutation(
-                                &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeRemoved(
-                                    cid,
-                                ),
-                            );
-                        }
                         self.trigger_autosave();
                     }
                 }
@@ -5585,7 +4436,6 @@ impl App {
                 for r in routes {
                     cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
                 }
-                self.broadcast_node_moved_throttled(node_id, final_x, final_y);
             }
             Message::GraphNodesMoved(moves) => {
                 let computed_moves: Vec<(NodeId, f32, f32)> = moves
@@ -5612,10 +4462,6 @@ impl App {
                     for r in routes {
                         cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
                     }
-                }
-
-                for (node_id, final_x, final_y) in computed_moves {
-                    self.broadcast_node_moved_throttled(node_id, final_x, final_y);
                 }
             }
             Message::CanvasNodesDragFinished => {
@@ -5695,23 +4541,6 @@ impl App {
                                 } else {
                                     None
                                 };
-                                let rel = crate::features::collab::protocol::Relation::with_all(
-                                    Uuid::new_v4(),
-                                    from.id,
-                                    to.id,
-                                    dialog.kind,
-                                    label.clone(),
-                                    if dialog.kind == RelationKind::Association {
-                                        Some(true)
-                                    } else {
-                                        None
-                                    },
-                                );
-                                self.broadcast_mutation(
-                                    &crate::features::collab::protocol::ModelMutation::RelationAdded(
-                                        rel,
-                                    ),
-                                );
                                 self.project.concept_graph_mut().add_relation_with_label(
                                     from.id,
                                     to.id,
@@ -5750,9 +4579,6 @@ impl App {
                 {
                     self.selected_edge = None;
                 }
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::RelationDeleted { from, to },
-                );
                 self.trigger_autosave();
             }
             Message::GraphSyncNodes => {
@@ -5768,11 +4594,6 @@ impl App {
                     if let Some(concept) = self.project.get_concept(concept_id).cloned() {
                         let new_id = self.project.concept_graph_mut().add_node(&concept);
                         self.selected_graph_node_id = Some(new_id);
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeAdded(
-                                concept_id,
-                            ),
-                        );
                         self.trigger_autosave();
                     }
                 }
@@ -5793,38 +4614,14 @@ impl App {
                             .concept_graph_mut()
                             .add_node_at(&concept, snapped_x, snapped_y);
                         self.selected_graph_node_id = Some(new_id);
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeAdded(
-                                concept_id,
-                            ),
-                        );
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::NodeMoved {
-                                id: concept_id,
-                                x: snapped_x,
-                                y: snapped_y,
-                            },
-                        );
                         self.trigger_autosave();
                     }
                 }
             }
             Message::RemoveConceptFromDiagram(node_id) => {
-                let concept_id = self
-                    .project
-                    .concept_graph()
-                    .find_node(node_id)
-                    .map(|n| n.concept_id());
                 self.project.concept_graph_mut().remove_node(node_id);
                 if self.selected_graph_node_id == Some(node_id) {
                     self.selected_graph_node_id = None;
-                }
-                if let Some(cid) = concept_id {
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeRemoved(
-                            cid,
-                        ),
-                    );
                 }
                 self.trigger_autosave();
             }
@@ -5933,18 +4730,6 @@ impl App {
                                     {
                                         self.selected_graph_node_id = Some(node.id());
                                     }
-                                    self.broadcast_mutation(
-                                        &crate::features::collab::protocol::ModelMutation::ConceptAdded(
-                                            concept,
-                                        ),
-                                    );
-                                    self.broadcast_mutation(
-                                        &crate::features::collab::protocol::ModelMutation::NodeMoved {
-                                            id: concept_id,
-                                            x,
-                                            y,
-                                        },
-                                    );
                                     self.quick_create = None;
                                     self.trigger_autosave();
                                 }
@@ -6051,13 +4836,6 @@ impl App {
                 self.selected_info_edge = None;
                 let targets = self.build_info_inspector_targets();
                 self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
-                if let Some(cls) = self.project.information_model().get_class(id).cloned() {
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassAdded(
-                            cls,
-                        ),
-                    );
-                }
                 self.trigger_autosave();
                 return operation::focus("info_class_name_input");
             }
@@ -6078,20 +4856,6 @@ impl App {
                 self.selected_info_edge = None;
                 let targets = self.build_info_inspector_targets();
                 self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
-                if let Some(cls) = self.project.information_model().get_class(id).cloned() {
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassAdded(
-                            cls,
-                        ),
-                    );
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::NodeMoved {
-                            id,
-                            x: nx,
-                            y: ny,
-                        },
-                    );
-                }
                 self.trigger_autosave();
                 return operation::focus("info_class_name_input");
             }
@@ -6123,13 +4887,6 @@ impl App {
                     self.selected_info_class_id = Some(id);
                     self.selected_info_enum_id = None;
                     self.set_selected_info_graph_node(Some(node_id));
-                    if let Some(cls) = self.project.information_model().get_class(id).cloned() {
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::InformationClassAdded(
-                                cls,
-                            ),
-                        );
-                    }
                     self.trigger_autosave();
                 }
             }
@@ -6141,12 +4898,7 @@ impl App {
                         name
                     };
                     class.set_name(final_name);
-                    let cls = class.clone();
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
+                    let _cls = class.clone();
                     self.trigger_autosave();
                 }
             }
@@ -6157,36 +4909,21 @@ impl App {
                     } else {
                         Some(desc)
                     });
-                    let cls = class.clone();
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
+                    let _cls = class.clone();
                     self.trigger_autosave();
                 }
             }
             Message::SetInformationClassAbstract(class_id, is_abstract) => {
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
                     class.set_abstract(is_abstract);
-                    let cls = class.clone();
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
+                    let _cls = class.clone();
                     self.trigger_autosave();
                 }
             }
             Message::SetInformationClassLocal(class_id, is_local) => {
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
                     class.set_local(is_local);
-                    let cls = class.clone();
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
+                    let _cls = class.clone();
                     self.trigger_autosave();
                 }
             }
@@ -6198,12 +4935,7 @@ impl App {
                         Some(origin)
                     };
                     class.set_origin_model(opt);
-                    let cls = class.clone();
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
+                    let _cls = class.clone();
                     self.trigger_autosave();
                 }
             }
@@ -6273,12 +5005,7 @@ impl App {
                 self.concept_picker_index = 0;
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
                     class.add_concept_id(opt.id);
-                    let cls = class.clone();
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
+                    let _cls = class.clone();
                     self.trigger_autosave();
                 }
                 if self.selected_info_class_id == Some(class_id) {
@@ -6289,12 +5016,7 @@ impl App {
             Message::RemoveConceptFromInformationClass(class_id, concept_id) => {
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
                     class.remove_concept_id(concept_id);
-                    let cls = class.clone();
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
+                    let _cls = class.clone();
                     self.trigger_autosave();
                 }
                 if self.selected_info_class_id == Some(class_id) {
@@ -6314,11 +5036,6 @@ impl App {
                         self.selected_info_graph_node_ids.remove(&nid);
                     }
                 }
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::InformationClassDeleted(
-                        class_id,
-                    ),
-                );
                 self.trigger_autosave();
             }
             Message::AddAttributeToClass(class_id) => {
@@ -6340,11 +5057,6 @@ impl App {
                     self.project
                         .information_graph_mut()
                         .update_class_dimensions(class_id, attr_count);
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
                     self.trigger_autosave();
                 }
                 if self.selected_info_class_id == Some(class_id) {
@@ -6365,12 +5077,7 @@ impl App {
                             name
                         };
                         attr.set_name(final_name);
-                        let cls = class.clone();
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                                cls,
-                            ),
-                        );
+                        let _cls = class.clone();
                         self.trigger_autosave();
                     }
                 }
@@ -6390,14 +5097,9 @@ impl App {
                 } else {
                     None
                 };
-                if let Some(cls) = cls_opt {
+                if let Some(_cls) = cls_opt {
                     self.project.sync_information_graph();
                     self.reroute_info_graph_edges();
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
                     self.trigger_autosave();
                 }
             }
@@ -6416,14 +5118,9 @@ impl App {
                 } else {
                     None
                 };
-                if let Some(cls) = cls_opt {
+                if let Some(_cls) = cls_opt {
                     self.project.sync_information_graph();
                     self.reroute_info_graph_edges();
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
                     self.trigger_autosave();
                 }
             }
@@ -6435,12 +5132,7 @@ impl App {
                         .find(|a| a.id() == attr_id)
                     {
                         attr.set_multiplicity(m);
-                        let cls = class.clone();
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                                cls,
-                            ),
-                        );
+                        let _cls = class.clone();
                         self.trigger_autosave();
                     }
                 }
@@ -6453,12 +5145,7 @@ impl App {
                         .find(|a| a.id() == attr_id)
                     {
                         attr.add_concept_id(opt.id);
-                        let cls = class.clone();
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                                cls,
-                            ),
-                        );
+                        let _cls = class.clone();
                         self.trigger_autosave();
                     }
                 }
@@ -6471,12 +5158,7 @@ impl App {
                         .find(|a| a.id() == attr_id)
                     {
                         attr.remove_concept_id(concept_id);
-                        let cls = class.clone();
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                                cls,
-                            ),
-                        );
+                        let _cls = class.clone();
                         self.trigger_autosave();
                     }
                 }
@@ -6493,12 +5175,7 @@ impl App {
                         } else {
                             attr.clear_concept_ids();
                         }
-                        let cls = class.clone();
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                                cls,
-                            ),
-                        );
+                        let _cls = class.clone();
                         self.trigger_autosave();
                     }
                 }
@@ -6517,11 +5194,6 @@ impl App {
                     self.project
                         .information_graph_mut()
                         .update_class_dimensions(class_id, attr_count);
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                            cls,
-                        ),
-                    );
                     self.trigger_autosave();
                 }
                 if self.selected_info_class_id == Some(class_id) {
@@ -6599,11 +5271,6 @@ impl App {
                 self.selected_info_edge = None;
                 let targets = self.build_info_inspector_targets();
                 self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::InformationEnumerationAdded(
-                        e,
-                    ),
-                );
                 self.trigger_autosave();
                 return operation::focus("info_enum_name_input");
             }
@@ -6639,16 +5306,6 @@ impl App {
                 self.selected_info_edge = None;
                 let targets = self.build_info_inspector_targets();
                 self.info_inspector_focus = FocusCycle::with_targets(targets, Some(0));
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::InformationEnumerationAdded(
-                        e,
-                    ),
-                );
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
-                        enum_id,
-                    ),
-                );
                 self.trigger_autosave();
                 return operation::focus("info_enum_name_input");
             }
@@ -6682,10 +5339,7 @@ impl App {
                 } else {
                     None
                 };
-                if let Some(e) = e_opt {
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationEnumerationUpdated(e),
-                    );
+                if let Some(_e) = e_opt {
                     self.trigger_autosave();
                 }
             }
@@ -6705,10 +5359,7 @@ impl App {
                 } else {
                     None
                 };
-                if let Some(e) = e_opt {
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationEnumerationUpdated(e),
-                    );
+                if let Some(_e) = e_opt {
                     self.trigger_autosave();
                 }
             }
@@ -6729,14 +5380,11 @@ impl App {
                     } else {
                         (None, None)
                     };
-                    if let (Some(val_count), Some(e)) = (val_count, e_clone) {
+                    if let (Some(val_count), Some(_e)) = (val_count, e_clone) {
                         self.project
                             .information_graph_mut()
                             .update_class_dimensions(enum_id, val_count);
                         self.new_enum_value_input.clear();
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::InformationEnumerationUpdated(e),
-                        );
                         self.trigger_autosave();
                         if self.selected_info_enum_id == Some(enum_id) {
                             let targets = self.build_info_inspector_targets();
@@ -6756,13 +5404,10 @@ impl App {
                 } else {
                     (None, None)
                 };
-                if let (Some(val_count), Some(e)) = (val_count, e_clone) {
+                if let (Some(val_count), Some(_e)) = (val_count, e_clone) {
                     self.project
                         .information_graph_mut()
                         .update_class_dimensions(enum_id, val_count);
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::InformationEnumerationUpdated(e),
-                    );
                     self.trigger_autosave();
                     if self.selected_info_enum_id == Some(enum_id) {
                         let targets = self.build_info_inspector_targets();
@@ -6782,9 +5427,6 @@ impl App {
                         self.selected_info_graph_node_ids.remove(&nid);
                     }
                 }
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::InformationEnumerationDeleted(enum_id),
-                );
                 self.trigger_autosave();
             }
             Message::AddEnumerationToDiagram(enum_id) => {
@@ -6804,11 +5446,6 @@ impl App {
                 self.selected_info_class_id = None;
                 self.set_selected_info_graph_node(Some(node_id));
                 self.selected_info_edge = None;
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
-                        enum_id,
-                    ),
-                );
                 self.trigger_autosave();
             }
             Message::AddEnumerationToDiagramAt(enum_id, x, y) => {
@@ -6837,18 +5474,6 @@ impl App {
                     self.selected_info_class_id = None;
                     self.set_selected_info_graph_node(Some(node_id));
                     self.selected_info_edge = None;
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
-                            enum_id,
-                        ),
-                    );
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::NodeMoved {
-                            id: enum_id,
-                            x: snapped_x,
-                            y: snapped_y,
-                        },
-                    );
                     self.trigger_autosave();
                 }
             }
@@ -6865,11 +5490,6 @@ impl App {
                     }
                     self.selected_info_graph_node_ids.remove(&node_id);
                 }
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeRemoved(
-                        enum_id,
-                    ),
-                );
                 self.trigger_autosave();
             }
             Message::NewEnumValueInputChanged(s) => {
@@ -6928,11 +5548,6 @@ impl App {
                 self.selected_info_enum_id = None;
                 self.set_selected_info_graph_node(Some(node_id));
                 self.selected_info_edge = None;
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
-                        class_id,
-                    ),
-                );
                 self.trigger_autosave();
             }
             Message::AddClassToDiagramAt(class_id, x, y) => {
@@ -6961,39 +5576,15 @@ impl App {
                     self.selected_info_enum_id = None;
                     self.set_selected_info_graph_node(Some(node_id));
                     self.selected_info_edge = None;
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
-                            class_id,
-                        ),
-                    );
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::NodeMoved {
-                            id: class_id,
-                            x: snapped_x,
-                            y: snapped_y,
-                        },
-                    );
                     self.trigger_autosave();
                 }
             }
             Message::RemoveClassFromDiagram(node_id) => {
-                let class_id = self
-                    .project
-                    .information_graph()
-                    .find_node(node_id)
-                    .map(|n| n.class_id());
                 self.project.information_graph_mut().remove_node(node_id);
                 if self.selected_info_graph_node_id == Some(node_id) {
                     self.selected_info_graph_node_id = None;
                 }
                 self.selected_info_graph_node_ids.remove(&node_id);
-                if let Some(cid) = class_id {
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeRemoved(
-                            cid,
-                        ),
-                    );
-                }
                 self.trigger_autosave();
             }
             Message::UpdateClassNodePosition(node_id, x, y) => {
@@ -7003,7 +5594,6 @@ impl App {
                     * crate::features::concept_model::GRID_SIZE;
                 let ig = self.project.information_graph_mut();
                 ig.update_node_position(node_id, final_x, final_y);
-                let class_id_opt = ig.find_node(node_id).map(|n| n.class_id());
 
                 let d_nodes: Vec<crate::features::concept_model::DiagramNode> =
                     ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
@@ -7013,8 +5603,6 @@ impl App {
                 for r in routes {
                     ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
                 }
-                let broadcast_id = class_id_opt.unwrap_or(node_id);
-                self.broadcast_node_moved_throttled(broadcast_id, final_x, final_y);
             }
             Message::UpdateClassNodesPositions(moves) => {
                 let computed_moves: Vec<(NodeId, f32, f32)> = moves
@@ -7049,10 +5637,6 @@ impl App {
                     for r in routes {
                         ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
                     }
-                }
-
-                for (broadcast_id, final_x, final_y) in broadcasts {
-                    self.broadcast_node_moved_throttled(broadcast_id, final_x, final_y);
                 }
             }
             Message::SelectInfoGraphNode(node_id_opt) => {
@@ -7243,17 +5827,6 @@ impl App {
                                 Some(to_side),
                             );
                         }
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
-                                from_class,
-                                to_class,
-                                kind: initial_kind,
-                                label: initial_label,
-                                source_multiplicity: None,
-                                target_multiplicity: None,
-                                directed: Some(true),
-                            },
-                        );
                         self.trigger_autosave();
                     }
                     self.selected_info_graph_node_id = None;
@@ -7292,22 +5865,22 @@ impl App {
                 if is_enum_rel && kind != RelationKind::Dependency {
                     return Task::none();
                 }
-                let label = self
+                let _label = self
                     .project
                     .information_graph()
                     .find_edge(from, to)
                     .and_then(|e| e.label().map(String::from));
-                let src_mult = self
+                let _src_mult = self
                     .project
                     .information_graph()
                     .find_edge(from, to)
                     .and_then(|e| e.source_multiplicity());
-                let tgt_mult = self
+                let _tgt_mult = self
                     .project
                     .information_graph()
                     .find_edge(from, to)
                     .and_then(|e| e.target_multiplicity());
-                let directed = self
+                let _directed = self
                     .project
                     .information_graph()
                     .find_edge(from, to)
@@ -7321,17 +5894,6 @@ impl App {
                         self.project
                             .information_model_mut()
                             .update_relation_kind(fc, tc, kind);
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
-                                from_class: fc,
-                                to_class: tc,
-                                kind,
-                                label,
-                                source_multiplicity: src_mult,
-                                target_multiplicity: tgt_mult,
-                                directed,
-                            },
-                        );
                     }
                     self.trigger_autosave();
                 }
@@ -7347,23 +5909,23 @@ impl App {
                     .information_graph()
                     .find_node(to)
                     .map(|n| n.class_id());
-                let kind = self
+                let _kind = self
                     .project
                     .information_graph()
                     .find_edge(from, to)
                     .map(|e| e.kind())
                     .unwrap_or(RelationKind::Association);
-                let src_mult = self
+                let _src_mult = self
                     .project
                     .information_graph()
                     .find_edge(from, to)
                     .and_then(|e| e.source_multiplicity());
-                let tgt_mult = self
+                let _tgt_mult = self
                     .project
                     .information_graph()
                     .find_edge(from, to)
                     .and_then(|e| e.target_multiplicity());
-                let directed = self
+                let _directed = self
                     .project
                     .information_graph()
                     .find_edge(from, to)
@@ -7383,17 +5945,6 @@ impl App {
                             fc,
                             tc,
                             lbl.clone(),
-                        );
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
-                                from_class: fc,
-                                to_class: tc,
-                                kind,
-                                label: lbl,
-                                source_multiplicity: src_mult,
-                                target_multiplicity: tgt_mult,
-                                directed,
-                            },
                         );
                     }
                     self.trigger_autosave();
@@ -7419,19 +5970,6 @@ impl App {
                         self.project
                             .information_model_mut()
                             .update_relation_source_multiplicity(fc, tc, mult);
-                        if let Some(edge) = self.project.information_graph().find_edge(from, to) {
-                            self.broadcast_mutation(
-                                &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
-                                    from_class: fc,
-                                    to_class: tc,
-                                    kind: edge.kind(),
-                                    label: edge.label().map(String::from),
-                                    source_multiplicity: mult,
-                                    target_multiplicity: edge.target_multiplicity(),
-                                    directed: edge.directed(),
-                                },
-                            );
-                        }
                     }
                     self.trigger_autosave();
                 }
@@ -7456,19 +5994,6 @@ impl App {
                         self.project
                             .information_model_mut()
                             .update_relation_target_multiplicity(fc, tc, mult);
-                        if let Some(edge) = self.project.information_graph().find_edge(from, to) {
-                            self.broadcast_mutation(
-                                &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
-                                    from_class: fc,
-                                    to_class: tc,
-                                    kind: edge.kind(),
-                                    label: edge.label().map(String::from),
-                                    source_multiplicity: edge.source_multiplicity(),
-                                    target_multiplicity: mult,
-                                    directed: edge.directed(),
-                                },
-                            );
-                        }
                     }
                     self.trigger_autosave();
                 }
@@ -7493,19 +6018,6 @@ impl App {
                         self.project
                             .information_model_mut()
                             .update_relation_directed(fc, tc, directed);
-                        if let Some(edge) = self.project.information_graph().find_edge(from, to) {
-                            self.broadcast_mutation(
-                                &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
-                                    from_class: fc,
-                                    to_class: tc,
-                                    kind: edge.kind(),
-                                    label: edge.label().map(String::from),
-                                    source_multiplicity: edge.source_multiplicity(),
-                                    target_multiplicity: edge.target_multiplicity(),
-                                    directed: Some(directed),
-                                },
-                            );
-                        }
                     }
                     self.trigger_autosave();
                 }
@@ -7531,25 +6043,6 @@ impl App {
                         self.project
                             .information_model_mut()
                             .reverse_relation(fc, tc);
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::ClassRelationDeleted {
-                                from_class: fc,
-                                to_class: tc,
-                            },
-                        );
-                        if let Some(edge) = self.project.information_graph().find_edge(to, from) {
-                            self.broadcast_mutation(
-                                &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
-                                    from_class: tc,
-                                    to_class: fc,
-                                    kind: edge.kind(),
-                                    label: edge.label().map(String::from),
-                                    source_multiplicity: edge.source_multiplicity(),
-                                    target_multiplicity: edge.target_multiplicity(),
-                                    directed: edge.directed(),
-                                },
-                            );
-                        }
                     }
                     self.trigger_autosave();
                 }
@@ -7604,12 +6097,6 @@ impl App {
                 {
                     self.selected_info_edge = None;
                 }
-                self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::ClassRelationDeleted {
-                        from_class,
-                        to_class,
-                    },
-                );
                 self.trigger_autosave();
             }
             Message::InfoCanvasViewportChanged(vp) => {
@@ -7817,17 +6304,6 @@ impl App {
                                         tgt_mult,
                                     ),
                                 );
-                                self.broadcast_mutation(
-                                    &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
-                                        from_class,
-                                        to_class,
-                                        kind: dlg.kind,
-                                        label,
-                                        source_multiplicity: src_mult,
-                                        target_multiplicity: tgt_mult,
-                                        directed,
-                                    },
-                                );
                                 self.info_relation_dialog = None;
                                 self.trigger_autosave();
                             }
@@ -7973,24 +6449,9 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let keyboard_sub = event::listen_with(|event, status, _window| {
+        event::listen_with(|event, status, _window| {
             App::handle_event_for_subscription(event, status)
-        });
-
-        if let Some(channel) = &self.collab_channel {
-            let sub_id = channel.sub_id();
-            let collab_sub = Subscription::run_with(sub_id, |&sub_id| {
-                iced::futures::stream::unfold(sub_id, |sub_id| async move {
-                    let event =
-                        crate::features::collab::network::next_registered_collab_event(sub_id)
-                            .await?;
-                    Some((Message::CollabNetworkEventReceived(event), sub_id))
-                })
-            });
-            Subscription::batch([keyboard_sub, collab_sub])
-        } else {
-            keyboard_sub
-        }
+        })
     }
 
     pub fn view(&self) -> Element<'_, Message> {
@@ -8043,8 +6504,6 @@ impl App {
             menu_button("Eksporter", MenuType::Export),
             Space::new().width(4),
             menu_button("Hjælp", MenuType::Help),
-            Space::new().width(4),
-            menu_button("Samarbejde", MenuType::Collab),
         ]
         .align_y(Alignment::Center);
 
@@ -8076,50 +6535,7 @@ impl App {
         .style(pill_container_style)
         .padding(3);
 
-        let collab_header_badge: Element<Message> = if self.collab_state.is_active() {
-            let (bg_color, dot_color) = match self.collab_connection_status {
-                crate::features::collab::ConnectionStatus::Connected => (
-                    ColorTokens::SUCCESS_BG.into_color(),
-                    ColorTokens::ACCENT_GREEN.into_color(),
-                ),
-                crate::features::collab::ConnectionStatus::Reconnecting => (
-                    ColorTokens::WARNING_AMBER_LIGHT.into_color(),
-                    ColorTokens::WARNING_AMBER.into_color(),
-                ),
-                _ => (
-                    ColorTokens::MUTED_BADGE_BG.into_color(),
-                    ColorTokens::MUTED_BADGE_DOT.into_color(),
-                ),
-            };
-
-            container(
-                row![
-                    text("●").size(10).color(dot_color),
-                    Space::new().width(4),
-                    text(self.collab_status_summary())
-                        .size(11)
-                        .color(ThemeColors::SLATE_800),
-                ]
-                .align_y(Alignment::Center),
-            )
-            .style(move |_| container::Style {
-                background: Some(iced::Background::Color(bg_color)),
-                border: iced::Border {
-                    color: dot_color,
-                    width: 1.0,
-                    radius: 12.0.into(),
-                },
-                ..Default::default()
-            })
-            .padding([3, 10])
-            .into()
-        } else {
-            Space::new().width(0).height(0).into()
-        };
-
         let header_right = row![
-            collab_header_badge,
-            Space::new().width(6),
             crate::features::git::ui::view_git_status_badge(
                 &self.git_sync_status,
                 &self.git_status_badge_text(),
@@ -8204,24 +6620,6 @@ impl App {
         let maybe_metadata_modal: Option<Element<Message>> =
             self.metadata_modal.as_ref().map(|meta_state| {
                 crate::features::model::ui::view_metadata_modal(meta_state, &self.modal_focus)
-            });
-
-        let maybe_start_session_modal: Option<Element<Message>> =
-            self.start_session_modal.as_ref().map(|modal_state| {
-                crate::features::collab::ui::view_start_session_modal(
-                    modal_state,
-                    &self.modal_focus,
-                )
-            });
-
-        let maybe_join_session_modal: Option<Element<Message>> =
-            self.join_session_modal.as_ref().map(|modal_state| {
-                crate::features::collab::ui::view_join_session_modal(modal_state, &self.modal_focus)
-            });
-
-        let maybe_guest_ended_modal: Option<Element<Message>> =
-            self.guest_ended_notice.as_ref().map(|notice| {
-                crate::features::collab::ui::view_guest_ended_modal(notice, &self.modal_focus)
             });
 
         let maybe_file_dialog_modal: Option<Element<Message>> = self.file_dialog_mode.map(|mode| {
@@ -8691,34 +7089,6 @@ impl App {
                     .spacing(2)
                     .width(Length::Fixed(240.0)),
                 ),
-                MenuType::Collab => (
-                    384.0,
-                    column![
-                        text("LIVE SAMARBEJDE (E2EE)")
-                            .size(10)
-                            .color(ThemeColors::TEXT_MUTED),
-                        Space::new().height(2),
-                        if self.collab_state.is_active() {
-                            column![menu_item("🔴", "Afbryd session", Message::CollabDisconnect)]
-                        } else {
-                            column![
-                                menu_item(
-                                    "👑",
-                                    "Start session (Vært)...",
-                                    Message::OpenStartSessionModal
-                                ),
-                                menu_item(
-                                    "👥",
-                                    "Deltag i session (Gæst)...",
-                                    Message::OpenJoinSessionModal
-                                ),
-                            ]
-                            .spacing(2)
-                        },
-                    ]
-                    .spacing(2)
-                    .width(Length::Fixed(240.0)),
-                ),
             };
 
             let menu_card = container(menu_body)
@@ -8873,32 +7243,6 @@ impl App {
                 .into(),
         };
 
-        let collab_status_widget: Element<Message> = if self.collab_state.is_active() {
-            let dot_color = match self.collab_connection_status {
-                crate::features::collab::ConnectionStatus::Connected => {
-                    ColorTokens::ACCENT_GREEN.into_color()
-                }
-                crate::features::collab::ConnectionStatus::Reconnecting => {
-                    ColorTokens::WARNING_AMBER.into_color()
-                }
-                _ => ColorTokens::MUTED_BADGE_DOT.into_color(),
-            };
-            row![
-                text("•").size(12).color(dot_color),
-                Space::new().width(4),
-                text(self.collab_status_summary())
-                    .size(12)
-                    .color(ThemeColors::SLATE_700),
-            ]
-            .align_y(Alignment::Center)
-            .into()
-        } else {
-            text("• Offline")
-                .size(12)
-                .color(ThemeColors::SLATE_500)
-                .into()
-        };
-
         let status_bar = row![
             rules_button,
             text("• Klar").size(12).color(ThemeColors::SLATE_500),
@@ -8908,8 +7252,6 @@ impl App {
                 .color(ThemeColors::SLATE_600),
             Space::new().width(12),
             save_widget,
-            Space::new().width(12),
-            collab_status_widget,
             Space::new().width(Length::Fill),
             text(format!("Aktiv fane: {:?}", self.active_tab))
                 .size(12)
@@ -9048,12 +7390,6 @@ impl App {
         } else if let Some(modal) = maybe_excel_import_preview_modal {
             stack![layered_layout, modal].into()
         } else if let Some(modal) = maybe_metadata_modal {
-            stack![layered_layout, modal].into()
-        } else if let Some(modal) = maybe_start_session_modal {
-            stack![layered_layout, modal].into()
-        } else if let Some(modal) = maybe_join_session_modal {
-            stack![layered_layout, modal].into()
-        } else if let Some(modal) = maybe_guest_ended_modal {
             stack![layered_layout, modal].into()
         } else if let Some(modal) = maybe_file_dialog_modal {
             stack![layered_layout, modal].into()
