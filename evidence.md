@@ -1,20 +1,29 @@
 # Verification Report
 
-**Task ID**: `095-palette-scrollbar-edge-alignment-and-ergonomics`  
-**Task Title**: Task 095: Palette Scrollbar Edge Alignment and Ergonomics  
+**Task ID**: `096-orthogonal-edge-bends-port-sliding-and-grid-snapping`  
+**Task Title**: Task 096: Ortogonal Edge Segment-Dragging, Bends, Grid Snapping og Dynamisk Port-Sliding  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-10-27T22:20:00Z`  
-**Head**: `4c8e8a2`  
-**Commit**: `4c8e8a2`  
+**Source Manifest Digest**: `cb3e342638f1fbfe517f8968ff12697064c5c414aedcc303664193f23a3f5236`  
+**Timestamp**: `2026-10-28T07:02:55Z`  
+**Head**: `a3bc954`  
+**Commit**: `a3bc954`  
 
 ## Acceptance Criteria
 
-- [x] **AC1 - 6px Ergonomisk Scrollbar Bredde**: `palette::SCROLLBAR_WIDTH` og `class_list::SCROLLBAR_WIDTH` øges fra 4.0px til 6.0px (med afrundet 3.0px radius), hvilket gør scrollbaren nem at ramme og gribe med musen.
-- [x] **AC2 - Højrekantsflugt for Scrollable**: Det ydre panelcontainer-padding ændres fra ensartet `12px` til `[12, 2, 12, 12]`, så scrollable-elementet spænder helt ud til panelets højre kant med en 2px fuge mod hjørneradius.
-- [x] **AC3 - Beskyttet Sikkerhedszone for Handlingsikoner**: Indre listekolonner (`concept_items`, `class_items`, `enum_items`) tildeles en indre højre padding (10-12px), så `✓`, `+` og `🗑️` kontrollerne bevarer deres eksisterende position med en fri korridor til scrollbaren uden risiko for blokering af klik eller hover.
-- [x] **AC4 - Flugtende Header Layout**: `palette_header` og `enum_header` tilpasses med 12px højre padding, så søgefelt og knapper flugter harmonisk med listekortene nedenunder.
-- [x] **AC5 - Ensartethed på tværs af Modeller**: Begrebsdiagram (Fane 2) og Informationsmodel (Fane 3) har identisk scrollbar-ergonomi, kantsikring og visuel flugt.
+- [x] **AC1 - Domæne-neutral BendPoint Datamodel:** Introducer `BendPoint { pub x: f32, pub y: f32 }` i domænelaget (`src/features/concept_model/mod.rs`) uden afhængighed til Iced. Både `DiagramEdge` og `ClassDiagramEdge` udvides med `bends: Option<Vec<BendPoint>>`, og `CanvasEdge`-trækket i `src/ui/canvas/mod.rs` eksponerer `bends(&self) -> Option<&[BendPoint]>`.
+- [x] **AC2 - Deterministisk Dekomponeret Persistens:** `bends` serialiseres deterministisk i `.kant/relations/<uuid>.json` for både `DecomposedRelation::ConceptRelation` og `DecomposedRelation::ClassRelation` (`skip_serializing_if = "Option::is_none"` når feltet er tomt eller None).
+- [x] **AC3 - Ortogonal Routing med Bends:** `EdgeRouter::route_edges` genererer 90-graders Manhattan-stier, der passerer gennem samtlige mellemliggende knækpunkter $[P_1, \dots, P_k]$ med ortogonal docking ved kilde- og målporte jf. FDA Modelreglerne og ADR 005.
+- [x] **AC4 - Dynamisk Port-Sliding:** For relationer med knækpunkter tilpasser kilde- og målportens ankerpunkt sig det terminale segments position: portens akse glider langs nodens over-/under- eller sidekant, så den flugter direkte med segmentet (afgrænset inden for nodens kasse minus hjørnemargin på 8px).
+- [x] **AC5 - Zonedrevet Portskift & Syntetiseret Tilslutning:** Hvis et terminalt segment trækkes forbi et hjørne, skifter porten automatisk til tilstødende zone. Forbindelsen mellem port og $P_1$ (hhv. $P_k$ og målport) syntetiseres on-the-fly af routeren uden at forurene `manual_bends` med redundante hjørnepunkter.
+- [x] **AC6 - Grid Snapping ved Drag:** Flytning af knækpunkter og segment-træk snappes til canvas-griddet (`GRID_SIZE = 20.0`) og respekterer canvas `snap_to_grid` indstillingen.
+- [x] **AC7 - Ortogonal Segment Dragging:** Træk i et horisontalt segment flytter udelukkende dets Y-koordinat; træk i et vertikalt segment flytter udelukkende dets X-koordinat. Nabosegmenter forlænges/forkortes uden at bryde 90° vinkler.
+- [x] **AC8 - Segment-Split på Rette Linjer:** Vinkelret træk i et lige linjesegment uden bends splitter segmentet i tre og opretter to nye knækpunkter på griddet.
+- [x] **AC9 - Forankrede Bends ved Node Drag:** Flytning af noder ændrer ikke eksisterende knækpunkters absolutte canvas-koordinater. Forbindelserne forlænges og tilpasses dynamisk. Hvis en node trækkes hen over $P_1$ i segmentets retning, absorberes punktet for at forhindre baglæns sløjfer.
+- [x] **AC10 - Collinear Pruning & Mikrosegment-kollaps ved Release:** Ved `MouseRelease` slettes redundante kollineære bends ($P_{i-1}, P_i, P_{i+1}$ på samme rette linje inden for $\epsilon = 0.5\text{px}$), og mikrosegmenter under 4px absorberes.
+- [x] **AC11 - Inspector Nulstilling & Tastatursletning:** Egenskabspanelet (Inspector) udstiller knappen `[Gendan automatisk linjeføring]` for relationer med manuelle bends. Dobbeltklik på et bend eller `Delete` / `Backspace` fjerner det pågældende knækpunkt.
+- [x] **AC12 - Drop-Commit Autosave Invariant:** Under aktiv trækning opdateres kun den flygtige canvas-tilstand via `Action::request_redraw()`. Autosave og disk-skrivning sker udelukkende ved drop-commit (`ButtonReleased`).
+- [x] **AC13 - Isoleret Acceptancetest-suite:** Opret en dedikeret testfil `tests/features/edge_manual_routing_acceptance_test.rs` (registreret i `Cargo.toml`), der dækker port-sliding, segment dragging, grid snapping, forankring under node-flytning og persistens.
 
 ---
 
@@ -22,12 +31,12 @@
 
 | Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `architecture` | `PASSED` | `0` | `0.097s` |
-| `spec` | `PASSED` | `0` | `0.042s` |
-| `lint` | `PASSED` | `0` | `0.749s` |
-| `types` | `PASSED` | `0` | `0.541s` |
-| `unit` | `PASSED` | `0` | `3.919s` |
-| `invariants` | `PASSED` | `0` | `0.463s` |
+| `architecture` | `PASSED` | `0` | `0.048s` |
+| `spec` | `PASSED` | `0` | `0.026s` |
+| `lint` | `PASSED` | `0` | `1.806s` |
+| `types` | `PASSED` | `0` | `0.185s` |
+| `unit` | `PASSED` | `0` | `0.685s` |
+| `invariants` | `PASSED` | `0` | `0.443s` |
 
 ---
 
@@ -35,11 +44,11 @@
 
 | Test Identifier | Status | Baseline Failure Digest | Verified At |
 |---|---|---|---|
-| `test_task_095_ac1_scrollbar_width_is_6px` | `RedCheckpointVerified` | `ce0fca5...` | `2026-10-27T22:15:35+01:00` |
-| `test_task_095_ac2_and_ac3_edge_alignment_and_actions_clearance_constants` | `RedCheckpointVerified` | `ce0fca5...` | `2026-10-27T22:15:35+01:00` |
-| `test_task_095_modern_scrollable_style_scroller_pill_radius` | `RedCheckpointVerified` | `ce0fca5...` | `2026-10-27T22:15:35+01:00` |
-| `test_task_095_concept_palette_renders_with_overflow_and_edge_alignment` | `Passed` | - | `2026-10-27T22:18:27+01:00` |
-| `test_task_095_information_model_palette_renders_with_overflow_and_edge_alignment` | `Passed` | - | `2026-10-27T22:18:27+01:00` |
-| `test_task_095_app_integration_overflow_navigation` | `Passed` | - | `2026-10-27T22:18:27+01:00` |
+| `test_ac1_bendpoint_and_edge_bends_accessors` | `RedCheckpointVerified` | `06ea1f469a2193b4...` | `2026-10-27T22:38:41+01:00` |
+| `test_ac2_decomposed_persistence_of_bends` | `RedCheckpointVerified` | `06ea1f469a2193b4...` | `2026-10-27T22:38:41+01:00` |
+| `test_ac3_ac4_orthogonal_routing_with_bends_and_port_sliding` | `RedCheckpointVerified` | `06ea1f469a2193b4...` | `2026-10-27T22:38:41+01:00` |
+| `test_ac6_ac10_grid_snapping_and_collinear_pruning` | `RedCheckpointVerified` | `06ea1f469a2193b4...` | `2026-10-27T22:38:41+01:00` |
+| `test_ac9_anchored_bends_when_nodes_moved` | `RedCheckpointVerified` | `06ea1f469a2193b4...` | `2026-10-27T22:38:41+01:00` |
+| `test_task_093_collab_and_relay_purged` | `RedCheckpointVerified` | `eadf0054d9f8ccb1...` | `2026-10-27T20:54:51+01:00` |
 
 ---

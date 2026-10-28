@@ -4,39 +4,47 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "093-remove-realtime-collab-and-server-relay",
-    "task_title": "Task 093: Remove Realtime Collaboration and Server Relay",
-    "task_digest": "44086d626634b2a7c9101e81d70af33f957882ee82b3f73be94e1dcf4f0ee7b5",
+    "task_id": "096-orthogonal-edge-bends-port-sliding-and-grid-snapping",
+    "task_title": "Task 096: Ortogonal Edge Segment-Dragging, Bends, Grid Snapping og Dynamisk Port-Sliding",
+    "task_digest": "82950436029a5c6dfc824bab1ba8c1e623eff4c0659452f9f2bd16f3b61f3c51",
     "acceptance_criteria": [
-      "**AC1 - Crate & Ops Sanering**: `crates/kant-relay/`, `koyeb.yaml`, `docker-compose.yml` og `.github/workflows/relay-docker.yml` er slettet, og `crates/kant-relay` er fjernet fra `Cargo.toml` (`[workspace.members]` og `[dev-dependencies]`).",
-      "**AC2 - Cargo Dependency Rengøring**: `chacha20poly1305`, `tokio-tungstenite`, `base64`, `rand`, `bytes`, `futures-util` og `axum` er fjernet fra `Cargo.toml`.",
-      "**AC3 - Feature Modul Sanering**: `src/features/collab/` er slettet, og `pub mod collab;` er fjernet fra `src/features/mod.rs`.",
-      "**AC4 - UI & App State Forenkling**: `MenuType::Collab`, `menu_button(\"Samarbejde\", ...)`, collab header badge, `CollabState`, `RelayServerPreset`, collab-felter i `App` og `Message::Collab*` beskeder er fjernet fra `src/ui/app.rs`.",
-      "**AC5 - Verifikation & Testsuite Integritet**: `tests/features/collab_acceptance_test.rs` er slettet, [tests/acceptance.rs](tests/acceptance.rs) er renset for forældede collab-tests, og en ny accepttest `test_task093_collab_and_relay_purged` beviser at applikationen bygger og fungerer uden collab."
+      "**AC1 - Domæne-neutral BendPoint Datamodel:** Introducer `BendPoint { pub x: f32, pub y: f32 }` i domænelaget (`src/features/concept_model/mod.rs`) uden afhængighed til Iced. Både `DiagramEdge` og `ClassDiagramEdge` udvides med `bends: Option<Vec<BendPoint>>`, og `CanvasEdge`-trækket i `src/ui/canvas/mod.rs` eksponerer `bends(&self) -> Option<&[BendPoint]>`.",
+      "**AC2 - Deterministisk Dekomponeret Persistens:** `bends` serialiseres deterministisk i `.kant/relations/<uuid>.json` for både `DecomposedRelation::ConceptRelation` og `DecomposedRelation::ClassRelation` (`skip_serializing_if = \"Option::is_none\"` når feltet er tomt eller None).",
+      "**AC3 - Ortogonal Routing med Bends:** `EdgeRouter::route_edges` genererer 90-graders Manhattan-stier, der passerer gennem samtlige mellemliggende knækpunkter $[P_1, \\dots, P_k]$ med ortogonal docking ved kilde- og målporte jf. FDA Modelreglerne og ADR 005.",
+      "**AC4 - Dynamisk Port-Sliding:** For relationer med knækpunkter tilpasser kilde- og målportens ankerpunkt sig det terminale segments position: portens akse glider langs nodens over-/under- eller sidekant, så den flugter direkte med segmentet (afgrænset inden for nodens kasse minus hjørnemargin på 8px).",
+      "**AC5 - Zonedrevet Portskift & Syntetiseret Tilslutning:** Hvis et terminalt segment trækkes forbi et hjørne, skifter porten automatisk til tilstødende zone. Forbindelsen mellem port og $P_1$ (hhv. $P_k$ og målport) syntetiseres on-the-fly af routeren uden at forurene `manual_bends` med redundante hjørnepunkter.",
+      "**AC6 - Grid Snapping ved Drag:** Flytning af knækpunkter og segment-træk snappes til canvas-griddet (`GRID_SIZE = 20.0`) og respekterer canvas `snap_to_grid` indstillingen.",
+      "**AC7 - Ortogonal Segment Dragging:** Træk i et horisontalt segment flytter udelukkende dets Y-koordinat; træk i et vertikalt segment flytter udelukkende dets X-koordinat. Nabosegmenter forlænges/forkortes uden at bryde 90° vinkler.",
+      "**AC8 - Segment-Split på Rette Linjer:** Vinkelret træk i et lige linjesegment uden bends splitter segmentet i tre og opretter to nye knækpunkter på griddet.",
+      "**AC9 - Forankrede Bends ved Node Drag:** Flytning af noder ændrer ikke eksisterende knækpunkters absolutte canvas-koordinater. Forbindelserne forlænges og tilpasses dynamisk. Hvis en node trækkes hen over $P_1$ i segmentets retning, absorberes punktet for at forhindre baglæns sløjfer.",
+      "**AC10 - Collinear Pruning & Mikrosegment-kollaps ved Release:** Ved `MouseRelease` slettes redundante kollineære bends ($P_{i-1}, P_i, P_{i+1}$ på samme rette linje inden for $\\epsilon = 0.5\\text{px}$), og mikrosegmenter under 4px absorberes.",
+      "**AC11 - Inspector Nulstilling & Tastatursletning:** Egenskabspanelet (Inspector) udstiller knappen `[Gendan automatisk linjeføring]` for relationer med manuelle bends. Dobbeltklik på et bend eller `Delete` / `Backspace` fjerner det pågældende knækpunkt.",
+      "**AC12 - Drop-Commit Autosave Invariant:** Under aktiv trækning opdateres kun den flygtige canvas-tilstand via `Action::request_redraw()`. Autosave og disk-skrivning sker udelukkende ved drop-commit (`ButtonReleased`).",
+      "**AC13 - Isoleret Acceptancetest-suite:** Opret en dedikeret testfil `tests/features/edge_manual_routing_acceptance_test.rs` (registreret i `Cargo.toml`), der dækker port-sliding, segment dragging, grid snapping, forankring under node-flytning og persistens."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "0f1f540faa534fd53f957eadbd4ba0091dbf92fad6fc3e6accef1538934af1c3",
-    "source_manifest_digest_pre": "03bc139922247dfd69cf4f7d60daab493b822b4d1d397584bf253b20f01e4890",
-    "source_manifest_digest_post": "03bc139922247dfd69cf4f7d60daab493b822b4d1d397584bf253b20f01e4890",
-    "config_digest": "f13eea83fc4c773c6ab505d497437dab7921a04664af130a5eef9452ea4478fe",
-    "task_digest": "44086d626634b2a7c9101e81d70af33f957882ee82b3f73be94e1dcf4f0ee7b5",
-    "policy_digest": "71ec4e6da92156e8f84942119a7ba9860cfd0c1bbc60a05086dc579e69e633ee",
+    "source_content_digest": "b8f12ec8cc69a06b4026340873ba36a5e95848b493c6c0437148a5f6ea71c995",
+    "source_manifest_digest_pre": "cb3e342638f1fbfe517f8968ff12697064c5c414aedcc303664193f23a3f5236",
+    "source_manifest_digest_post": "cb3e342638f1fbfe517f8968ff12697064c5c414aedcc303664193f23a3f5236",
+    "config_digest": "88e578cc5b05b8bf788dbde6cc6a434732135081e38d61716c3c3dbda4c27ba4",
+    "task_digest": "82950436029a5c6dfc824bab1ba8c1e623eff4c0659452f9f2bd16f3b61f3c51",
+    "policy_digest": "e896616ce67c6c150f025d55d5b5ff4ea406a389a8b94838b61c579aa1b0518f",
     "check_definitions_digest": "7ac9f4a75d7c84442ecaa2a4c1e0c06c1940bf2e1f0c017e60b1fe20c38e97c4",
-    "included_files_count": 246,
+    "included_files_count": 244,
     "vcs": {
       "type": "git",
-      "head": "ac1de9d",
-      "commit": "ac1de9d",
+      "head": "a3bc954",
+      "commit": "a3bc954",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-27T20:08:51Z",
-    "finished_at": "2026-10-27T20:08:52Z",
-    "total_duration_seconds": 1.766963687,
+    "started_at": "2026-10-28T07:02:52Z",
+    "finished_at": "2026-10-28T07:02:55Z",
+    "total_duration_seconds": 3.236405273,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -49,16 +57,16 @@
       "name": "architecture",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.042502718,
+      "duration_seconds": 0.047969002,
       "optional": false,
       "passed": true,
-      "log_digest": "3271e556fcde56d5a664cf413cb7b8f25cd468724d584afe54dc919989185077"
+      "log_digest": "68487512d5f686fd570f82891163b1d2e1e312c36f3da79420eb7604c7b33fbc"
     },
     {
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.037396324,
+      "duration_seconds": 0.02585102,
       "optional": false,
       "passed": true,
       "log_digest": "7fc315ba9b70f089fe236085988a0af3a273b43b449acc33a958747a9ab2c5e4"
@@ -67,16 +75,16 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.228669336,
+      "duration_seconds": 1.8057714599999999,
       "optional": true,
       "passed": true,
-      "log_digest": "d7dae192715495fa89ccbe279af3efb9792c1dae1768228e369035e68a1df673"
+      "log_digest": "ecfdc26982c1f5a369410e3b2d213bc5900d8d707b5bf2a57546d1559de3df51"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.185514962,
+      "duration_seconds": 0.184522924,
       "optional": true,
       "passed": true,
       "log_digest": "2b34696728dc82b03cbf6311d7e3a6a41658bbde097834c3010a78bc82842c1a"
@@ -85,23 +93,58 @@
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.772259683,
+      "duration_seconds": 0.684895156,
       "optional": false,
       "passed": true,
-      "log_digest": "9f7877105bb400bb8cae0fb4256b94186282638a0e4ce0134b1ad1b0ff11e29b"
+      "log_digest": "dd1d2291cd128a681942c20fc483639b37070e3616cdafaec1a9a9fc1d0855c9"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.463415645,
+      "duration_seconds": 0.443287102,
       "optional": false,
       "passed": true,
-      "log_digest": "cd1a4611825ff109910f145f0c1d20564fa80363a42891180952ae6567c2800a"
+      "log_digest": "c1e82af4f35eb13580b99850ba87588a336232eefe53ca636e8fbcfa89e4803d"
     }
   ],
   "diagnostics": [],
   "test_provenance": [
+    {
+      "test_identifier": "test_ac1_bendpoint_and_edge_bends_accessors",
+      "failure_output": "Verified in RED checkpoint commit dd12da9",
+      "failure_digest": "06ea1f469a2193b4cdfed5c908d7c83601b1a1c284c6169bc3e70d378b4ef006",
+      "verified_at": "2026-10-27T22:38:41+01:00",
+      "status": "red_checkpoint_verified"
+    },
+    {
+      "test_identifier": "test_ac2_decomposed_persistence_of_bends",
+      "failure_output": "Verified in RED checkpoint commit dd12da9",
+      "failure_digest": "06ea1f469a2193b4cdfed5c908d7c83601b1a1c284c6169bc3e70d378b4ef006",
+      "verified_at": "2026-10-27T22:38:41+01:00",
+      "status": "red_checkpoint_verified"
+    },
+    {
+      "test_identifier": "test_ac3_ac4_orthogonal_routing_with_bends_and_port_sliding",
+      "failure_output": "Verified in RED checkpoint commit dd12da9",
+      "failure_digest": "06ea1f469a2193b4cdfed5c908d7c83601b1a1c284c6169bc3e70d378b4ef006",
+      "verified_at": "2026-10-27T22:38:41+01:00",
+      "status": "red_checkpoint_verified"
+    },
+    {
+      "test_identifier": "test_ac6_ac10_grid_snapping_and_collinear_pruning",
+      "failure_output": "Verified in RED checkpoint commit dd12da9",
+      "failure_digest": "06ea1f469a2193b4cdfed5c908d7c83601b1a1c284c6169bc3e70d378b4ef006",
+      "verified_at": "2026-10-27T22:38:41+01:00",
+      "status": "red_checkpoint_verified"
+    },
+    {
+      "test_identifier": "test_ac9_anchored_bends_when_nodes_moved",
+      "failure_output": "Verified in RED checkpoint commit dd12da9",
+      "failure_digest": "06ea1f469a2193b4cdfed5c908d7c83601b1a1c284c6169bc3e70d378b4ef006",
+      "verified_at": "2026-10-27T22:38:41+01:00",
+      "status": "red_checkpoint_verified"
+    },
     {
       "test_identifier": "test_task_093_collab_and_relay_purged",
       "failure_output": "Verified in RED checkpoint commit 3a4c353",

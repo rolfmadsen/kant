@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-28
+
+### Added
+- **Ortogonal Edge Routing & Bends**: Interaktiv manuel linjeføring med segment-dragging, frie knækpunkter, grid-snapping og rumlig forankring ved node-flytning på tværs af Begrebs- og Informationsmodellen (Task 096 & ADR 005).
+- **Dynamisk Port-Sliding & Zonedrevet Portskift**: Terminale segmenter glider langs nodens kanter og skifter automatisk portzone (Top/Side/Bund) ved segment-træk forbi hjørner (Task 096).
+- **Collinear Bend Pruning**: Automatisk fjernelse af overflødige knækpunkter og eliminering af mikrosegmenter og vinkelret overshoot ved linje-justering (Task 096).
+- **Inspector Reset af Edge Routing**: Ny knap `[Gendan automatisk linjeføring]` i egenskabspanelet samt sletning af knækpunkter via dobbeltklik eller Delete/Backspace (Task 096).
+- **Enkelt Palette Søgning & Combobox**: Strømlinet koncept- og klasse-palette med integreret tekstsøgning, optisk centrering og selektiv canvas-placering (Tasks 090, 092).
+- **Moderne Auto-Hide Scrollbars**: Elegant flydende 6px scrollbar med auto-hide og optimeret margin-clearance på modelpaletten (Tasks 091, 095).
+
+### Removed
+- **Realtids-kollaboration & Relay Server**: Fjernet Axum WebSocket-relay og realtime synkroniseringsmotor til fordel for 100% lokal filintegritet og nul eksterne baggrunds-daemons (Task 093 & ADR 001).
+- **Git Integration fra Kerneapplikationen**: Udfaset indbygget Git-styring til fordel for ekstern versionskontrol og suveræn lokal modelintegritet (Task 094).
+
+### Fixed
+- Løst klik-lag og hit-tolerance ved kantgreb, så linjesegmenter kan trækkes direkte uden forudgående selektion (Task 096).
+- Rettet isolering af terminale segment-træk, så manipulering af et endestykke ikke utilsigtet flytter fjerne knækpunkter (Task 096).
+
 ## [0.9.0] - 2026-10-26
 
 ### Added
