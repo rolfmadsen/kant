@@ -243,13 +243,22 @@ pub fn simplify_path_preserving_bends(points: Vec<Point>, bends: &[BendPoint]) -
         let curr = points[i];
         let next = points[i + 1];
 
+        let collinear_h = (prev.y - curr.y).abs() < 0.001 && (curr.y - next.y).abs() < 0.001;
+        let collinear_v = (prev.x - curr.x).abs() < 0.001 && (curr.x - next.x).abs() < 0.001;
+
+        let overshoot_h = collinear_h
+            && ((curr.x > prev.x && curr.x > next.x) || (curr.x < prev.x && curr.x < next.x));
+        let overshoot_v = collinear_v
+            && ((curr.y > prev.y && curr.y > next.y) || (curr.y < prev.y && curr.y < next.y));
+
+        if overshoot_h || overshoot_v {
+            continue;
+        }
+
         if is_bend(curr) {
             simplified.push(curr);
             continue;
         }
-
-        let collinear_h = (prev.y - curr.y).abs() < 0.001 && (curr.y - next.y).abs() < 0.001;
-        let collinear_v = (prev.x - curr.x).abs() < 0.001 && (curr.x - next.x).abs() < 0.001;
 
         if !collinear_h && !collinear_v {
             simplified.push(curr);
@@ -331,6 +340,57 @@ pub fn prune_collinear_bends(bends: &[BendPoint]) -> Vec<BendPoint> {
     }
 
     result
+}
+
+/// Sletter overflødige kollineære knækpunkter og mikrosegmenter med hensyntagen til port-endepunkterne
+pub fn prune_collinear_bends_with_endpoints(
+    bends: &[BendPoint],
+    start: Point,
+    end: Point,
+) -> Vec<BendPoint> {
+    if bends.is_empty() {
+        return Vec::new();
+    }
+
+    let mut pts = Vec::with_capacity(bends.len() + 2);
+    pts.push(start);
+    pts.extend(bends.iter().map(|b| Point::new(b.x, b.y)));
+    pts.push(end);
+
+    let mut changed = true;
+    while changed && pts.len() > 2 {
+        changed = false;
+        let mut simplified = Vec::with_capacity(pts.len());
+        simplified.push(pts[0]);
+
+        for i in 1..pts.len() - 1 {
+            let prev = *simplified.last().unwrap();
+            let curr = pts[i];
+            let next = pts[i + 1];
+
+            let collinear_h = (prev.y - curr.y).abs() < 1.0 && (curr.y - next.y).abs() < 1.0;
+            let collinear_v = (prev.x - curr.x).abs() < 1.0 && (curr.x - next.x).abs() < 1.0;
+            let is_micro_prev = (prev.x - curr.x).hypot(prev.y - curr.y) < 4.0;
+            let is_micro_next = (curr.x - next.x).hypot(curr.y - next.y) < 4.0;
+
+            if collinear_h || collinear_v || is_micro_prev || is_micro_next {
+                changed = true;
+            } else {
+                simplified.push(curr);
+            }
+        }
+        simplified.push(*pts.last().unwrap());
+        pts = simplified;
+    }
+
+    if pts.len() <= 2 {
+        Vec::new()
+    } else {
+        pts[1..pts.len() - 1]
+            .iter()
+            .map(|p| BendPoint::new(p.x, p.y))
+            .collect()
+    }
 }
 
 pub fn compute_label_pos(points: &[Point]) -> Option<Point> {

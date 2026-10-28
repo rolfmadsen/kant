@@ -212,9 +212,11 @@ pub fn handle_bend_or_segment_cursor_drag<Message>(
     None
 }
 
-pub fn handle_bend_or_segment_release<Message>(
+pub fn handle_bend_or_segment_release<Message, N: CanvasNode, E: CanvasEdge>(
     state: &mut DiagramCanvasState,
     cursor_pos: Point,
+    nodes: &[N],
+    _edges: &[E],
     on_edge_bends_changed: &Option<EdgeBendsChangeHandler<'_, Message>>,
 ) -> Option<Action<Message>> {
     let move_dist = state
@@ -228,13 +230,46 @@ pub fn handle_bend_or_segment_release<Message>(
         return None;
     }
 
-    if let Some(d) = state.dragging_bend.take() {
-        let pruned = prune_collinear_bends(&d.current_bends);
-        let final_bends = if pruned.is_empty() {
+    let prune_bends_for_edge = |edge_id: (NodeId, NodeId),
+                                bends: &[BendPoint]|
+     -> Option<Vec<BendPoint>> {
+        let from_node = nodes
+            .iter()
+            .find(|n| n.id() == edge_id.0)
+            .map(|n| n.to_diagram_node());
+        let to_node = nodes
+            .iter()
+            .find(|n| n.id() == edge_id.1)
+            .map(|n| n.to_diagram_node());
+
+        let pruned = if let (Some(ref f), Some(ref t)) = (from_node, to_node) {
+            let from_side = crate::ui::edge_router::channels::select_port_for_terminal_segment(
+                f, bends, true, t,
+            );
+            let to_side = crate::ui::edge_router::channels::select_port_for_terminal_segment(
+                t, bends, false, f,
+            );
+            let p1 = Point::new(bends[0].x, bends[0].y);
+            let pk = Point::new(bends.last().unwrap().x, bends.last().unwrap().y);
+            let start =
+                crate::ui::edge_router::channels::compute_sliding_port_point(f, from_side, p1);
+            let end = crate::ui::edge_router::channels::compute_sliding_port_point(t, to_side, pk);
+            crate::ui::edge_router::geometry::prune_collinear_bends_with_endpoints(
+                bends, start, end,
+            )
+        } else {
+            prune_collinear_bends(bends)
+        };
+
+        if pruned.is_empty() {
             None
         } else {
             Some(pruned)
-        };
+        }
+    };
+
+    if let Some(d) = state.dragging_bend.take() {
+        let final_bends = prune_bends_for_edge(d.edge, &d.current_bends);
         if let Some(ref cb) = on_edge_bends_changed {
             return Some(Action::publish(cb(d.edge, final_bends)).and_capture());
         }
@@ -242,12 +277,7 @@ pub fn handle_bend_or_segment_release<Message>(
     }
 
     if let Some(d) = state.dragging_segment.take() {
-        let pruned = prune_collinear_bends(&d.current_bends);
-        let final_bends = if pruned.is_empty() {
-            None
-        } else {
-            Some(pruned)
-        };
+        let final_bends = prune_bends_for_edge(d.edge, &d.current_bends);
         if let Some(ref cb) = on_edge_bends_changed {
             return Some(Action::publish(cb(d.edge, final_bends)).and_capture());
         }

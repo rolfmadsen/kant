@@ -1,4 +1,6 @@
-use crate::features::concept_model::{DiagramEdge, DiagramNode, NodeId, PortSide, RelationKind};
+use crate::features::concept_model::{
+    BendPoint, DiagramEdge, DiagramNode, NodeId, PortSide, RelationKind,
+};
 use crate::ui::edge_router::types::{
     EdgePortAssignment, SideAttachmentMap, MIN_ARROW_CLEARANCE, SLOT_SPACING,
 };
@@ -19,11 +21,9 @@ pub fn compute_port_assignments(
 
         let (from_side, to_side) = if let Some(bends) = edge.bends() {
             if !bends.is_empty() {
-                let p1 = Point::new(bends[0].x, bends[0].y);
-                let pk = Point::new(bends[bends.len() - 1].x, bends[bends.len() - 1].y);
                 (
-                    select_port_towards_point(from, p1),
-                    select_port_towards_point(to, pk),
+                    select_port_for_terminal_segment(from, bends, true, to),
+                    select_port_for_terminal_segment(to, bends, false, from),
                 )
             } else {
                 select_ports(
@@ -408,5 +408,114 @@ pub fn compute_sliding_port_point(node: &DiagramNode, side: PortSide, target_pt:
         PortSide::Bottom => Point::new(target_pt.x.clamp(min_x, max_x), node.y() + node.height()),
         PortSide::Left => Point::new(node.x(), target_pt.y.clamp(min_y, max_y)),
         PortSide::Right => Point::new(node.x() + node.width(), target_pt.y.clamp(min_y, max_y)),
+    }
+}
+
+pub fn select_port_for_terminal_segment(
+    node: &DiagramNode,
+    bends: &[BendPoint],
+    is_source: bool,
+    other_node: &DiagramNode,
+) -> PortSide {
+    if bends.is_empty() {
+        return PortSide::Bottom;
+    }
+
+    let node_left = node.x();
+    let node_right = node.x() + node.width();
+    let node_top = node.y();
+    let node_bottom = node.y() + node.height();
+
+    if is_source {
+        let p_start = Point::new(bends[0].x, bends[0].y);
+        let p_next = if bends.len() >= 2 {
+            Point::new(bends[1].x, bends[1].y)
+        } else {
+            Point::new(other_node.center().0, other_node.center().1)
+        };
+
+        if (p_start.y - p_next.y).abs() < 1.0 {
+            let y = p_start.y;
+            if p_start.x < node_left {
+                PortSide::Left
+            } else if p_start.x > node_right {
+                PortSide::Right
+            } else if y < node_top {
+                PortSide::Top
+            } else if y <= node_bottom {
+                if p_next.x < node.center().0 {
+                    PortSide::Left
+                } else {
+                    PortSide::Right
+                }
+            } else {
+                PortSide::Bottom
+            }
+        } else if (p_start.x - p_next.x).abs() < 1.0 {
+            let x = p_start.x;
+            if p_start.y < node_top {
+                PortSide::Top
+            } else if p_start.y > node_bottom {
+                PortSide::Bottom
+            } else if x < node_left {
+                PortSide::Left
+            } else if x <= node_right {
+                if p_next.y < node.center().1 {
+                    PortSide::Top
+                } else {
+                    PortSide::Bottom
+                }
+            } else {
+                PortSide::Right
+            }
+        } else {
+            select_port_towards_point(node, p_start)
+        }
+    } else {
+        let k = bends.len() - 1;
+        let pk = Point::new(bends[k].x, bends[k].y);
+        let prev = if k >= 1 {
+            Point::new(bends[k - 1].x, bends[k - 1].y)
+        } else {
+            Point::new(other_node.center().0, other_node.center().1)
+        };
+
+        if (prev.y - pk.y).abs() < 1.0 {
+            let y = pk.y;
+            if pk.x < node_left {
+                PortSide::Left
+            } else if pk.x > node_right {
+                PortSide::Right
+            } else if y < node_top {
+                PortSide::Top
+            } else if y <= node_bottom {
+                if prev.x < node.center().0 {
+                    PortSide::Left
+                } else {
+                    PortSide::Right
+                }
+            } else {
+                PortSide::Bottom
+            }
+        } else if (prev.x - pk.x).abs() < 1.0 {
+            let x = pk.x;
+            if pk.y < node_top {
+                PortSide::Top
+            } else if pk.y > node_bottom {
+                PortSide::Bottom
+            } else if x < node_left {
+                PortSide::Left
+            } else if x <= node_right {
+                if prev.y < node.center().1 {
+                    PortSide::Top
+                } else {
+                    PortSide::Bottom
+                }
+            } else {
+                PortSide::Right
+            }
+        } else {
+            select_port_towards_point(node, pk)
+        }
     }
 }

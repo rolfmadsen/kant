@@ -123,7 +123,7 @@ pub struct DiagramCanvasState {
 
 pub type EdgeSelectHandler<'a, Message> = Box<dyn Fn(Option<(NodeId, NodeId)>) -> Message + 'a>;
 pub(crate) type EdgeCreateHandler<'a, Message> = Box<dyn Fn(NodeId, NodeId) -> Message + 'a>;
-pub(crate) type EdgeBendsChangeHandler<'a, Message> =
+pub type EdgeBendsChangeHandler<'a, Message> =
     Box<dyn Fn((NodeId, NodeId), Option<Vec<BendPoint>>) -> Message + 'a>;
 type SelectionChangeHandler<'a, Message> =
     Box<dyn Fn(std::collections::HashSet<NodeId>) -> Message + 'a>;

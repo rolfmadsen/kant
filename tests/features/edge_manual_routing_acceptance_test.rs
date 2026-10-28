@@ -1,5 +1,7 @@
 use iced::Point;
-use kant::features::concept_model::{BendPoint, DiagramEdge, DiagramNode, RelationKind, GRID_SIZE};
+use kant::features::concept_model::{
+    BendPoint, DiagramEdge, DiagramNode, PortSide, RelationKind, GRID_SIZE,
+};
 use kant::features::concepts::{BelongsToDomain, Concept};
 use kant::features::information_model::ClassDiagramEdge;
 use kant::features::model::decomposed::{load_decomposed, save_decomposed};
@@ -313,5 +315,160 @@ fn test_unselected_edge_drag_starts_on_first_press() {
     assert!(
         state.dragging_segment.is_some(),
         "Must immediately initialize dragging_segment on first press of an unselected edge so drag is not dropped"
+    );
+}
+
+#[test]
+fn test_collinear_bends_pruned_on_alignment() {
+    let node_a = DiagramNode::custom(Uuid::new_v4(), "A".to_string(), 100.0, 100.0, 80.0, 80.0);
+    let node_b = DiagramNode::custom(Uuid::new_v4(), "B".to_string(), 500.0, 100.0, 80.0, 80.0);
+    let _edge = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Association);
+
+    // Case 1: Two bends on the same straight line as the ports
+    // Node A right port is (180, 140), Node B left port is (500, 140)
+    let bends = vec![BendPoint::new(260.0, 140.0), BendPoint::new(380.0, 140.0)];
+    let pruned = kant::ui::edge_router::geometry::prune_collinear_bends_with_endpoints(
+        &bends,
+        Point::new(180.0, 140.0),
+        Point::new(500.0, 140.0),
+    );
+    assert!(
+        pruned.is_empty(),
+        "Both bends on straight line between ports must be pruned, found: {:?}",
+        pruned
+    );
+
+    // Case 2: Screenshot 1 scenario - L-turn corner at (180, 200), and a redundant bend at (350, 200)
+    // Source port is (180, 400), Target port is (500, 200)
+    let l_bends = vec![BendPoint::new(180.0, 200.0), BendPoint::new(350.0, 200.0)];
+    let pruned_l = kant::ui::edge_router::geometry::prune_collinear_bends_with_endpoints(
+        &l_bends,
+        Point::new(180.0, 400.0),
+        Point::new(500.0, 200.0),
+    );
+    assert_eq!(
+        pruned_l.len(),
+        1,
+        "Redundant bend on horizontal segment must be pruned, leaving only corner: {:?}",
+        pruned_l
+    );
+    assert_eq!(pruned_l[0], BendPoint::new(180.0, 200.0));
+}
+
+#[test]
+fn test_horizontal_segment_drag_switches_target_port() {
+    // Model at (600, 200, 160, 80): top = 200, bottom = 280, left = 600, right = 760
+    let node_a = DiagramNode::custom(
+        Uuid::new_v4(),
+        "Vidensorganiserende".to_string(),
+        100.0,
+        500.0,
+        160.0,
+        80.0,
+    );
+    let node_b = DiagramNode::custom(
+        Uuid::new_v4(),
+        "Model".to_string(),
+        600.0,
+        200.0,
+        160.0,
+        80.0,
+    );
+    let edge = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Generalization);
+
+    // 1. Initial route: below Model
+    let routes = EdgeRouter::route_edges(
+        &[node_a.clone(), node_b.clone()],
+        std::slice::from_ref(&edge),
+    );
+    assert_eq!(routes.len(), 1);
+    let routed = &routes[0];
+    assert_eq!(
+        routed.to_side,
+        PortSide::Bottom,
+        "Initial port below Model is Bottom"
+    );
+
+    // Click on the horizontal segment at Y = 397.0
+    let mut state = kant::ui::canvas::DiagramCanvasState::default();
+    let hit = kant::ui::canvas::edge_interaction::try_start_segment_drag(
+        routed,
+        Point::new(300.0, 397.0),
+        Point::new(300.0, 397.0),
+        std::slice::from_ref(&edge),
+        &mut state,
+    );
+    assert!(hit, "Must hit horizontal segment");
+
+    // 2. Drag UP to Y = 240.0 (between Model bottom 280 and top 200)
+    // The target port must dynamically switch to Left!
+    kant::ui::canvas::edge_interaction::handle_bend_or_segment_cursor_drag::<()>(
+        &mut state,
+        Point::new(300.0, 240.0),
+    );
+    let in_progress = state.dragging_segment.as_ref().unwrap();
+    let mut drag_edge = edge.clone();
+    drag_edge.set_bends(Some(in_progress.current_bends.clone()));
+    let routes_mid =
+        EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[drag_edge.clone()]);
+    assert_eq!(
+        routes_mid[0].to_side,
+        PortSide::Left,
+        "Target port must switch to Left when segment is between Model bottom and top"
+    );
+    assert_eq!(
+        routes_mid[0].points.len(),
+        3,
+        "Route entering Left port directly must have 3 points (start, corner, end): {:?}",
+        routes_mid[0].points
+    );
+
+    // Test release at Y = 240.0: saved bends must have the redundant bend pruned
+    let final_saved_bends = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let final_saved_bends_clone = final_saved_bends.clone();
+    let on_bends_changed: Option<kant::ui::canvas::EdgeBendsChangeHandler<'_, ()>> =
+        Some(Box::new(move |_, b| {
+            *final_saved_bends_clone.lock().unwrap() = b;
+        }));
+    kant::ui::canvas::edge_interaction::handle_bend_or_segment_release(
+        &mut state,
+        Point::new(300.0, 240.0),
+        &[node_a.clone(), node_b.clone()],
+        std::slice::from_ref(&edge),
+        &on_bends_changed,
+    );
+    let locked = final_saved_bends.lock().unwrap();
+    assert!(locked.is_some(), "Must publish bends on release");
+    let saved = locked.as_ref().unwrap();
+    assert_eq!(
+        saved.len(),
+        1,
+        "Only 1 corner bend must remain after release, but found: {:?}",
+        saved
+    );
+    assert_eq!(saved[0], BendPoint::new(180.0, 240.0));
+
+    // 3. Drag UP to Y = 100.0 (above Model top 200) on a fresh drag
+    let mut state_top = kant::ui::canvas::DiagramCanvasState::default();
+    kant::ui::canvas::edge_interaction::try_start_segment_drag(
+        routed,
+        Point::new(300.0, 397.0),
+        Point::new(300.0, 397.0),
+        std::slice::from_ref(&edge),
+        &mut state_top,
+    );
+    kant::ui::canvas::edge_interaction::handle_bend_or_segment_cursor_drag::<()>(
+        &mut state_top,
+        Point::new(300.0, 100.0),
+    );
+    let in_progress_top = state_top.dragging_segment.as_ref().unwrap();
+    let mut drag_edge_top = edge.clone();
+    drag_edge_top.set_bends(Some(in_progress_top.current_bends.clone()));
+    let routes_top =
+        EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[drag_edge_top.clone()]);
+    assert_eq!(
+        routes_top[0].to_side,
+        PortSide::Top,
+        "Target port must switch to Top when segment is above Model top"
     );
 }
