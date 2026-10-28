@@ -219,3 +219,99 @@ fn test_ac10_microsegment_absorption() {
     let pruned = prune_collinear_bends(&micro_pts);
     assert!(pruned.is_empty(), "Microsegment under 4px must be absorbed");
 }
+
+#[test]
+fn test_terminal_segment_dragging_does_not_move_distant_bend() {
+    let node_a = DiagramNode::custom(
+        Uuid::new_v4(),
+        "Datamodel".to_string(),
+        600.0,
+        400.0,
+        160.0,
+        80.0,
+    );
+    let node_b = DiagramNode::custom(
+        Uuid::new_v4(),
+        "Model".to_string(),
+        180.0,
+        200.0,
+        160.0,
+        80.0,
+    );
+
+    let mut edge = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Association);
+    let b0 = BendPoint::new(700.0, 340.0);
+    let b1 = BendPoint::new(80.0, 340.0);
+    edge.set_bends(Some(vec![b0, b1]));
+
+    let routes = EdgeRouter::route_edges(&[node_a, node_b], &[edge.clone()]);
+    assert_eq!(routes.len(), 1);
+    let routed = &routes[0];
+
+    // The route has points: P0 (Datamodel top), P1 (b0), P2 (b1), P3 (corner), P4 (Model left port)
+    // Click on the terminal segment entering Model's left port (between P3 and P4) at x = 120.0, y = 240.0
+    let mut state = kant::ui::canvas::DiagramCanvasState::default();
+    let hit = kant::ui::canvas::edge_interaction::try_start_segment_drag(
+        routed,
+        Point::new(120.0, 272.0),
+        Point::new(120.0, 272.0),
+        &[edge],
+        &mut state,
+    );
+    assert!(hit, "Must hit terminal segment entering Model");
+
+    let drag = state
+        .dragging_segment
+        .as_ref()
+        .expect("Drag segment must be started");
+    assert!(
+        drag.is_horizontal,
+        "Segment entering left port is horizontal"
+    );
+
+    // Simulate cursor drag up in Y to 220.0
+    let world_pos = Point::new(120.0, 220.0);
+    kant::ui::canvas::edge_interaction::handle_bend_or_segment_cursor_drag::<()>(
+        &mut state, world_pos,
+    );
+
+    let updated_drag = state.dragging_segment.as_ref().unwrap();
+    // CRITICAL: Bend b1 at (80.0, 340.0) MUST NOT be moved to Y=220.0! Its Y must remain 340.0!
+    let bend_1 = updated_drag
+        .current_bends
+        .iter()
+        .find(|b| (b.x - 80.0).abs() < 1.0 && (b.y - 340.0).abs() < 1.0);
+    assert!(
+        bend_1.is_some(),
+        "Distant bend at (80, 340) must remain intact and NOT moved to Y=220! Found bends: {:?}",
+        updated_drag.current_bends
+    );
+}
+
+#[test]
+fn test_unselected_edge_drag_starts_on_first_press() {
+    let node_a = DiagramNode::custom(Uuid::new_v4(), "A".to_string(), 100.0, 100.0, 160.0, 80.0);
+    let node_b = DiagramNode::custom(Uuid::new_v4(), "B".to_string(), 440.0, 100.0, 160.0, 80.0);
+
+    let edge = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Association);
+    let mut state = kant::ui::canvas::DiagramCanvasState::default();
+
+    // Edge is NOT currently selected: selected_edge is None
+    let on_selected: Option<kant::ui::canvas::EdgeSelectHandler<'_, ()>> = Some(Box::new(|_| ()));
+
+    let action = kant::ui::canvas::edge_interaction::check_edge_click(
+        &[node_a, node_b],
+        &[edge],
+        None, // unselected!
+        &mut state,
+        Point::new(300.0, 140.0),
+        Point::new(300.0, 140.0),
+        &on_selected,
+    );
+
+    assert!(action.is_some(), "Must handle edge click");
+    assert!(
+        state.dragging_segment.is_some(),
+        "Must immediately initialize dragging_segment on first press of an unselected edge so drag is not dropped"
+    );
+}

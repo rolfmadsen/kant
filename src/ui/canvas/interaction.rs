@@ -398,6 +398,7 @@ where
 
             if let Some(action) = super::edge_interaction::handle_bend_or_segment_release(
                 state,
+                cursor_pos,
                 &canvas.on_edge_bends_changed,
             ) {
                 return Some(action);

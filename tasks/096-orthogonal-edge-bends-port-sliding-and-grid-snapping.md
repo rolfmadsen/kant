@@ -68,6 +68,7 @@ Automatisk autorouting bevares som standardtilstand, mens relationer kan oversty
 ## 📝 Revisions
 - 2026-10-27: Oprettet opgavepakke efter sparringsprocedure med skærpede arkitekturinvarianter (BendPoint i domænet, fuld støtte for både Begrebs- og Klassediagram, Inspector-nulstilling og isoleret testfil).
 - 2026-10-27: Implementeret og verificeret alle 13 acceptkriterier med grøn testsuite, fuld arkitekturoverholdelse og tovejs Begrebs- og Informationsmodel UI support.
+- 2026-10-28: Løst UX-fejl ved edge dragging: fjernet krav om forudgående selektion ved segment-drag (eliminerer klik-lag), udvidet hit-tolerance til 10px, og sikret at terminale segment-træk kun manipulerer tilstødende knækpunkter frem for fjerne bends.
 
 ---
 

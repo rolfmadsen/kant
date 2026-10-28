@@ -2,7 +2,7 @@ use super::edge_renderer::distance_to_segment;
 use super::interaction::{ClickRecord, ClickTarget};
 use super::{
     CanvasEdge, CanvasNode, DiagramCanvasState, DragBendState, DragSegmentState,
-    EdgeBendsChangeHandler, EdgeCreateHandler, EdgeSelectHandler,
+    EdgeBendsChangeHandler, EdgeCreateHandler, EdgeSelectHandler, CLICK_SLOP_PX,
 };
 use crate::features::concept_model::{BendPoint, DiagramEdge, DiagramNode, NodeId, GRID_SIZE};
 use crate::ui::edge_router::geometry::prune_collinear_bends;
@@ -87,14 +87,16 @@ pub fn try_start_segment_drag<E: CanvasEdge>(
     routed: &RoutedEdge,
     world_pos: Point,
     cursor_pos: Point,
-    edges: &[E],
+    _edges: &[E],
     state: &mut DiagramCanvasState,
 ) -> bool {
     let mut hit_seg = None;
+    let mut min_dist = 10.0;
     for (seg_idx, window) in routed.points.windows(2).enumerate() {
-        if distance_to_segment(world_pos, window[0], window[1]) <= 7.0 {
+        let d = distance_to_segment(world_pos, window[0], window[1]);
+        if d <= min_dist {
+            min_dist = d;
             hit_seg = Some((seg_idx, window[0], window[1]));
-            break;
         }
     }
 
@@ -103,75 +105,44 @@ pub fn try_start_segment_drag<E: CanvasEdge>(
     };
 
     let is_horizontal = (p1.y - p2.y).abs() < 1.0;
-    let existing_edge = edges.iter().find(|e| {
-        (e.from() == routed.from && e.to() == routed.to)
-            || (e.from() == routed.to && e.to() == routed.from)
-    });
-    let existing_bends = existing_edge
-        .and_then(|e| e.bends())
-        .map(|b| b.to_vec())
-        .unwrap_or_default();
 
-    let (current_bends, bend_indices) = if existing_bends.is_empty() {
-        if routed.points.len() == 2 {
-            let p0 = routed.points[0];
-            let p1 = routed.points[1];
-            if is_horizontal {
-                let min_x = p0.x.min(p1.x);
-                let max_x = p0.x.max(p1.x);
-                let span = max_x - min_x;
-                let b1_x = ((min_x + span * 0.33) / GRID_SIZE).round() * GRID_SIZE;
-                let b2_x = ((min_x + span * 0.67) / GRID_SIZE).round() * GRID_SIZE;
-                let snap_y = (world_pos.y / GRID_SIZE).round() * GRID_SIZE;
-                let b1 = BendPoint::new(b1_x, snap_y);
-                let b2 = BendPoint::new(b2_x, snap_y);
-                (vec![b1, b2], vec![0, 1])
-            } else {
-                let min_y = p0.y.min(p1.y);
-                let max_y = p0.y.max(p1.y);
-                let span = max_y - min_y;
-                let b1_y = ((min_y + span * 0.33) / GRID_SIZE).round() * GRID_SIZE;
-                let b2_y = ((min_y + span * 0.67) / GRID_SIZE).round() * GRID_SIZE;
-                let snap_x = (world_pos.x / GRID_SIZE).round() * GRID_SIZE;
-                let b1 = BendPoint::new(snap_x, b1_y);
-                let b2 = BendPoint::new(snap_x, b2_y);
-                (vec![b1, b2], vec![0, 1])
-            }
+    let (current_bends, bend_indices) = if routed.points.len() == 2 {
+        let p0 = routed.points[0];
+        let p1 = routed.points[1];
+        if is_horizontal {
+            let min_x = p0.x.min(p1.x);
+            let max_x = p0.x.max(p1.x);
+            let span = max_x - min_x;
+            let b1_x = ((min_x + span * 0.33) / GRID_SIZE).round() * GRID_SIZE;
+            let b2_x = ((min_x + span * 0.67) / GRID_SIZE).round() * GRID_SIZE;
+            let snap_y = (world_pos.y / GRID_SIZE).round() * GRID_SIZE;
+            let b1 = BendPoint::new(b1_x, snap_y);
+            let b2 = BendPoint::new(b2_x, snap_y);
+            (vec![b1, b2], vec![0, 1])
         } else {
-            let corners: Vec<BendPoint> = routed.points[1..routed.points.len() - 1]
-                .iter()
-                .map(|p| BendPoint::new(p.x, p.y))
-                .collect();
-            let b_indices = if seg_idx == 0 {
-                vec![0]
-            } else if seg_idx >= corners.len() {
-                vec![corners.len() - 1]
-            } else {
-                vec![seg_idx - 1, seg_idx]
-            };
-            (corners, b_indices)
+            let min_y = p0.y.min(p1.y);
+            let max_y = p0.y.max(p1.y);
+            let span = max_y - min_y;
+            let b1_y = ((min_y + span * 0.33) / GRID_SIZE).round() * GRID_SIZE;
+            let b2_y = ((min_y + span * 0.67) / GRID_SIZE).round() * GRID_SIZE;
+            let snap_x = (world_pos.x / GRID_SIZE).round() * GRID_SIZE;
+            let b1 = BendPoint::new(snap_x, b1_y);
+            let b2 = BendPoint::new(snap_x, b2_y);
+            (vec![b1, b2], vec![0, 1])
         }
     } else {
-        let mut b_indices = Vec::new();
-        for (b_idx, b) in existing_bends.iter().enumerate() {
-            if (b.x - p1.x).abs() < 1.0 && (b.y - p1.y).abs() < 1.0 {
-                b_indices.push(b_idx);
-            }
-            if (b.x - p2.x).abs() < 1.0 && (b.y - p2.y).abs() < 1.0 {
-                b_indices.push(b_idx);
-            }
-        }
-        if b_indices.is_empty() {
-            if seg_idx == 0 {
-                b_indices.push(0);
-            } else if seg_idx >= existing_bends.len() {
-                b_indices.push(existing_bends.len() - 1);
-            } else {
-                b_indices.push(seg_idx - 1);
-                b_indices.push(seg_idx);
-            }
-        }
-        (existing_bends, b_indices)
+        let corners: Vec<BendPoint> = routed.points[1..routed.points.len() - 1]
+            .iter()
+            .map(|p| BendPoint::new(p.x, p.y))
+            .collect();
+        let b_indices = if seg_idx == 0 {
+            vec![0]
+        } else if seg_idx >= corners.len() {
+            vec![corners.len() - 1]
+        } else {
+            vec![seg_idx - 1, seg_idx]
+        };
+        (corners, b_indices)
     };
 
     state.dragging_segment = Some(DragSegmentState {
@@ -243,8 +214,20 @@ pub fn handle_bend_or_segment_cursor_drag<Message>(
 
 pub fn handle_bend_or_segment_release<Message>(
     state: &mut DiagramCanvasState,
+    cursor_pos: Point,
     on_edge_bends_changed: &Option<EdgeBendsChangeHandler<'_, Message>>,
 ) -> Option<Action<Message>> {
+    let move_dist = state
+        .press_screen_pos
+        .map(|p| (cursor_pos.x - p.x).hypot(cursor_pos.y - p.y))
+        .unwrap_or(0.0);
+
+    if move_dist < CLICK_SLOP_PX {
+        state.dragging_bend = None;
+        state.dragging_segment = None;
+        return None;
+    }
+
     if let Some(d) = state.dragging_bend.take() {
         let pruned = prune_collinear_bends(&d.current_bends);
         let final_bends = if pruned.is_empty() {
@@ -323,7 +306,7 @@ pub fn check_edge_click<Message, N: CanvasNode, E: CanvasEdge>(
         let hit_segment = routed
             .points
             .windows(2)
-            .any(|w| distance_to_segment(world_pos, w[0], w[1]) <= 7.0);
+            .any(|w| distance_to_segment(world_pos, w[0], w[1]) <= 10.0);
         let hit_label = if let (Some(label), Some(pos)) = (&routed.label, routed.label_pos) {
             let approx_w = label.trim().len() as f32 * 6.8 + 16.0;
             world_pos.x >= pos.x - approx_w / 2.0
@@ -338,15 +321,17 @@ pub fn check_edge_click<Message, N: CanvasNode, E: CanvasEdge>(
             let is_already_selected_edge = selected_edge == Some((routed.from, routed.to))
                 || selected_edge == Some((routed.to, routed.from));
 
-            if is_already_selected_edge
-                && hit_segment
-                && try_start_segment_drag(routed, world_pos, cursor_pos, edges, state)
-            {
-                return Some(Action::request_redraw().and_capture());
+            let started_drag =
+                hit_segment && try_start_segment_drag(routed, world_pos, cursor_pos, edges, state);
+
+            if !is_already_selected_edge {
+                if let Some(ref cb) = on_edge_selected {
+                    return Some(Action::publish(cb(Some((routed.from, routed.to)))).and_capture());
+                }
             }
 
-            if let Some(ref cb) = on_edge_selected {
-                return Some(Action::publish(cb(Some((routed.from, routed.to)))).and_capture());
+            if started_drag {
+                return Some(Action::request_redraw().and_capture());
             }
         }
     }

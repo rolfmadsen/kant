@@ -121,8 +121,7 @@ pub struct DiagramCanvasState {
     pub dragging_segment: Option<DragSegmentState>,
 }
 
-pub(crate) type EdgeSelectHandler<'a, Message> =
-    Box<dyn Fn(Option<(NodeId, NodeId)>) -> Message + 'a>;
+pub type EdgeSelectHandler<'a, Message> = Box<dyn Fn(Option<(NodeId, NodeId)>) -> Message + 'a>;
 pub(crate) type EdgeCreateHandler<'a, Message> = Box<dyn Fn(NodeId, NodeId) -> Message + 'a>;
 pub(crate) type EdgeBendsChangeHandler<'a, Message> =
     Box<dyn Fn((NodeId, NodeId), Option<Vec<BendPoint>>) -> Message + 'a>;
